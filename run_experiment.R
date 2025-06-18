@@ -1,0 +1,29 @@
+# Script to run the experiment
+library(batchtools)
+
+# Load registry
+reg_path <- here::here("benchmark", "registry")
+reg <- loadRegistry(reg_path, writeable = TRUE)
+
+# Check status
+getStatus()
+
+# For testing: submit only a subset
+# test_jobs <- findJobs(prob.name = "friedman1", algo.name = "PFI")[1:2]
+# submitJobs(test_jobs)
+
+# Submit all jobs
+submitJobs(findNotSubmitted())
+
+ids = tab[, .SD[sample(nrow(.SD), 5)], by = c("algorithm", "problem")]
+setkeyv(ids, "job.id")
+ids[, .(job.id, algorithm, problem)]
+
+tab[, .(job.id)] |>
+  findNotSubmitted() |>
+  head(3) |>
+  submitJobs()
+
+
+getStatus()
+getErrorMessages()
