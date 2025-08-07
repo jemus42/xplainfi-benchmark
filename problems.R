@@ -19,7 +19,8 @@ addProblem(
       task = task,
       n_features = length(task$feature_names), # Friedman1 always has 10 features
       n_samples = task$nrow,
-      task_type = "friedman1"
+      name = "friedman1",
+      task_type = task$task_type
     )
   },
   seed = exp_settings$seed
@@ -48,7 +49,8 @@ addProblem(
       task = task,
       n_features = n_features,
       n_samples = n_samples,
-      task_type = "peak"
+      name = "peak",
+      task_type = task$task_type
     )
   },
   seed = exp_settings$seed
@@ -66,18 +68,20 @@ addProblem(
 
     library(mlr3data)
     task <- tsk("bike_sharing")
+    task$set_col_roles(c("date", "temperature"), remove_from = "feature")
 
     # Subsample if requested
     if (n_samples < task$nrow) {
       sample_ids <- sample(task$row_ids, size = n_samples)
-      task <- task$clone()$filter(sample_ids)
+      task <- task$filter(sample_ids)
     }
 
     list(
       task = task,
       n_features = length(task$feature_names),
       n_samples = task$nrow,
-      task_type = "bike_sharing"
+      name = "bike_sharing",
+      task_type = task$task_type
     )
   },
   seed = exp_settings$seed

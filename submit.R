@@ -23,8 +23,7 @@ ids = tab[
 ]
 submitJobs(findNotSubmitted(ids))
 
-ids = tab[
-  learner_type == "featureless",
+ids = tab[,
   .SD[sample(nrow(.SD), 2)],
   by = c("learner_type")
 ]
@@ -32,10 +31,16 @@ submitJobs(findNotSubmitted(ids))
 
 
 ids = tab[,
-  .SD[sample(nrow(.SD), 1)],
+  .SD[sample(nrow(.SD), 2)],
   by = c("algorithm", "problem", "learner_type")
 ]
 submitJobs(findNotSubmitted(ids))
 ijoin(getErrorMessages(), tab)
 
 getStatus()
+
+ids = tab[problem == "bike_sharing",
+  .SD[sample(nrow(.SD), 2)],
+  by = c("algorithm", "learner_type")
+]
+submitJobs(findNotSubmitted(ids))
