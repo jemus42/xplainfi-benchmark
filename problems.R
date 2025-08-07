@@ -5,7 +5,7 @@ library(mlbench)
 library(data.table)
 library(here)
 
-source(here::here("benchmark", "config.R"))
+source(here::here("config.R"))
 
 # Problem: Friedman1 regression task (fixed 10 features)
 addProblem(
@@ -29,24 +29,24 @@ addProblem(
 addProblem(
   name = "peak",
   data = NULL,
-  fun = function(data, job, n_samples, d_features, ...) {
+  fun = function(data, job, n_samples, n_features, ...) {
     # Generate peak data
-    data <- mlbench::mlbench.peak(n = n_samples, d = d_features)
+    data <- mlbench::mlbench.peak(n = n_samples, d = n_features)
 
     # Create data.frame
     df <- data.frame(data$x, y = data$y)
-    colnames(df) <- c(paste0("x", seq_len(d_features)), "y")
+    colnames(df) <- c(paste0("x", seq_len(n_features)), "y")
 
     # Create mlr3 task
     task <- TaskRegr$new(
-      id = paste0("peak_d", d_features, "_n", n_samples),
+      id = paste0("peak_d", n_features, "_n", n_samples),
       backend = df,
       target = "y"
     )
 
     list(
       task = task,
-      n_features = d_features,
+      n_features = n_features,
       n_samples = n_samples,
       task_type = "peak"
     )

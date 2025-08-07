@@ -4,269 +4,115 @@ library(xplainfi)
 library(mlr3)
 library(mlr3learners)
 library(data.table)
-library(here)
 
-source(here::here("benchmark", "config.R"))
+source(here::here("config.R"))
 
-# Algorithm: Permutation Feature Importance (PFI)
-addAlgorithm(
-  name = "PFI",
-  fun = function(data, job, instance, n_permutations, ...) {
-    start_time <- Sys.time()
+# Generic algorithm factory to reduce code duplication
+create_fi_algorithm <- function(
+  method_name,
+  method_class
+) {
+  addAlgorithm(
+    name = method_name,
+    fun = function(
+      data,
+      job,
+      instance,
+      learner_type = "ranger",
+      resampling_type = "holdout",
+      n_trees = 100,
+      ...
+    ) {
+      # Detect task type
+      task_type <- instance$task$task_type
 
-    # Create method
-    pfi <- PFI$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      iters_perm = n_permutations
-    )
-
-    # Compute importance
-    importance <- pfi$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    # Return results
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "PFI",
-      n_permutations = n_permutations,
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
+      # Create learner
+      learner <- create_learner(
+        learner_type = learner_type,
+        num.trees = n_trees,
+        task_type = task_type
       )
-    )
-  }
-)
 
-# Algorithm: Conditional Feature Importance (CFI)
-addAlgorithm(
-  name = "CFI",
-  fun = function(data, job, instance, n_permutations, ...) {
-    start_time <- Sys.time()
+      # Create measure
+      measure <- create_measure(task_type = task_type)
 
-    # Create method
-    cfi <- CFI$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      iters_perm = n_permutations
-    )
+      # Create resampling
+      resampling <- create_resampling(type = resampling_type)
 
-    # Compute importance
-    importance <- cfi$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "CFI",
-      n_permutations = n_permutations,
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
+      # Extract method-specific parameters
+      dots <- list(...)
+      method_params <- list(
+        task = instance$task,
+        learner = learner,
+        measure = measure,
+        resampling = resampling
       )
-    )
-  }
-)
 
-# Algorithm: Relative Feature Importance (RFI)
-addAlgorithm(
-  name = "RFI",
-  fun = function(data, job, instance, n_permutations, conditioning_features = NULL, ...) {
-    start_time <- Sys.time()
+      # Add method-specific parameters
+      if ("n_permutations" %in% names(dots)) {
+        # SAGE methods use n_permutations, PFI uses iters_perm
+        if (method_name %in% c("MarginalSAGE", "ConditionalSAGE")) {
+          method_params$n_permutations <- dots$n_permutations
+        } else {
+          method_params$iters_perm <- dots$n_permutations
+        }
+      }
+      if ("n_refits" %in% names(dots)) {
+        method_params$iters_refit <- dots$n_refits
+      }
+      if ("reference_proportion" %in% names(dots)) {
+        method_params$max_reference_size <- floor(
+          instance$n_samples * dots$reference_proportion
+        )
+      }
+      if ("conditioning_features" %in% names(dots)) {
+        method_params$conditioning_set <- dots$conditioning_features
+      }
 
-    # Default conditioning set: first feature only
-    if (is.null(conditioning_features)) {
-      conditioning_features <- instance$task$feature_names[1]
+      # Handle RFI default conditioning set
+      if (method_name == "RFI" && is.null(dots$conditioning_features)) {
+        method_params$conditioning_set <- instance$task$feature_names[1]
+      }
+
+      # Create method instance
+      method_instance <- do.call(method_class$new, method_params)
+
+      # Compute importance
+      start_time <- Sys.time()
+      method_instance$compute()
+      end_time <- Sys.time()
+      runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
+
+      # Create result list
+      result <- list(
+        importance = method_instance$importance(),
+        scores = method_instance$scores,
+        runtime = runtime
+        # method = method_name,
+        # learner_type = learner_type,
+        # task_info = list(
+        #   task_type = instance$task_type,
+        #   n_features = instance$n_features,
+        #   n_samples = instance$n_samples
+        # )
+      )
+
+      if ("reference_proportion" %in% names(dots)) {
+        result$max_reference_size <- method_params$max_reference_size
+      }
+      if ("conditioning_features" %in% names(dots) | method_name == "RFI") {
+        result$conditioning_set <- method_params$conditioning_set
+      }
+
+      return(result)
     }
+  )
+}
 
-    # Create method
-    rfi <- RFI$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      iters_perm = n_permutations,
-      conditioning_set = conditioning_features
-    )
-
-    # Compute importance
-    importance <- rfi$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "RFI",
-      n_permutations = n_permutations,
-      conditioning_set = conditioning_features,
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
-      )
-    )
-  }
-)
-
-# Algorithm: Marginal SAGE
-addAlgorithm(
-  name = "MarginalSAGE",
-  fun = function(data, job, instance, n_permutations, reference_proportion, ...) {
-    start_time <- Sys.time()
-
-    # Create method
-    sage <- MarginalSAGE$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      n_permutations = n_permutations,
-      max_reference_size = floor(instance$n_samples * reference_proportion)
-    )
-
-    # Compute importance
-    importance <- sage$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "MarginalSAGE",
-      n_permutations = n_permutations,
-      reference_proportion = reference_proportion,
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
-      )
-    )
-  }
-)
-
-# Algorithm: Conditional SAGE
-addAlgorithm(
-  name = "ConditionalSAGE",
-  fun = function(data, job, instance, n_permutations, reference_proportion, ...) {
-    # Skip if arf not available
-    if (!requireNamespace("arf", quietly = TRUE)) {
-      return(list(
-        error = "arf package not available",
-        method = "ConditionalSAGE"
-      ))
-    }
-
-    start_time <- Sys.time()
-
-    # Create method
-    sage <- ConditionalSAGE$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      n_permutations = n_permutations,
-      max_reference_size = floor(instance$n_samples * reference_proportion)
-    )
-
-    # Compute importance
-    importance <- sage$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "ConditionalSAGE",
-      n_permutations = n_permutations,
-      reference_proportion = reference_proportion,
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
-      )
-    )
-  }
-)
-
-# Algorithm: LOCO
-addAlgorithm(
-  name = "LOCO",
-  fun = function(data, job, instance, n_refits, ...) {
-    start_time <- Sys.time()
-
-    # Create method
-    loco <- LOCO$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      iters_refit = n_refits
-    )
-
-    # Compute importance
-    importance <- loco$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "LOCO",
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
-      )
-    )
-  }
-)
-
-# Algorithm: LOCI
-addAlgorithm(
-  name = "LOCI",
-  fun = function(data, job, instance, n_refits, ...) {
-    start_time <- Sys.time()
-
-    # Create method
-    loci <- LOCI$new(
-      task = instance$task,
-      learner = create_learner(num.trees = exp_settings$n_trees),
-      measure = create_measure(),
-      resampling = create_resampling(),
-      iters_refit = n_refits
-    )
-
-    # Compute importance
-    importance <- loci$compute()
-
-    end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-    list(
-      importance = importance,
-      runtime = runtime,
-      method = "LOCI",
-      task_info = list(
-        task_type = instance$task_type,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples
-      )
-    )
-  }
-)
+# Define all algorithms using the factory
+create_fi_algorithm("PFI", PFI)
+create_fi_algorithm("CFI", CFI)
+create_fi_algorithm("RFI", RFI)
+create_fi_algorithm("LOCO", LOCO)
+create_fi_algorithm("MarginalSAGE", MarginalSAGE)
+create_fi_algorithm("ConditionalSAGE", ConditionalSAGE)

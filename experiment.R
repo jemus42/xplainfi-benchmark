@@ -3,26 +3,31 @@ library(batchtools)
 library(data.table)
 
 # Load configuration
-source(here::here("benchmark", "config.R"))
+source(here::here("config.R"))
+
+stopifnot(
+  "Not all packages installed" = all(sapply(packages, requireNamespace))
+)
 
 # Create or load registry
-reg_path <- here::here("benchmark", "registry")
+reg_path <- here::here("registry")
 unlink(reg_path, recursive = TRUE)
 if (dir.exists(reg_path)) {
-  reg <- loadRegistry(reg_path, writeable = TRUE)
+  # reg <- loadRegistry(reg_path, writeable = TRUE)
+  fs::dir_delete(reg_path)
 } else {
   reg <- makeExperimentRegistry(
     file.dir = reg_path,
-    packages = packages,
+    packages = c("mlr3", "xplainfi"),
     seed = exp_settings$seed,
-    source = here::here("benchmark", c("helpers.R", "config.R"))
+    source = here::here(c("helpers.R", "config.R"))
   )
 }
 
 # Load problems and algorithms
-source(here::here("benchmark", "helpers.R"))
-source(here::here("benchmark", "problems.R"))
-source(here::here("benchmark", "algorithms.R"))
+source(here::here("helpers.R"))
+source(here::here("problems.R"))
+source(here::here("algorithms.R"))
 
 # Define experiment design
 prob_designs <- list(
@@ -32,9 +37,9 @@ prob_designs <- list(
   ),
 
   # Peak with varying dimensions and sample sizes
-  peak = data.table(
-    n_samples = rep(exp_settings$n_samples, each = 4),
-    d_features = rep(c(5, 10, 15, 20), times = length(exp_settings$n_samples))
+  peak = expand.grid(
+    n_samples = exp_settings$n_samples,
+    n_features = c(5, 10, 20, 50)
   ),
 
   # Bike sharing (real-world data, fixed dimensions)
@@ -43,30 +48,55 @@ prob_designs <- list(
   )
 )
 
+
 # Algorithm designs
 algo_designs <- list(
   # Permutation-based methods
-  PFI = data.frame(n_permutations = exp_settings$n_permutations),
-  CFI = data.frame(n_permutations = exp_settings$n_permutations),
-  RFI = data.frame(n_permutations = exp_settings$n_permutations),
+  PFI = expand.grid(
+    n_permutations = exp_settings$n_permutations,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
+  ),
+  CFI = expand.grid(
+    n_permutations = exp_settings$n_permutations,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
+  ),
+  RFI = expand.grid(
+    n_permutations = exp_settings$n_permutations,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
+  ),
   MarginalSAGE = expand.grid(
     n_permutations = exp_settings$n_permutations,
-    reference_proportion = exp_settings$reference_proportions
+    reference_proportion = exp_settings$reference_proportions,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
   ),
   ConditionalSAGE = expand.grid(
     n_permutations = exp_settings$n_permutations,
-    reference_proportion = exp_settings$reference_proportions
+    reference_proportion = exp_settings$reference_proportions,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
   ),
-  # Leave-one-out methods (no permutations)
-  LOCO = data.frame(n_refits = exp_settings$n_refits),
-  LOCI = data.frame(n_refits = exp_settings$n_refits)
+  LOCO = expand.grid(
+    n_refits = exp_settings$n_refits,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
+  )
 )
 
 # Add experiments to registry
 addExperiments(
   prob.designs = prob_designs,
   algo.designs = algo_designs,
-  repls = 3 # 3 replications for each configuration
+  repls = 10
 )
 
 # Summary of experiments
