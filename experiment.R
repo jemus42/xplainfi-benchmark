@@ -19,7 +19,7 @@ if (dir.exists(reg_path)) {
 }
 
 if (!dir.exists(reg_path)) {
-  cli::cli_alert_danger("Creating registry at {.file {reg_path}}")
+  cli::cli_alert_info("Creating registry at {.file {reg_path}}")
   reg <- makeExperimentRegistry(
     file.dir = reg_path,
     packages = c("mlr3", "xplainfi"),
@@ -52,55 +52,61 @@ prob_designs <- list(
   )
 )
 
+# Custom grid generator to remove superflusous parameter combinations
+custom_grid <- function(...) {
+  # Regular expand.grid-like operation
+  grid = data.table::CJ(
+    ...
+  )
+
+  # Reset superfluous parameter settings and remove duplicates possibly created
+  grid[, n_trees := data.table::fifelse(learner_type != "ranger", NA_integer_, n_trees)]
+  unique(grid)
+}
+
 
 # Algorithm designs
 algo_designs <- list(
   # Permutation-based methods
-  PFI = expand.grid(
+  PFI = custom_grid(
     n_permutations = exp_settings$n_permutations,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   ),
-  PFI_mlr3filters = expand.grid(
+  PFI_mlr3filters = custom_grid(
     n_permutations = exp_settings$n_permutations,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   ),
-  CFI = expand.grid(
+  CFI = custom_grid(
     n_permutations = exp_settings$n_permutations,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   ),
-  RFI = expand.grid(
+  RFI = custom_grid(
     n_permutations = exp_settings$n_permutations,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   ),
-  MarginalSAGE = expand.grid(
+  MarginalSAGE = custom_grid(
     n_permutations = exp_settings$n_permutations,
     reference_proportion = exp_settings$reference_proportions,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   ),
-  ConditionalSAGE = expand.grid(
+  ConditionalSAGE = custom_grid(
     n_permutations = exp_settings$n_permutations,
     reference_proportion = exp_settings$reference_proportions,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   ),
-  LOCO = expand.grid(
+  LOCO = custom_grid(
     n_refits = exp_settings$n_refits,
     learner_type = exp_settings$learner_types,
-    n_trees = exp_settings$n_trees,
-    stringsAsFactors = FALSE
+    n_trees = exp_settings$n_trees
   )
 )
+
 
 # Add experiments to registry
 addExperiments(

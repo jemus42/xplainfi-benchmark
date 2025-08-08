@@ -37,6 +37,6 @@ exp_settings <- list(
   reference_proportions = c(0.1, 0.3),
   # Types of learners to use for each method, uses create_learner helper
   learner_types = c("featureless", "linear", "ranger"),
-  # If ranger, numbers of trees to use
-  n_trees = c(500)
+  # Only relevant for ranger
+  n_trees = 500L
 )
