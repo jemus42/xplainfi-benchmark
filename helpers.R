@@ -11,7 +11,7 @@ create_resampling <- function(type = "cv", ratio = 2 / 3, folds = 3, repeats = 2
 # Helper function to create learner
 create_learner <- function(
   learner_type = c("ranger", "linear", "featureless"),
-  num.trees = 100,
+  n_trees = 100,
   task_type = c("regr", "classif")
 ) {
   requireNamespace("mlr3learners", quietly = TRUE)
@@ -27,7 +27,7 @@ create_learner <- function(
     },
     "ranger" = {
       learner_id <- paste0(task_type, ".ranger")
-      lrn(learner_id, num.trees = num.trees, num.threads = 1)
+      lrn(learner_id, num.trees = n_trees, num.threads = 1)
     },
     "linear" = {
       if (task_type == "regr") {

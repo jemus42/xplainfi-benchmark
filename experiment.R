@@ -11,11 +11,15 @@ stopifnot(
 
 # Create or load registry
 reg_path <- here::here("registry")
-unlink(reg_path, recursive = TRUE)
+
 if (dir.exists(reg_path)) {
   # reg <- loadRegistry(reg_path, writeable = TRUE)
+  cli::cli_alert_danger("Deleting registry at {.file {reg_path}}")
   fs::dir_delete(reg_path)
-} else {
+}
+
+if (!dir.exists(reg_path)) {
+  cli::cli_alert_danger("Creating registry at {.file {reg_path}}")
   reg <- makeExperimentRegistry(
     file.dir = reg_path,
     packages = c("mlr3", "xplainfi"),
@@ -39,7 +43,7 @@ prob_designs <- list(
   # Peak with varying dimensions and sample sizes
   peak = expand.grid(
     n_samples = exp_settings$n_samples,
-    n_features = c(5, 10, 20, 50)
+    n_features = exp_settings$n_features
   ),
 
   # Bike sharing (real-world data, fixed dimensions)
@@ -53,6 +57,12 @@ prob_designs <- list(
 algo_designs <- list(
   # Permutation-based methods
   PFI = expand.grid(
+    n_permutations = exp_settings$n_permutations,
+    learner_type = exp_settings$learner_types,
+    n_trees = exp_settings$n_trees,
+    stringsAsFactors = FALSE
+  ),
+  PFI_mlr3filters = expand.grid(
     n_permutations = exp_settings$n_permutations,
     learner_type = exp_settings$learner_types,
     n_trees = exp_settings$n_trees,
@@ -96,7 +106,7 @@ algo_designs <- list(
 addExperiments(
   prob.designs = prob_designs,
   algo.designs = algo_designs,
-  repls = 10
+  repls = exp_settings$repls
 )
 
 # Summary of experiments

@@ -31,7 +31,7 @@ submitJobs(findNotSubmitted(ids))
 
 
 ids = tab[,
-  .SD[sample(nrow(.SD), 2)],
+  .SD[sample(nrow(.SD), 5)],
   by = c("algorithm", "problem", "learner_type")
 ]
 submitJobs(findNotSubmitted(ids))
@@ -44,3 +44,17 @@ ids = tab[problem == "bike_sharing",
   by = c("algorithm", "learner_type")
 ]
 submitJobs(findNotSubmitted(ids))
+
+
+library(batchtools)
+reg <- loadRegistry("registry", writeable = TRUE)
+tab <- unwrap(getJobTable())
+
+tab[, .N, by = .(learner_type, n_trees)]
+tab[, .N, by = .(algorithm, reference_proportion)]
+
+
+tab[learner_type == "featureless"] |>
+  findNotSubmitted() |>
+  head(200) |>
+  submitJobs()

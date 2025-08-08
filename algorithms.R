@@ -20,7 +20,7 @@ create_fi_algorithm <- function(
       instance,
       learner_type = "ranger",
       resampling_type = "holdout",
-      n_trees = 100,
+      n_trees = NA,
       ...
     ) {
       # Detect task type
@@ -29,7 +29,7 @@ create_fi_algorithm <- function(
       # Create learner
       learner <- create_learner(
         learner_type = learner_type,
-        num.trees = n_trees,
+        n_trees = n_trees,
         task_type = task_type
       )
 
@@ -88,13 +88,6 @@ create_fi_algorithm <- function(
         importance = method_instance$importance(),
         scores = method_instance$scores,
         runtime = runtime
-        # method = method_name,
-        # learner_type = learner_type,
-        # task_info = list(
-        #   task_type = instance$task_type,
-        #   n_features = instance$n_features,
-        #   n_samples = instance$n_samples
-        # )
       )
 
       if ("reference_proportion" %in% names(dots)) {
@@ -104,7 +97,7 @@ create_fi_algorithm <- function(
         result$conditioning_set <- method_params$conditioning_set
       }
 
-      return(result)
+      result
     }
   )
 }
@@ -116,3 +109,57 @@ create_fi_algorithm("RFI", RFI)
 create_fi_algorithm("LOCO", LOCO)
 create_fi_algorithm("MarginalSAGE", MarginalSAGE)
 create_fi_algorithm("ConditionalSAGE", ConditionalSAGE)
+
+
+# PFI from mlr3filters
+
+addAlgorithm(
+  name = "PFI_mlr3filters",
+  fun = function(
+    data,
+    job,
+    instance,
+    learner_type = "ranger",
+    resampling_type = "holdout",
+    n_trees = 100,
+    n_permutations
+  ) {
+    require(mlr3filters)
+    # Detect task type
+    task_type <- instance$task$task_type
+
+    # Create learner
+    learner <- create_learner(
+      learner_type = learner_type,
+      num.trees = n_trees,
+      task_type = task_type
+    )
+
+    # Create measure
+    measure <- create_measure(task_type = task_type)
+
+    # Create resampling
+    resampling <- create_resampling(type = resampling_type)
+
+    filter_pfi <- flt(
+      "permutation",
+      learner = learner,
+      measure = measure,
+      resampling = resampling,
+      nmc = n_permutations,
+      standardize = FALSE
+    )
+
+    # Compute importance
+    start_time <- Sys.time()
+    filter_pfi$calculate()
+    end_time <- Sys.time()
+    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
+
+    # Create result list
+    list(
+      importance = as.data.table(filter_pfi),
+      runtime = runtime
+    )
+  }
+)
