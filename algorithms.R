@@ -84,10 +84,13 @@ create_fi_algorithm <- function(
       runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
       # Create result list
-      result <- list(
-        importance = method_instance$importance(),
-        scores = method_instance$scores,
-        runtime = runtime
+      result <- data.table::data.table(
+        importance = list(method_instance$importance()),
+        runtime = runtime,
+        n_features = instance$n_features,
+        n_samples = instance$n_samples,
+        task_type = task_type,
+        task_name = instance$name
       )
 
       if ("reference_proportion" %in% names(dots)) {
@@ -131,7 +134,7 @@ addAlgorithm(
     # Create learner
     learner <- create_learner(
       learner_type = learner_type,
-      num.trees = n_trees,
+      n_trees = n_trees,
       task_type = task_type
     )
 
@@ -152,14 +155,18 @@ addAlgorithm(
 
     # Compute importance
     start_time <- Sys.time()
-    filter_pfi$calculate()
+    filter_pfi$calculate(task = instance$task)
     end_time <- Sys.time()
     runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
     # Create result list
-    list(
-      importance = as.data.table(filter_pfi),
-      runtime = runtime
+    data.table::data.table(
+      importance = list(as.data.table(filter_pfi)),
+      runtime = runtime,
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = task_type,
+      task_name = instance$name
     )
   }
 )

@@ -115,6 +115,9 @@ addExperiments(
   repls = exp_settings$repls
 )
 
+findExperiments(algo.pars = learner_type == "featureless") |>
+  addJobTags(tags = "runtime")
+
 # Summary of experiments
 cli::cli_h1("Experiment Summary")
 cli::cli_alert_info("Total jobs: {nrow(getJobTable())}")

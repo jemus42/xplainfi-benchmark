@@ -1,4 +1,7 @@
 registry
+registry*
+batchtools.conf.R
+
 # Created by https://www.toptal.com/developers/gitignore/api/R
 # Edit at https://www.toptal.com/developers/gitignore?templates=R
 
@@ -58,4 +61,3 @@ rsconnect/
 /*_files/
 
 # End of https://www.toptal.com/developers/gitignore/api/R
-
