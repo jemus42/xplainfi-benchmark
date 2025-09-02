@@ -115,7 +115,10 @@ addExperiments(
   repls = exp_settings$repls
 )
 
-findExperiments(algo.pars = learner_type == "featureless") |>
+findExperiments(
+  algo.pars = learner_type == "featureless",
+  prob.name = "peak"
+) |>
   addJobTags(tags = "runtime")
 
 # Summary of experiments

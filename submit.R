@@ -21,10 +21,31 @@ ids = tab[
 submitJobs(findNotSubmitted(ids))
 
 ids = tab[,
-  .SD[sample(nrow(.SD), 1)],
+  .SD[sample(nrow(.SD), 10)],
   by = c("algorithm", "problem", "learner_type")
 ]
-submitJobs(findNotSubmitted(ids))
+
+ids[, chunk := chunk(job.id, chunk.size = 30)]
+ids[, .N, by = chunk]
+
+ijoin(findNotSubmitted(), ids[, .(job.id, chunk)]) |>
+  submitJobs()
 
 findTagged("runtime") |>
-  findNotSubmitted() 
+  ijoin(findExperiments(repls = c(1, 2))) |>
+  findNotSubmitted() |>
+  submitJobs()
+
+ids = findTagged("runtime") |>
+  findNotSubmitted()
+
+ids[, chunk := chunk(job.id, chunk.size = 50)]
+submitJobs(ids[, .(job.id, chunk)])
+
+
+ids = ijoin(tab, findNotSubmitted())
+ids[, chunk := chunk(algorithm, chunk.size = 100)]
+ids[, .N, by = chunk]
+ids = ids[, .(job.id, chunk)]
+
+submitJobs(ids, resources = list(walltime = 12 * 3600))
