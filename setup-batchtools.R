@@ -160,7 +160,6 @@ addExperiments(
 # Gaussian sampler doesn't support mixed feature types (bike_sharing)
 incompatible_jobs <- findExperiments(
   prob.name = "bike_sharing",
-  algo.name %in% c("CFI", "RFI", "ConditionalSAGE"),
   algo.pars = sampler == "gaussian"
 )
 
