@@ -72,7 +72,7 @@ The benchmark is configured via `config.R` with the following default settings:
 ## Experiment Design
 
 The benchmark creates a comprehensive factorial design combining:
-- **6 problems** × **9 algorithms** × **4 learner types** × **parameter combinations** × **3 replications**
+- **6 problems** × **8 algorithms** × **4 learner types** × **parameter combinations** × **3 replications**
 - Problems vary in sample size and feature dimensions (where applicable)
 - Each problem is paired with all learner types (featureless, linear, ranger, nnet)
 - Fixed `n_trees = 500` for ranger learner (not varied across experiments)
@@ -111,8 +111,8 @@ This is achieved by:
 ## Package Dependencies
 
 The benchmark requires the following R packages:
-- Core: `xplainfi`, `mlr3`, `mlr3learners`, `mlr3pipelines`, `mlr3filters`, `batchtools`
-- Data: `data.table`, `mlbench`
+- Core: `xplainfi`, `mlr3`, `mlr3learners`, `mlr3pipelines`, `batchtools`
+- Data: `data.table`, `mlbench`, `mlr3data`
 - Samplers: `arf`, `partykit`, `mvtnorm`
 - Reference implementations: `iml`, `vip`
 - Learners: `nnet` (neural networks)

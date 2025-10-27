@@ -232,34 +232,36 @@ addAlgorithm(
 # PFI_mlr3filters - Reference implementation from mlr3filters
 # ============================================================================
 
-addAlgorithm(
-  name = "PFI_mlr3filters",
-  fun = function(data, job, instance, n_repeats = 1) {
-    require(mlr3filters)
+# BB recommended to leave this out
+# Side issue: Does not accept instantiated resamplings
+# addAlgorithm(
+#   name = "PFI_mlr3filters",
+#   fun = function(data, job, instance, n_repeats = 1) {
+#     require(mlr3filters)
 
-    filter_pfi <- flt(
-      "permutation",
-      learner = instance$learner,
-      measure = instance$measure,
-      resampling = instance$resampling,
-      nmc = n_repeats,
-      standardize = FALSE
-    )
+#     filter_pfi <- flt(
+#       "permutation",
+#       learner = instance$learner,
+#       measure = instance$measure,
+#       resampling = instance$resampling,
+#       nmc = n_repeats,
+#       standardize = FALSE
+#     )
 
-    start_time <- Sys.time()
-    filter_pfi$calculate(task = instance$task)
-    end_time <- Sys.time()
+#     start_time <- Sys.time()
+#     filter_pfi$calculate(task = instance$task)
+#     end_time <- Sys.time()
 
-    data.table::data.table(
-      importance = list(as.data.table(filter_pfi)),
-      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-      n_features = instance$n_features,
-      n_samples = instance$n_samples,
-      task_type = instance$task_type,
-      task_name = instance$name
-    )
-  }
-)
+#     data.table::data.table(
+#       importance = list(as.data.table(filter_pfi)),
+#       runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+#       n_features = instance$n_features,
+#       n_samples = instance$n_samples,
+#       task_type = instance$task_type,
+#       task_name = instance$name
+#     )
+#   }
+# )
 
 # ============================================================================
 # PFI_iml - Reference implementation from iml package

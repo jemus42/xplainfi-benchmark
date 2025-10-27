@@ -126,9 +126,9 @@ algo_designs <- list(
   ),
 
   # PFI_mlr3filters: Reference implementation from mlr3filters
-  PFI_mlr3filters = CJ(
-    n_repeats = exp_settings$n_repeats
-  ),
+  # PFI_mlr3filters = CJ(
+  #   n_repeats = exp_settings$n_repeats
+  # ),
 
   # PFI_iml: Reference implementation from iml package
   PFI_iml = CJ(
