@@ -158,10 +158,10 @@ addExperiments(
 # ============================================================================
 
 # Gaussian sampler doesn't support mixed feature types (bike_sharing)
-incompatible_jobs <- findExperiments(
-  prob.name = "bike_sharing",
-  algo.pars = sampler == "gaussian"
-)
+# sampler is NA for most jobs, findExperiments() didn't play nice
+incompatible_jobs = unwrap(getJobTable())[!is.na(sampler)][
+  (sampler == "gaussian") & problem == "bike_sharing",
+]
 
 if (nrow(incompatible_jobs) > 0) {
   cli::cli_alert_warning(
