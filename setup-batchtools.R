@@ -47,7 +47,7 @@ source(here::here("R/algorithms.R"))
 
 prob_designs <- list(
   # Friedman1: fixed 10 features, varying sample sizes
-  friedman1 = data.table(
+  friedman1 = CJ(
     n_samples = exp_settings$n_samples,
     learner_type = exp_settings$learner_types
   ),
@@ -60,7 +60,7 @@ prob_designs <- list(
   ),
 
   # Bike sharing: real-world data, fixed dimensions
-  bike_sharing = data.table(
+  bike_sharing = CJ(
     n_samples = exp_settings$n_samples,
     learner_type = exp_settings$learner_types
   ),
@@ -73,13 +73,13 @@ prob_designs <- list(
   ),
 
   # Ewald DGP: fixed structure
-  ewald = data.table(
+  ewald = CJ(
     n_samples = exp_settings$n_samples,
     learner_type = exp_settings$learner_types
   ),
 
   # Interactions DGP: fixed structure
-  interactions = data.table(
+  interactions = CJ(
     n_samples = exp_settings$n_samples,
     learner_type = exp_settings$learner_types
   )
@@ -91,7 +91,7 @@ prob_designs <- list(
 
 algo_designs <- list(
   # PFI: Permutation Feature Importance
-  PFI = CJ(
+  PFI = data.table(
     n_repeats = exp_settings$n_repeats
   ),
 
@@ -108,7 +108,7 @@ algo_designs <- list(
   ),
 
   # LOCO: Leave-One-Covariate-Out
-  LOCO = CJ(
+  LOCO = data.table(
     n_repeats = exp_settings$n_repeats
   ),
 
@@ -131,12 +131,12 @@ algo_designs <- list(
   # ),
 
   # PFI_iml: Reference implementation from iml package
-  PFI_iml = CJ(
+  PFI_iml = data.table(
     n_repeats = exp_settings$n_repeats
   ),
 
   # PFI_vip: Reference implementation from vip package
-  PFI_vip = CJ(
+  PFI_vip = data.table(
     n_repeats = exp_settings$n_repeats
   )
 )

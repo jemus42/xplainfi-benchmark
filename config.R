@@ -39,7 +39,7 @@ packages <- c(
 exp_settings <- list(
   # General batchtools settings
   seed = 2025,
-  repls = 3,
+  repls = 10,
   # Samples to generate or to subsample real data to (bike_sharing)
   n_samples = c(100, 500, 1000),
   # Only one task with variable number of features
