@@ -1,5 +1,4 @@
-registry
-registry*
+registries
 batchtools.conf.R
 
 # Created by https://www.toptal.com/developers/gitignore/api/R
