@@ -64,7 +64,7 @@ The benchmark is configured via `config.R` with the following default settings:
 - **Learner types**: featureless, linear, ranger, nnet
 - **n_repeats**: 1, 10, 100 (for PFI, CFI, RFI, LOCO)
 - **n_permutations**: 5, 10, 30 (for SAGE methods)
-- **sage_n_samples**: 200 (reference dataset size for SAGE methods)
+- **sage_n_samples**: 200 (marginalization dataset size for SAGE methods)
 - **Samplers**: arf, gaussian, knn, ctree (for CFI, RFI, ConditionalSAGE)
 - **Replications**: 3 independent runs per configuration
 - **Random seed**: 2025

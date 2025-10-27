@@ -6,8 +6,8 @@ library(dplyr)
 library(kableExtra)
 
 # Load registry
-reg_path <- here::here("registry")
-reg <- loadRegistry(reg_path, writeable = FALSE)
+source("config.R")
+reg <- loadRegistry(reg_path, writeable = FALSE, work.dir = here::here())
 
 # Check which jobs are done
 (status <- getStatus())
@@ -21,7 +21,7 @@ cat("\nCollecting results...\n")
 results <- reduceResultsDataTable()
 
 
-lapply(results$result, \(x) data.table(x$importance))
+lapply(results$result, \(x) data.table(x$importance[[1]]))
 
 
 tmpres = data.table::rbindlist(results$result, fill = TRUE)
@@ -32,9 +32,8 @@ res = ijoin(
   unwrap(getJobPars())[, .(
     job.id,
     algorithm,
-    learner_type,
-    n_trees,
-    n_refits,
+    n_repeats,
+    sampler,
     n_permutations
   )]
 )

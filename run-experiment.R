@@ -20,9 +20,9 @@ ids = tab[, .SD[sample(nrow(.SD), 1)], by = c("algorithm", "problem")]
 setkeyv(ids, "job.id")
 ids[, .(job.id, algorithm, problem)]
 
-tab[, .(job.id)] |>
+ids[, .(job.id)] |>
   findNotSubmitted() |>
-  head(3) |>
+  # head(3) |>
   submitJobs()
 
 
