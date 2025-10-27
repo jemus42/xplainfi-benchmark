@@ -26,8 +26,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -67,8 +66,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -116,7 +114,6 @@ addAlgorithm(
       n_samples = instance$n_samples,
       task_type = instance$task_type,
       task_name = instance$name,
-      learner_type = instance$learner_type,
       conditioning_set = list(conditioning_set)
     )
   }
@@ -147,8 +144,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -185,8 +181,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -228,8 +223,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -262,8 +256,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -342,8 +335,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
@@ -429,8 +421,7 @@ addAlgorithm(
       n_features = instance$n_features,
       n_samples = instance$n_samples,
       task_type = instance$task_type,
-      task_name = instance$name,
-      learner_type = instance$learner_type
+      task_name = instance$name
     )
   }
 )
