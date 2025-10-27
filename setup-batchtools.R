@@ -154,6 +154,24 @@ addExperiments(
 )
 
 # ============================================================================
+# Remove incompatible sampler-task combinations
+# ============================================================================
+
+# Gaussian sampler doesn't support mixed feature types (bike_sharing)
+incompatible_jobs <- findExperiments(
+  prob.name = "bike_sharing",
+  algo.name %in% c("CFI", "RFI", "ConditionalSAGE"),
+  algo.pars = sampler == "gaussian"
+)
+
+if (nrow(incompatible_jobs) > 0) {
+  cli::cli_alert_warning(
+    "Removing {nrow(incompatible_jobs)} incompatible job(s): bike_sharing × gaussian sampler"
+  )
+  removeExperiments(incompatible_jobs)
+}
+
+# ============================================================================
 # Optional: Tag specific job combinations for analysis
 # ============================================================================
 
