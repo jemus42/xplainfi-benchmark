@@ -7,9 +7,9 @@ tab[, .N, by = learner_type]
 tab[, .N, by = problem]
 tab[, .N, by = algorithm]
 tab[, .N, by = .(problem, n_samples, n_features)]
-tab[, .N, by = .(learner_type, n_trees)]
+tab[, .N, by = .(algorithm, sampler)]
 tab[, .N, by = .(algorithm, reference_proportion)]
-tab[, .N, by = .(algorithm, n_refits)]
+tab[, .N, by = .(algorithm, n_repeats)]
 
 
 # Create random subset of jobs for testing

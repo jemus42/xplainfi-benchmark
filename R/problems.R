@@ -1,12 +1,3 @@
-# Problem definitions for batchtools experiment
-library(batchtools)
-library(mlr3)
-library(mlbench)
-library(data.table)
-library(here)
-
-source(here::here("config.R"))
-
 # Problem: Friedman1 regression task (fixed 10 features)
 addProblem(
   name = "friedman1",
@@ -99,7 +90,7 @@ addProblem(
     xdat[, holiday := as.integer(holiday)]
     xdat[, working_day := as.integer(working_day)]
 
-    task = mlr3::as_task_regr(xdat, target = "count", id = "bike_share")
+    task = as_task_regr(xdat, target = "count", id = "bike_share")
 
     create_problem_instance(
       task = task,

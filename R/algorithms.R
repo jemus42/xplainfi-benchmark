@@ -1,9 +1,4 @@
 # Algorithm definitions for batchtools experiment
-library(batchtools)
-library(xplainfi)
-library(mlr3learners)
-
-source(here::here("config.R"))
 
 # ============================================================================
 # PFI - Permutation Feature Importance
@@ -12,6 +7,7 @@ source(here::here("config.R"))
 addAlgorithm(
   name = "PFI",
   fun = function(data, job, instance, n_repeats = 1) {
+    browser()
     method <- PFI$new(
       task = instance$task,
       learner = instance$learner,
@@ -47,22 +43,10 @@ addAlgorithm(
     job,
     instance,
     n_repeats = 1,
-    sampler = "ConditionalARFSampler"
+    sampler = "arf"
   ) {
     # Create sampler instance
-    sampler_instance <- switch(
-      sampler,
-      "ConditionalARFSampler" = ConditionalARFSampler$new(
-        instance$task,
-        verbose = FALSE
-      ),
-      "ConditionalGaussianSampler" = ConditionalGaussianSampler$new(
-        instance$task
-      ),
-      "ConditionalKNNSampler" = ConditionalKNNSampler$new(instance$task),
-      "ConditionalCtreeSampler" = ConditionalCtreeSampler$new(instance$task),
-      stop("Unknown sampler: ", sampler)
-    )
+    sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
 
     method <- CFI$new(
       task = instance$task,
@@ -101,27 +85,15 @@ addAlgorithm(
     instance,
     n_repeats = 1,
     conditioning_set = NULL,
-    sampler = "ConditionalARFSampler"
+    sampler = "arf"
   ) {
-    # Default conditioning set: first feature
+    # Default conditioning set: first 2 feature
     if (is.null(conditioning_set)) {
-      conditioning_set <- instance$task$feature_names[1]
+      conditioning_set <- instance$task$feature_names[1:2]
     }
 
     # Create sampler instance
-    sampler_instance <- switch(
-      sampler,
-      "ConditionalARFSampler" = ConditionalARFSampler$new(
-        instance$task,
-        verbose = FALSE
-      ),
-      "ConditionalGaussianSampler" = ConditionalGaussianSampler$new(
-        instance$task
-      ),
-      "ConditionalKNNSampler" = ConditionalKNNSampler$new(instance$task),
-      "ConditionalCtreeSampler" = ConditionalCtreeSampler$new(instance$task),
-      stop("Unknown sampler: ", sampler)
-    )
+    sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
 
     method <- RFI$new(
       task = instance$task,
@@ -230,24 +202,11 @@ addAlgorithm(
     job,
     instance,
     n_permutations = 10,
-
     sage_n_samples = 200,
-    sampler = "ConditionalARFSampler"
+    sampler = "arf"
   ) {
     # Create sampler instance
-    sampler_instance <- switch(
-      sampler,
-      "ConditionalARFSampler" = ConditionalARFSampler$new(
-        instance$task,
-        verbose = FALSE
-      ),
-      "ConditionalGaussianSampler" = ConditionalGaussianSampler$new(
-        instance$task
-      ),
-      "ConditionalKNNSampler" = ConditionalKNNSampler$new(instance$task),
-      "ConditionalCtreeSampler" = ConditionalCtreeSampler$new(instance$task),
-      stop("Unknown sampler: ", sampler)
-    )
+    sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
 
     method <- ConditionalSAGE$new(
       task = instance$task,
@@ -270,8 +229,7 @@ addAlgorithm(
       n_samples = instance$n_samples,
       task_type = instance$task_type,
       task_name = instance$name,
-      learner_type = instance$learner_type,
-      sampler = sampler
+      learner_type = instance$learner_type
     )
   }
 )
@@ -367,9 +325,9 @@ addAlgorithm(
       n.repetitions = n_repeats,
       compare = "difference" # Difference between permuted and original loss (matches xplainfi)
     )
+    end_time <- Sys.time()
 
     imp_results <- imp$results
-    end_time <- Sys.time()
 
     # Convert iml results to standard format
     # iml returns: feature, importance (difference), importance.05, importance.95
@@ -425,7 +383,11 @@ addAlgorithm(
       temp_task$select(setdiff(colnames(newdata), target_name))
 
       # Predict
-      preds <- object$predict_newdata(newdata, task = temp_task)
+      if (is.function(object$predict_newdata)) {
+        preds <- object$predict_newdata(newdata, task = temp_task)
+      } else {
+        stop("Learner does not have predict_newdata method")
+      }
 
       if (instance$task_type == "classif") {
         # For classification, return class predictions

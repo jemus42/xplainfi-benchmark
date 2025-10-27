@@ -2,7 +2,7 @@
 # Registry configuration
 reg_path <- fs::path(
   here::here("registries"),
-  paste0("xplainfi-v", packageVersion("xplainfi"))
+  paste0("xplainfi-", packageVersion("xplainfi"))
 )
 if (!dir.exists(here::here("registries"))) {
   dir.create(here::here("registries"))
@@ -43,16 +43,23 @@ exp_settings <- list(
   n_samples = c(100, 500, 1000),
   # Only one task with variable number of features
   n_features = c(5, 10, 50),
+  # Affects correlation task
+  correlation = c(0.5, 0.9),
   # Affects PFI, CFI, RFI, and LOCO iterations
-  n_repeats = c(1, 5, 10, 50, 100),
+  n_repeats = c(1, 10, 100),
   # For SAGE permutations
-  n_permutations = c(1, 5, 10, 50),
+  n_permutations = c(5, 10, 30),
   # Size of reference dataset in SAGE methods
   sage_n_samples = 200L,
   # Types of learners to use for each method, uses create_learner helper
-  learner_types = c("featureless", "linear", "ranger"),
+  learner_types = c("featureless", "linear", "ranger", "nnet"),
   # Fixed number of trees for ranger (not varied in experiments)
   n_trees = 500L,
   # Conditional samplers for CFI, RFI, and ConditionalSAGE
-  samplers = c("ConditionalARFSampler", "ConditionalGaussianSampler", "ConditionalKNNSampler")
+  samplers = c(
+    "arf",
+    "gaussian",
+    "knn",
+    "ctree"
+  )
 )

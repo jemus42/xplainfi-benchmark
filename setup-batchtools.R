@@ -1,7 +1,8 @@
 # Main experiment setup and execution script
+# Problem definitions for batchtools experiment
 library(batchtools)
+library(mlr3)
 library(data.table)
-library(here)
 
 # Load configuration
 source(here::here("config.R"))
@@ -25,13 +26,20 @@ reg <- makeExperimentRegistry(
   file.dir = reg_path,
   packages = c("mlr3learners", "xplainfi"),
   seed = exp_settings$seed,
-  source = here::here(c("helpers.R", "config.R"))
+  source = here::here(c("R/helpers.R", "config.R"))
 )
 
+
 # Load problems and algorithms
-source(here::here("helpers.R"))
-source(here::here("problems.R"))
-source(here::here("algorithms.R"))
+# mlr3misc::walk(
+#   list.files(here::here("R"), pattern = "*.R", full.names = TRUE),
+#   source,
+#   echo = FALSE,
+#   verbose = FALSE
+# )
+source(here::here("R/helpers.R"))
+source(here::here("R/problems.R"))
+source(here::here("R/algorithms.R"))
 
 # ============================================================================
 # Problem Designs
@@ -40,34 +48,40 @@ source(here::here("algorithms.R"))
 prob_designs <- list(
   # Friedman1: fixed 10 features, varying sample sizes
   friedman1 = data.table(
-    n_samples = exp_settings$n_samples
+    n_samples = exp_settings$n_samples,
+    learner_type = exp_settings$learner_types
   ),
 
   # Peak: varying dimensions and sample sizes
   peak = CJ(
     n_samples = exp_settings$n_samples,
-    n_features = exp_settings$n_features
+    n_features = exp_settings$n_features,
+    learner_type = exp_settings$learner_types
   ),
 
   # Bike sharing: real-world data, fixed dimensions
   bike_sharing = data.table(
-    n_samples = exp_settings$n_samples
+    n_samples = exp_settings$n_samples,
+    learner_type = exp_settings$learner_types
   ),
 
   # Correlated features DGP: varying correlation strength
   correlated = CJ(
     n_samples = exp_settings$n_samples,
-    correlation = c(0.5, 0.75, 0.9)
+    correlation = exp_settings$correlation,
+    learner_type = exp_settings$learner_types
   ),
 
   # Ewald DGP: fixed structure
   ewald = data.table(
-    n_samples = exp_settings$n_samples
+    n_samples = exp_settings$n_samples,
+    learner_type = exp_settings$learner_types
   ),
 
   # Interactions DGP: fixed structure
   interactions = data.table(
-    n_samples = exp_settings$n_samples
+    n_samples = exp_settings$n_samples,
+    learner_type = exp_settings$learner_types
   )
 )
 
@@ -78,61 +92,52 @@ prob_designs <- list(
 algo_designs <- list(
   # PFI: Permutation Feature Importance
   PFI = CJ(
-    n_repeats = exp_settings$n_repeats,
-    learner_type = exp_settings$learner_types
+    n_repeats = exp_settings$n_repeats
   ),
 
   # CFI: Conditional Feature Importance (with samplers)
   CFI = CJ(
     n_repeats = exp_settings$n_repeats,
-    sampler = exp_settings$samplers,
-    learner_type = exp_settings$learner_types
+    sampler = exp_settings$samplers
   ),
 
   # RFI: Relative Feature Importance (with samplers)
   RFI = CJ(
     n_repeats = exp_settings$n_repeats,
-    sampler = exp_settings$samplers,
-    learner_type = exp_settings$learner_types
+    sampler = exp_settings$samplers
   ),
 
   # LOCO: Leave-One-Covariate-Out
   LOCO = CJ(
-    n_repeats = exp_settings$n_repeats,
-    learner_type = exp_settings$learner_types
+    n_repeats = exp_settings$n_repeats
   ),
 
   # MarginalSAGE
   MarginalSAGE = CJ(
     n_permutations = exp_settings$n_permutations,
-    sage_n_samples = exp_settings$sage_n_samples,
-    learner_type = exp_settings$learner_types
+    sage_n_samples = exp_settings$sage_n_samples
   ),
 
   # ConditionalSAGE (with samplers)
   ConditionalSAGE = CJ(
     n_permutations = exp_settings$n_permutations,
     sage_n_samples = exp_settings$sage_n_samples,
-    sampler = exp_settings$samplers,
-    learner_type = exp_settings$learner_types
+    sampler = exp_settings$samplers
   ),
 
   # PFI_mlr3filters: Reference implementation from mlr3filters
   PFI_mlr3filters = CJ(
-    n_repeats = exp_settings$n_repeats,
-    learner_type = exp_settings$learner_types
+    n_repeats = exp_settings$n_repeats
   ),
 
   # PFI_iml: Reference implementation from iml package
   PFI_iml = CJ(
-    n_repeats = exp_settings$n_repeats,
-    learner_type = exp_settings$learner_types
+    n_repeats = exp_settings$n_repeats
   ),
 
   # PFI_vip: Reference implementation from vip package
   PFI_vip = CJ(
-    n_repeats = exp_settings$n_repeats,
-    learner_type = exp_settings$learner_types
+    n_repeats = exp_settings$n_repeats
   )
 )
 
@@ -154,10 +159,10 @@ addExperiments(
 
 # Tag runtime benchmark jobs (e.g., featureless learner on peak)
 findExperiments(
-  algo.pars = learner_type == "featureless",
+  prob.pars = learner_type == "featureless",
   prob.name = "peak"
 ) |>
-  addJobTags(tags = "runtime_benchmark")
+  addJobTags(tags = "runtime")
 
 # Tag DGP comparison experiments
 mlr3misc::walk(c("ewald", "interactions", "correlated", "friedman1"), \(x) {
@@ -196,7 +201,7 @@ print(job_dist)
 cli::cli_h2("Parameter Coverage")
 cli::cli_ul(c(
   "Sample sizes: {paste(exp_settings$n_samples, collapse = ', ')}",
-  "Feature dimensions (peak): {paste(exp_settings$n_features, collapse = ', ')}",
+  "Feature dimensions (peak task): {paste(exp_settings$n_features, collapse = ', ')}",
   "Learner types: {paste(exp_settings$learner_types, collapse = ', ')}",
   "n_repeats: {paste(exp_settings$n_repeats, collapse = ', ')}",
   "n_permutations (SAGE): {paste(exp_settings$n_permutations, collapse = ', ')}",

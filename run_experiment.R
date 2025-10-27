@@ -7,6 +7,7 @@ reg <- loadRegistry(reg_path, writeable = TRUE)
 
 # Check status
 getStatus()
+tab = unwrap(getJobTable())
 
 # For testing: submit only a subset
 # test_jobs <- findJobs(prob.name = "friedman1", algo.name = "PFI")[1:2]
@@ -15,7 +16,7 @@ getStatus()
 # Submit all jobs
 submitJobs(findNotSubmitted())
 
-ids = tab[, .SD[sample(nrow(.SD), 5)], by = c("algorithm", "problem")]
+ids = tab[, .SD[sample(nrow(.SD), 1)], by = c("algorithm", "problem")]
 setkeyv(ids, "job.id")
 ids[, .(job.id, algorithm, problem)]
 

@@ -90,6 +90,27 @@ create_measure <- function(task_type = "regr") {
   )
 }
 
+# Helper function to create conditional sampler
+create_sampler <- function(
+  sampler = c("arf", "gaussian", "knn", "ctree"),
+  task
+) {
+  sampler <- match.arg(sampler)
+
+  switch(
+    sampler,
+    "arf" = ConditionalARFSampler$new(
+      task,
+      verbose = FALSE,
+      finite_bounds = "local",
+      min_node_size = 20
+    ),
+    "gaussian" = ConditionalGaussianSampler$new(task),
+    "knn" = ConditionalKNNSampler$new(task, k = 5),
+    "ctree" = ConditionalCtreeSampler$new(task)
+  )
+}
+
 # Helper function to create complete problem instance
 # Wraps common logic for all problems: creating learner, measure, resampling
 create_problem_instance <- function(
