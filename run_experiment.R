@@ -2,7 +2,7 @@
 library(batchtools)
 
 # Load registry
-reg_path <- here::here("benchmark", "registry")
+source("config.R")
 reg <- loadRegistry(reg_path, writeable = TRUE)
 
 # Check status

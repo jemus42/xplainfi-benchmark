@@ -1,6 +1,12 @@
 # Configuration file for batchtools experiment
 # Registry configuration
-reg_path <- here::here("registry")
+reg_path <- fs::path(
+  here::here("registries"),
+  paste0("xplainfi-v", packageVersion("xplainfi"))
+)
+if (!dir.exists(here::here("registries"))) {
+  dir.create(here::here("registries"))
+}
 
 # Ensure ranger behaves, particularly important for nested parallelization here with conditional sampling depending on ranger as well
 options(ranger.num.threads = 1)
@@ -14,10 +20,18 @@ packages <- c(
   "xplainfi",
   "mlr3",
   "mlr3learners",
+  "mlr3filters",
+  "mlr3pipelines",
   "mlbench",
   "data.table",
   "checkmate",
-  "arf"
+  "digest",
+  "iml",
+  "vip",
+  "nnet",
+  "arf",
+  "partykit",
+  "mvtnorm"
 )
 
 # Experiment settings
@@ -29,14 +43,16 @@ exp_settings <- list(
   n_samples = c(100, 500, 1000),
   # Only one task with variable number of features
   n_features = c(5, 10, 50),
-  # Affects P|C|RFI iterations and SAGE permutations
+  # Affects PFI, CFI, RFI, and LOCO iterations
+  n_repeats = c(1, 5, 10, 50, 100),
+  # For SAGE permutations
   n_permutations = c(1, 5, 10, 50),
-  # LOCO refits
-  n_refits = c(1, 5, 10, 50),
-  # Size of reference dataset in SAGE impls
-  reference_proportions = c(0.1, 0.3),
+  # Size of reference dataset in SAGE methods
+  sage_n_samples = 200L,
   # Types of learners to use for each method, uses create_learner helper
   learner_types = c("featureless", "linear", "ranger"),
-  # Only relevant for ranger
-  n_trees = 500L
+  # Fixed number of trees for ranger (not varied in experiments)
+  n_trees = 500L,
+  # Conditional samplers for CFI, RFI, and ConditionalSAGE
+  samplers = c("ConditionalARFSampler", "ConditionalGaussianSampler", "ConditionalKNNSampler")
 )

@@ -1,172 +1,474 @@
 # Algorithm definitions for batchtools experiment
 library(batchtools)
 library(xplainfi)
-library(mlr3)
 library(mlr3learners)
-library(data.table)
 
 source(here::here("config.R"))
 
-# Generic algorithm factory to reduce code duplication
-create_fi_algorithm <- function(
-  method_name,
-  method_class
-) {
-  addAlgorithm(
-    name = method_name,
-    fun = function(
-      data,
-      job,
-      instance,
-      learner_type = "ranger",
-      resampling_type = "holdout",
-      n_trees = NA,
-      ...
-    ) {
-      # Detect task type
-      task_type <- instance$task$task_type
-
-      # Create learner
-      learner <- create_learner(
-        learner_type = learner_type,
-        n_trees = n_trees,
-        task_type = task_type
-      )
-
-      # Create measure
-      measure <- create_measure(task_type = task_type)
-
-      # Create resampling
-      resampling <- create_resampling(type = resampling_type)
-
-      # Extract method-specific parameters
-      dots <- list(...)
-      method_params <- list(
-        task = instance$task,
-        learner = learner,
-        measure = measure,
-        resampling = resampling
-      )
-
-      # Add method-specific parameters
-      if ("n_permutations" %in% names(dots)) {
-        # SAGE methods use n_permutations, PFI uses iters_perm
-        if (method_name %in% c("MarginalSAGE", "ConditionalSAGE")) {
-          method_params$n_permutations <- dots$n_permutations
-        } else {
-          method_params$iters_perm <- dots$n_permutations
-        }
-      }
-      if ("n_refits" %in% names(dots)) {
-        method_params$iters_refit <- dots$n_refits
-      }
-      if ("reference_proportion" %in% names(dots)) {
-        method_params$max_reference_size <- floor(
-          instance$n_samples * dots$reference_proportion
-        )
-      }
-      if ("conditioning_features" %in% names(dots)) {
-        method_params$conditioning_set <- dots$conditioning_features
-      }
-
-      # Handle RFI default conditioning set
-      if (method_name == "RFI" && is.null(dots$conditioning_features)) {
-        method_params$conditioning_set <- instance$task$feature_names[1]
-      }
-
-      # Create method instance
-      method_instance <- do.call(method_class$new, method_params)
-
-      # Compute importance
-      start_time <- Sys.time()
-      method_instance$compute()
-      end_time <- Sys.time()
-      runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
-
-      # Create result list
-      result <- data.table::data.table(
-        importance = list(method_instance$importance()),
-        runtime = runtime,
-        n_features = instance$n_features,
-        n_samples = instance$n_samples,
-        task_type = task_type,
-        task_name = instance$name
-      )
-
-      if ("reference_proportion" %in% names(dots)) {
-        result$max_reference_size <- method_params$max_reference_size
-      }
-      if ("conditioning_features" %in% names(dots) | method_name == "RFI") {
-        result$conditioning_set <- method_params$conditioning_set
-      }
-
-      result
-    }
-  )
-}
-
-# Define all algorithms using the factory
-create_fi_algorithm("PFI", PFI)
-create_fi_algorithm("CFI", CFI)
-create_fi_algorithm("RFI", RFI)
-create_fi_algorithm("LOCO", LOCO)
-create_fi_algorithm("MarginalSAGE", MarginalSAGE)
-create_fi_algorithm("ConditionalSAGE", ConditionalSAGE)
-
-
-# PFI from mlr3filters
+# ============================================================================
+# PFI - Permutation Feature Importance
+# ============================================================================
 
 addAlgorithm(
-  name = "PFI_mlr3filters",
+  name = "PFI",
+  fun = function(data, job, instance, n_repeats = 1) {
+    method <- PFI$new(
+      task = instance$task,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      n_repeats = n_repeats
+    )
+
+    start_time <- Sys.time()
+    method$compute()
+    end_time <- Sys.time()
+
+    data.table::data.table(
+      importance = list(method$importance()),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
+    )
+  }
+)
+
+# ============================================================================
+# CFI - Conditional Feature Importance
+# ============================================================================
+
+addAlgorithm(
+  name = "CFI",
   fun = function(
     data,
     job,
     instance,
-    learner_type = "ranger",
-    resampling_type = "holdout",
-    n_trees = 100,
-    n_permutations
+    n_repeats = 1,
+    sampler = "ConditionalARFSampler"
   ) {
-    require(mlr3filters)
-    # Detect task type
-    task_type <- instance$task$task_type
-
-    # Create learner
-    learner <- create_learner(
-      learner_type = learner_type,
-      n_trees = n_trees,
-      task_type = task_type
+    # Create sampler instance
+    sampler_instance <- switch(
+      sampler,
+      "ConditionalARFSampler" = ConditionalARFSampler$new(
+        instance$task,
+        verbose = FALSE
+      ),
+      "ConditionalGaussianSampler" = ConditionalGaussianSampler$new(
+        instance$task
+      ),
+      "ConditionalKNNSampler" = ConditionalKNNSampler$new(instance$task),
+      "ConditionalCtreeSampler" = ConditionalCtreeSampler$new(instance$task),
+      stop("Unknown sampler: ", sampler)
     )
 
-    # Create measure
-    measure <- create_measure(task_type = task_type)
+    method <- CFI$new(
+      task = instance$task,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      sampler = sampler_instance,
+      n_repeats = n_repeats
+    )
 
-    # Create resampling
-    resampling <- create_resampling(type = resampling_type)
+    start_time <- Sys.time()
+    method$compute()
+    end_time <- Sys.time()
+
+    data.table::data.table(
+      importance = list(method$importance()),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
+    )
+  }
+)
+
+# ============================================================================
+# RFI - Relative Feature Importance
+# ============================================================================
+
+addAlgorithm(
+  name = "RFI",
+  fun = function(
+    data,
+    job,
+    instance,
+    n_repeats = 1,
+    conditioning_set = NULL,
+    sampler = "ConditionalARFSampler"
+  ) {
+    # Default conditioning set: first feature
+    if (is.null(conditioning_set)) {
+      conditioning_set <- instance$task$feature_names[1]
+    }
+
+    # Create sampler instance
+    sampler_instance <- switch(
+      sampler,
+      "ConditionalARFSampler" = ConditionalARFSampler$new(
+        instance$task,
+        verbose = FALSE
+      ),
+      "ConditionalGaussianSampler" = ConditionalGaussianSampler$new(
+        instance$task
+      ),
+      "ConditionalKNNSampler" = ConditionalKNNSampler$new(instance$task),
+      "ConditionalCtreeSampler" = ConditionalCtreeSampler$new(instance$task),
+      stop("Unknown sampler: ", sampler)
+    )
+
+    method <- RFI$new(
+      task = instance$task,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      conditioning_set = conditioning_set,
+      sampler = sampler_instance,
+      n_repeats = n_repeats
+    )
+
+    start_time <- Sys.time()
+    method$compute()
+    end_time <- Sys.time()
+
+    data.table::data.table(
+      importance = list(method$importance()),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type,
+      conditioning_set = list(conditioning_set)
+    )
+  }
+)
+
+# ============================================================================
+# LOCO - Leave-One-Covariate-Out
+# ============================================================================
+
+addAlgorithm(
+  name = "LOCO",
+  fun = function(data, job, instance, n_repeats = 1) {
+    method <- LOCO$new(
+      task = instance$task,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      n_repeats = n_repeats
+    )
+
+    start_time <- Sys.time()
+    method$compute()
+    end_time <- Sys.time()
+
+    data.table::data.table(
+      importance = list(method$importance()),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
+    )
+  }
+)
+
+# ============================================================================
+# MarginalSAGE - Marginal SAGE
+# ============================================================================
+
+addAlgorithm(
+  name = "MarginalSAGE",
+  fun = function(
+    data,
+    job,
+    instance,
+    n_permutations = 10,
+    sage_n_samples = 200
+  ) {
+    method <- MarginalSAGE$new(
+      task = instance$task,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      n_permutations = n_permutations,
+      n_samples = sage_n_samples
+    )
+
+    start_time <- Sys.time()
+    method$compute()
+    end_time <- Sys.time()
+
+    data.table::data.table(
+      importance = list(method$importance()),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
+    )
+  }
+)
+
+# ============================================================================
+# ConditionalSAGE - Conditional SAGE
+# ============================================================================
+
+addAlgorithm(
+  name = "ConditionalSAGE",
+  fun = function(
+    data,
+    job,
+    instance,
+    n_permutations = 10,
+
+    sage_n_samples = 200,
+    sampler = "ConditionalARFSampler"
+  ) {
+    # Create sampler instance
+    sampler_instance <- switch(
+      sampler,
+      "ConditionalARFSampler" = ConditionalARFSampler$new(
+        instance$task,
+        verbose = FALSE
+      ),
+      "ConditionalGaussianSampler" = ConditionalGaussianSampler$new(
+        instance$task
+      ),
+      "ConditionalKNNSampler" = ConditionalKNNSampler$new(instance$task),
+      "ConditionalCtreeSampler" = ConditionalCtreeSampler$new(instance$task),
+      stop("Unknown sampler: ", sampler)
+    )
+
+    method <- ConditionalSAGE$new(
+      task = instance$task,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      sampler = sampler_instance,
+      n_permutations = n_permutations,
+      n_samples = sage_n_samples
+    )
+
+    start_time <- Sys.time()
+    method$compute()
+    end_time <- Sys.time()
+
+    data.table::data.table(
+      importance = list(method$importance()),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type,
+      sampler = sampler
+    )
+  }
+)
+
+# ============================================================================
+# PFI_mlr3filters - Reference implementation from mlr3filters
+# ============================================================================
+
+addAlgorithm(
+  name = "PFI_mlr3filters",
+  fun = function(data, job, instance, n_repeats = 1) {
+    require(mlr3filters)
 
     filter_pfi <- flt(
       "permutation",
-      learner = learner,
-      measure = measure,
-      resampling = resampling,
-      nmc = n_permutations,
+      learner = instance$learner,
+      measure = instance$measure,
+      resampling = instance$resampling,
+      nmc = n_repeats,
       standardize = FALSE
     )
 
-    # Compute importance
     start_time <- Sys.time()
     filter_pfi$calculate(task = instance$task)
     end_time <- Sys.time()
-    runtime <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
-    # Create result list
     data.table::data.table(
       importance = list(as.data.table(filter_pfi)),
-      runtime = runtime,
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
       n_features = instance$n_features,
       n_samples = instance$n_samples,
-      task_type = task_type,
-      task_name = instance$name
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
+    )
+  }
+)
+
+# ============================================================================
+# PFI_iml - Reference implementation from iml package
+# ============================================================================
+
+addAlgorithm(
+  name = "PFI_iml",
+  fun = function(data, job, instance, n_repeats = 1) {
+    require(iml)
+
+    # iml requires a trained model, so we need to train first
+    # Use the first resampling iteration (train/test split)
+    train_ids <- instance$resampling$train_set(1)
+    test_ids <- instance$resampling$test_set(1)
+
+    # Clone learner to avoid modifying the instance
+    learner_clone <- instance$learner$clone(deep = TRUE)
+
+    # Train on training set
+    learner_clone$train(instance$task, row_ids = train_ids)
+
+    # Create iml Predictor object
+    # iml expects a predict function that returns predictions
+    predictor <- Predictor$new(
+      model = learner_clone,
+      data = instance$task$data(
+        rows = test_ids,
+        cols = instance$task$feature_names
+      ),
+      y = instance$task$data(
+        rows = test_ids,
+        cols = instance$task$target_names
+      )[[1]],
+      predict.function = function(model, newdata) {
+        # Create temporary task for prediction
+        temp_task <- instance$task$clone()
+        temp_task$select(colnames(newdata))
+        # Predict and return as vector
+        preds <- model$predict_newdata(newdata, task = temp_task)
+        if (instance$task_type == "classif") {
+          # For classification, iml expects probabilities for the positive class
+          # or just the response for binary
+          preds$response
+        } else {
+          preds$response
+        }
+      }
+    )
+
+    start_time <- Sys.time()
+    # Create FeatureImp object
+    # iml computes importance on initialization
+    imp <- FeatureImp$new(
+      predictor = predictor,
+      loss = ifelse(instance$task_type == "regr", "mse", "ce"),
+      n.repetitions = n_repeats,
+      compare = "difference" # Difference between permuted and original loss (matches xplainfi)
+    )
+
+    imp_results <- imp$results
+    end_time <- Sys.time()
+
+    # Convert iml results to standard format
+    # iml returns: feature, importance (difference), importance.05, importance.95
+    importance_dt <- data.table::data.table(
+      feature = imp_results$feature,
+      importance = imp_results$importance
+    )
+
+    data.table::data.table(
+      importance = list(importance_dt),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
+    )
+  }
+)
+
+# ============================================================================
+# PFI_vip - Reference implementation from vip package
+# ============================================================================
+
+addAlgorithm(
+  name = "PFI_vip",
+  fun = function(data, job, instance, n_repeats = 1) {
+    require(vip)
+
+    # vip requires a trained model, so we need to train first
+    # Use the first resampling iteration (train/test split)
+    train_ids <- instance$resampling$train_set(1)
+    test_ids <- instance$resampling$test_set(1)
+
+    # Clone learner to avoid modifying the instance
+    learner_clone <- instance$learner$clone(deep = TRUE)
+
+    # Train on training set
+    learner_clone$train(instance$task, row_ids = train_ids)
+
+    # Prepare data for vip
+    test_data <- instance$task$data(rows = test_ids)
+    target_name <- instance$task$target_names
+
+    # Determine metric based on task type
+    metric <- if (instance$task_type == "regr") "rmse" else "accuracy"
+
+    # Create wrapper predict function for vip
+    # vip expects a function(object, newdata) that returns predictions
+    pred_wrapper <- function(object, newdata) {
+      # Create temporary task for prediction
+      temp_task <- instance$task$clone()
+      temp_task$select(setdiff(colnames(newdata), target_name))
+
+      # Predict
+      preds <- object$predict_newdata(newdata, task = temp_task)
+
+      if (instance$task_type == "classif") {
+        # For classification, return class predictions
+        preds$response
+      } else {
+        # For regression, return numeric predictions
+        preds$response
+      }
+    }
+
+    start_time <- Sys.time()
+
+    # Compute permutation importance using vip
+    # vip uses nsim for number of permutations
+    imp_results <- vip::vi(
+      object = learner_clone,
+      method = "permute",
+      train = test_data,
+      target = target_name,
+      metric = metric,
+      nsim = n_repeats,
+      pred_wrapper = pred_wrapper
+    )
+
+    end_time <- Sys.time()
+
+    # Convert vip results to standard format
+    # vip returns: Variable, Importance
+    importance_dt <- data.table::as.data.table(imp_results)
+    data.table::setnames(
+      importance_dt,
+      c("Variable", "Importance"),
+      c("feature", "importance")
+    )
+
+    data.table::data.table(
+      importance = list(importance_dt),
+      runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+      n_features = instance$n_features,
+      n_samples = instance$n_samples,
+      task_type = instance$task_type,
+      task_name = instance$name,
+      learner_type = instance$learner_type
     )
   }
 )
