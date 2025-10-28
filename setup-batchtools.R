@@ -38,6 +38,7 @@ reg <- makeExperimentRegistry(
 #   verbose = FALSE
 # )
 source(here::here("R/helpers.R"))
+source(here::here("R/helpers-python.R"))
 source(here::here("R/problems.R"))
 source(here::here("R/algorithms.R"))
 
@@ -137,6 +138,16 @@ algo_designs <- list(
 
   # PFI_vip: Reference implementation from vip package
   PFI_vip = data.table(
+    n_repeats = exp_settings$n_repeats
+  ),
+
+  # PFI_fippy: Reference implementation from fippy package (Python)
+  PFI_fippy = data.table(
+    n_repeats = exp_settings$n_repeats
+  ),
+
+  # CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
+  CFI_fippy = data.table(
     n_repeats = exp_settings$n_repeats
   )
 )

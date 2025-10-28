@@ -427,3 +427,126 @@ addAlgorithm(
     )
   }
 )
+# ============================================================================
+# PFI_fippy - Reference implementation from fippy package (Python)
+# ============================================================================
+
+algo_PFI_fippy <- function(data, job, instance, n_repeats = 1) {
+  # Use first resampling iteration
+  train_ids <- instance$resampling$train_set(1)
+  test_ids <- instance$resampling$test_set(1)
+
+  # Convert to sklearn format
+  sklearn_data <- task_to_sklearn(instance$task, train_ids, test_ids)
+
+  # Create and train sklearn learner (ensures Python packages are available)
+  sklearn_learner <- create_sklearn_learner(
+    learner_type = instance$learner_type,
+    task_type = instance$task_type,
+    n_trees = 500,
+    random_state = 712937L
+  )
+
+  sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+
+  # Import fippy and create Explainer
+  fippy <- reticulate::import("fippy")
+  explainer <- fippy$Explainer$new(
+    model = sklearn_learner,
+    X_train = sklearn_data$X_train,
+    loss = if (instance$task_type == "regr") "mse" else "cross_entropy"
+  )
+
+  start_time <- Sys.time()
+
+  # Compute PFI using fippy
+  pfi_result <- explainer$pfi(
+    X_eval = sklearn_data$X_test,
+    y_eval = sklearn_data$y_test,
+    n_perm = as.integer(n_repeats)
+  )
+
+  end_time <- Sys.time()
+
+  # Convert to standard format
+  # fippy returns a dataframe with columns for each feature
+  importance_dt <- data.table::data.table(
+    feature = instance$task$feature_names,
+    importance = as.numeric(pfi_result$score$mean())
+  )
+
+  data.table::data.table(
+    importance = list(importance_dt),
+    runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+    n_features = instance$n_features,
+    n_samples = instance$n_samples,
+    task_type = instance$task_type,
+    task_name = instance$name,
+    learner_type = instance$learner_type
+  )
+}
+
+addAlgorithm(name = "PFI_fippy", fun = algo_PFI_fippy)
+
+# ============================================================================
+# CFI_fippy - Conditional Feature Importance from fippy (Python, Gaussian sampler)
+# ============================================================================
+
+algo_CFI_fippy <- function(data, job, instance, n_repeats = 1) {
+  # Use first resampling iteration
+  train_ids <- instance$resampling$train_set(1)
+  test_ids <- instance$resampling$test_set(1)
+
+  # Convert to sklearn format
+  sklearn_data <- task_to_sklearn(instance$task, train_ids, test_ids)
+
+  # Create and train sklearn learner (ensures Python packages are available)
+  sklearn_learner <- create_sklearn_learner(
+    learner_type = instance$learner_type,
+    task_type = instance$task_type,
+    n_trees = 500,
+    random_state = 42L
+  )
+
+  sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+
+  # Import fippy and create Explainer with Gaussian sampler
+  fippy <- reticulate::import("fippy")
+  sampler <- fippy$GaussianSampler$new(sklearn_data$X_train)
+
+  explainer <- fippy$Explainer$new(
+    model = sklearn_learner,
+    X_train = sklearn_data$X_train,
+    loss = if (instance$task_type == "regr") "mse" else "cross_entropy",
+    sampler = sampler
+  )
+
+  start_time <- Sys.time()
+
+  # Compute CFI using fippy
+  cfi_result <- explainer$cfi(
+    X_eval = sklearn_data$X_test,
+    y_eval = sklearn_data$y_test,
+    n_perm = as.integer(n_repeats)
+  )
+
+  end_time <- Sys.time()
+
+  # Convert to standard format
+  importance_dt <- data.table::data.table(
+    feature = instance$task$feature_names,
+    importance = as.numeric(cfi_result$score$mean())
+  )
+
+  data.table::data.table(
+    importance = list(importance_dt),
+    runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+    n_features = instance$n_features,
+    n_samples = instance$n_samples,
+    task_type = instance$task_type,
+    task_name = instance$name,
+    learner_type = instance$learner_type
+  )
+}
+
+addAlgorithm(name = "CFI_fippy", fun = algo_CFI_fippy)
