@@ -4,7 +4,11 @@
 # This creates an ephemeral environment with uv
 .ensure_python_packages <- function() {
   reticulate::py_require(
-    packages = c("scikit-learn", "git+https://github.com/gcskoenig/fippy"),
+    packages = c(
+      "scikit-learn",
+      "git+https://github.com/gcskoenig/fippy",
+      "sage-importance"  # Official SAGE implementation
+    ),
     python_version = "3.10"
   )
 }

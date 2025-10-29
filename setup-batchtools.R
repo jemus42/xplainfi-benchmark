@@ -149,6 +149,11 @@ algo_designs <- list(
   # CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
   CFI_fippy = data.table(
     n_repeats = exp_settings$n_repeats
+  ),
+
+  # KernelSAGE: Official SAGE implementation with kernel estimator
+  KernelSAGE = data.table(
+    sage_n_samples = exp_settings$sage_n_samples
   )
 )
 
