@@ -36,6 +36,9 @@ This directory contains a comprehensive benchmark setup using `batchtools` to co
 7. **PFI_mlr3filters** - PFI from mlr3filters package
 8. **PFI_iml** - PFI from iml package (using `compare = "difference"`)
 9. **PFI_vip** - PFI from vip package
+10. **PFI_fippy** - PFI from fippy Python package
+11. **CFI_fippy** - CFI from fippy Python package (Gaussian sampler)
+12. **KernelSAGE** - Official SAGE implementation with kernel estimator (iancovert/sage)
 
 ## Usage
 
@@ -66,18 +69,18 @@ The benchmark is configured via `config.R` with the following default settings:
 - **n_permutations**: 5, 10, 30 (for SAGE methods)
 - **sage_n_samples**: 200 (marginalization dataset size for SAGE methods)
 - **Samplers**: arf, gaussian, knn, ctree (for CFI, RFI, ConditionalSAGE)
-- **Replications**: 3 independent runs per configuration
+- **Replications**: N independent runs per configuration (TBD)
 - **Random seed**: 2025
 
 ## Experiment Design
 
 The benchmark creates a comprehensive factorial design combining:
-- **6 problems** × **8 algorithms** × **4 learner types** × **parameter combinations** × **3 replications**
+- **6 problems** × **12 algorithms** × **4 learner types** × **parameter combinations** × **N replications**
 - Problems vary in sample size and feature dimensions (where applicable)
 - Each problem is paired with all learner types (featureless, linear, ranger, nnet)
 - Fixed `n_trees = 500` for ranger learner (not varied across experiments)
 - Sampler variations for CFI, RFI, and ConditionalSAGE
-- Reference implementations (mlr3filters, iml, vip) for validation
+- Reference implementations (iml, vip, fippy, sage) for validation
 
 **Key design principle**: Learner type is part of the problem design (not algorithm design), ensuring fair comparison across methods with identical models.
 
@@ -111,12 +114,17 @@ This is achieved by:
 ## Package Dependencies
 
 The benchmark requires the following R packages:
-- Core: `xplainfi`, `mlr3`, `mlr3learners`, `mlr3pipelines`, `batchtools`
+- Core: `xplainfi`, `mlr3`, `mlr3learners`, `mlr3pipelines`, `batchtools`, `reticulate`
 - Data: `data.table`, `mlbench`, `mlr3data`
 - Samplers: `arf`, `partykit`, `mvtnorm`
 - Reference implementations: `iml`, `vip`
 - Learners: `nnet` (neural networks)
 - Utilities: `checkmate`, `digest`, `here`, `cli`, `fs`
+
+Python dependencies (managed via `reticulate::py_require()` with `uv`):
+- `scikit-learn` - Machine learning models for Python implementations
+- `fippy` - Python reference implementation for PFI and CFI
+- `sage-importance` - Official SAGE implementation with KernelSAGE estimator
 
 ## Notes
 
@@ -124,3 +132,4 @@ The benchmark requires the following R packages:
 - Each job runs with isolated random seeds for reproducibility
 - Helper functions (`create_learner()`, `create_sampler()`, `create_measure()`, `create_resampling()`) ensure consistent component creation
 - Sampler compatibility: Some samplers may not support all data types (e.g., Gaussian sampler doesn't support mixed feature types)
+- Python/fippy integration: Categorical features are automatically one-hot encoded for scikit-learn compatibility
