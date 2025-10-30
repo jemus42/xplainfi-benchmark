@@ -43,6 +43,35 @@ source(here::here("R/problems.R"))
 source(here::here("R/algorithms.R"))
 
 # ============================================================================
+# Register Problems with batchtools
+# ============================================================================
+
+addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = exp_settings$seed)
+addProblem(name = "peak", data = NULL, fun = prob_peak, seed = exp_settings$seed)
+addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = exp_settings$seed)
+addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = exp_settings$seed)
+addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = exp_settings$seed)
+addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = exp_settings$seed)
+
+# ============================================================================
+# Register Algorithms with batchtools
+# ============================================================================
+
+addAlgorithm(name = "PFI", fun = algo_PFI)
+addAlgorithm(name = "CFI", fun = algo_CFI)
+addAlgorithm(name = "RFI", fun = algo_RFI)
+addAlgorithm(name = "LOCO", fun = algo_LOCO)
+addAlgorithm(name = "MarginalSAGE", fun = algo_MarginalSAGE)
+addAlgorithm(name = "ConditionalSAGE", fun = algo_ConditionalSAGE)
+addAlgorithm(name = "PFI_iml", fun = algo_PFI_iml)
+addAlgorithm(name = "PFI_vip", fun = algo_PFI_vip)
+addAlgorithm(name = "PFI_fippy", fun = algo_PFI_fippy)
+addAlgorithm(name = "CFI_fippy", fun = algo_CFI_fippy)
+addAlgorithm(name = "MarginalSAGE_fippy", fun = algo_MarginalSAGE_fippy)
+addAlgorithm(name = "ConditionalSAGE_fippy", fun = algo_ConditionalSAGE_fippy)
+addAlgorithm(name = "KernelSAGE", fun = algo_KernelSAGE)
+
+# ============================================================================
 # Problem Designs
 # ============================================================================
 

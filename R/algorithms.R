@@ -27,7 +27,6 @@ algo_PFI <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   )
 }
 
-addAlgorithm(name = "PFI", fun = algo_PFI)
 
 # ============================================================================
 # CFI - Conditional Feature Importance
@@ -66,7 +65,6 @@ algo_CFI <- function(
   )
 }
 
-addAlgorithm(name = "CFI", fun = algo_CFI)
 
 # ============================================================================
 # RFI - Relative Feature Importance
@@ -113,7 +111,6 @@ algo_RFI <- function(
   )
 }
 
-addAlgorithm(name = "RFI", fun = algo_RFI)
 
 # ============================================================================
 # LOCO - Leave-One-Covariate-Out
@@ -142,7 +139,6 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   )
 }
 
-addAlgorithm(name = "LOCO", fun = algo_LOCO)
 
 # ============================================================================
 # MarginalSAGE - Marginal SAGE
@@ -178,7 +174,6 @@ algo_MarginalSAGE <- function(
   )
 }
 
-addAlgorithm(name = "MarginalSAGE", fun = algo_MarginalSAGE)
 
 # ============================================================================
 # ConditionalSAGE - Conditional SAGE
@@ -219,7 +214,6 @@ algo_ConditionalSAGE <- function(
   )
 }
 
-addAlgorithm(name = "ConditionalSAGE", fun = algo_ConditionalSAGE)
 
 # ============================================================================
 # PFI_mlr3filters - Reference implementation from mlr3filters
@@ -332,7 +326,6 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   )
 }
 
-addAlgorithm(name = "PFI_iml", fun = algo_PFI_iml)
 
 # ============================================================================
 # PFI_vip - Reference implementation from vip package
@@ -417,7 +410,6 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   )
 }
 
-addAlgorithm(name = "PFI_vip", fun = algo_PFI_vip)
 
 # ============================================================================
 # PFI_fippy - Reference implementation from fippy package (Python)
@@ -499,7 +491,6 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   )
 }
 
-addAlgorithm(name = "PFI_fippy", fun = algo_PFI_fippy)
 
 # ============================================================================
 # CFI_fippy - Conditional Feature Importance from fippy (Python, Gaussian sampler)
@@ -581,7 +572,6 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   )
 }
 
-addAlgorithm(name = "CFI_fippy", fun = algo_CFI_fippy)
 
 # ============================================================================
 # MarginalSAGE_fippy - Marginal SAGE from fippy package (Python)
@@ -675,7 +665,6 @@ algo_MarginalSAGE_fippy <- function(
   )
 }
 
-addAlgorithm(name = "MarginalSAGE_fippy", fun = algo_MarginalSAGE_fippy)
 
 # ============================================================================
 # ConditionalSAGE_fippy - Conditional SAGE from fippy package (Python)
@@ -769,7 +758,6 @@ algo_ConditionalSAGE_fippy <- function(
   )
 }
 
-addAlgorithm(name = "ConditionalSAGE_fippy", fun = algo_ConditionalSAGE_fippy)
 
 # ============================================================================
 # KernelSAGE - Official SAGE implementation with kernel estimator
@@ -856,4 +844,3 @@ algo_KernelSAGE <- function(
   )
 }
 
-addAlgorithm(name = "KernelSAGE", fun = algo_KernelSAGE)
