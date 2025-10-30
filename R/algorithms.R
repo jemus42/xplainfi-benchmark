@@ -648,7 +648,7 @@ algo_MarginalSAGE_fippy <- function(
     X_eval = sklearn_data$X_test,
     y_eval = sklearn_data$y_test,
     nr_runs = as.integer(n_permutations),
-    nr_resample_marginalize = as.integer(n_samples),
+    nr_resample_marginalize = as.integer(sage_n_samples),
     detect_convergence = detect_convergence
   )
 
@@ -742,7 +742,7 @@ algo_ConditionalSAGE_fippy <- function(
     X_eval = sklearn_data$X_test,
     y_eval = sklearn_data$y_test,
     nr_runs = as.integer(n_permutations),
-    nr_resample_marginalize = as.integer(n_samples),
+    nr_resample_marginalize = as.integer(sage_n_samples),
     detect_convergence = detect_convergence
   )
 

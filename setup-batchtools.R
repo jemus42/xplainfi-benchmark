@@ -154,15 +154,13 @@ algo_designs <- list(
   # MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
   MarginalSAGE_fippy = data.table(
     n_permutations = exp_settings$n_permutations,
-    sage_n_samples = exp_settings$sage_n_samples,
-    detect_convergence = TRUE
+    sage_n_samples = exp_settings$sage_n_samples
   ),
 
   # ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
   ConditionalSAGE_fippy = data.table(
     n_permutations = exp_settings$n_permutations,
-    sage_n_samples = exp_settings$sage_n_samples,
-    detect_convergence = TRUE
+    sage_n_samples = exp_settings$sage_n_samples
   ),
 
   # KernelSAGE: Official SAGE implementation with kernel estimator
