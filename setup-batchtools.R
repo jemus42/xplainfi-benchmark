@@ -26,7 +26,7 @@ reg <- makeExperimentRegistry(
   file.dir = reg_path,
   packages = c("mlr3learners", "xplainfi"),
   seed = exp_settings$seed,
-  source = here::here(c("R/helpers.R", "config.R"))
+  source = here::here(c("R/helpers.R", "R/helpers-python.R", "config.R"))
 )
 
 
@@ -149,6 +149,20 @@ algo_designs <- list(
   # CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
   CFI_fippy = data.table(
     n_repeats = exp_settings$n_repeats
+  ),
+
+  # MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
+  MarginalSAGE_fippy = data.table(
+    n_permutations = exp_settings$n_permutations,
+    sage_n_samples = exp_settings$sage_n_samples,
+    detect_convergence = TRUE
+  ),
+
+  # ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
+  ConditionalSAGE_fippy = data.table(
+    n_permutations = exp_settings$n_permutations,
+    sage_n_samples = exp_settings$sage_n_samples,
+    detect_convergence = TRUE
   ),
 
   # KernelSAGE: Official SAGE implementation with kernel estimator

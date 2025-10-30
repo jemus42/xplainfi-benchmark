@@ -50,7 +50,7 @@ exp_settings <- list(
   n_repeats = c(1, 10, 100),
   # For SAGE permutations
   n_permutations = c(5, 10, 30),
-  # Size of reference dataset in SAGE methods
+  # Size of sampled data used for Monte Carlo integration in SAGE methods
   sage_n_samples = 200L,
   # Types of learners to use for each method, uses create_learner helper
   learner_types = c("featureless", "linear", "ranger", "nnet"),

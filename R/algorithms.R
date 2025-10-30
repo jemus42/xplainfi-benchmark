@@ -428,10 +428,18 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   train_ids <- instance$resampling$train_set(1)
   test_ids <- instance$resampling$test_set(1)
 
-  # Convert to sklearn format
-  sklearn_data <- task_to_sklearn(instance$task, train_ids, test_ids)
+  # Ensure Python packages (including pandas) are available before data conversion
+  .ensure_python_packages()
 
-  # Create and train sklearn learner (ensures Python packages are available)
+  # Convert to sklearn format with pandas DataFrames (fippy samplers need .columns)
+  sklearn_data <- task_to_sklearn(
+    instance$task,
+    train_ids,
+    test_ids,
+    as_pandas = TRUE
+  )
+
+  # Create and train sklearn learner
   sklearn_learner <- create_sklearn_learner(
     learner_type = instance$learner_type,
     task_type = instance$task_type,
@@ -441,12 +449,22 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 
   sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
 
-  # Import fippy and create Explainer
+  # Import fippy and create Explainer with SimpleSampler for marginal PFI
   fippy <- reticulate::import("fippy")
-  explainer <- fippy$Explainer$new(
-    model = sklearn_learner,
+  sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+  sampler <- fippy$samplers$SimpleSampler(sklearn_data$X_train)
+  loss_fn <- if (instance$task_type == "regr") {
+    sklearn_metrics$mean_squared_error
+  } else {
+    sklearn_metrics$log_loss
+  }
+
+  explainer <- fippy$Explainer(
+    predict = sklearn_learner$predict, # Pass the predict method, not the model
     X_train = sklearn_data$X_train,
-    loss = if (instance$task_type == "regr") "mse" else "cross_entropy"
+    loss = loss_fn, # Pass function object, not string
+    sampler = sampler
   )
 
   start_time <- Sys.time()
@@ -455,16 +473,19 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   pfi_result <- explainer$pfi(
     X_eval = sklearn_data$X_test,
     y_eval = sklearn_data$y_test,
-    n_perm = as.integer(n_repeats)
+    nr_runs = as.integer(n_repeats)
   )
 
   end_time <- Sys.time()
 
   # Convert to standard format
-  # fippy returns a dataframe with columns for each feature
+  # fippy returns an explanation object with fi_means_stds() method
+  fi_series <- pfi_result$fi_means_stds()
   importance_dt <- data.table::data.table(
     feature = instance$task$feature_names,
-    importance = as.numeric(pfi_result$score$mean())
+    importance = sapply(instance$task$feature_names, function(f) {
+      as.numeric(fi_series[[f]])
+    })
   )
 
   data.table::data.table(
@@ -489,10 +510,18 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   train_ids <- instance$resampling$train_set(1)
   test_ids <- instance$resampling$test_set(1)
 
-  # Convert to sklearn format
-  sklearn_data <- task_to_sklearn(instance$task, train_ids, test_ids)
+  # Ensure Python packages (including pandas) are available before data conversion
+  .ensure_python_packages()
 
-  # Create and train sklearn learner (ensures Python packages are available)
+  # Convert to sklearn format with pandas DataFrames (fippy samplers need .columns)
+  sklearn_data <- task_to_sklearn(
+    instance$task,
+    train_ids,
+    test_ids,
+    as_pandas = TRUE
+  )
+
+  # Create and train sklearn learner
   sklearn_learner <- create_sklearn_learner(
     learner_type = instance$learner_type,
     task_type = instance$task_type,
@@ -504,12 +533,19 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 
   # Import fippy and create Explainer with Gaussian sampler
   fippy <- reticulate::import("fippy")
-  sampler <- fippy$GaussianSampler$new(sklearn_data$X_train)
+  sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-  explainer <- fippy$Explainer$new(
-    model = sklearn_learner,
+  sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
+  loss_fn <- if (instance$task_type == "regr") {
+    sklearn_metrics$mean_squared_error
+  } else {
+    sklearn_metrics$log_loss
+  }
+
+  explainer <- fippy$Explainer(
+    predict = sklearn_learner$predict, # Pass the predict method, not the model
     X_train = sklearn_data$X_train,
-    loss = if (instance$task_type == "regr") "mse" else "cross_entropy",
+    loss = loss_fn, # Pass function object, not string
     sampler = sampler
   )
 
@@ -519,15 +555,19 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
   cfi_result <- explainer$cfi(
     X_eval = sklearn_data$X_test,
     y_eval = sklearn_data$y_test,
-    n_perm = as.integer(n_repeats)
+    nr_runs = as.integer(n_repeats)
   )
 
   end_time <- Sys.time()
 
   # Convert to standard format
+  # fippy returns an explanation object with fi_means_stds() method
+  fi_series <- cfi_result$fi_means_stds()
   importance_dt <- data.table::data.table(
     feature = instance$task$feature_names,
-    importance = as.numeric(cfi_result$score$mean())
+    importance = sapply(instance$task$feature_names, function(f) {
+      as.numeric(fi_series[[f]])
+    })
   )
 
   data.table::data.table(
@@ -542,6 +582,194 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 }
 
 addAlgorithm(name = "CFI_fippy", fun = algo_CFI_fippy)
+
+# ============================================================================
+# MarginalSAGE_fippy - Marginal SAGE from fippy package (Python)
+# ============================================================================
+
+algo_MarginalSAGE_fippy <- function(
+  data = NULL,
+  job = NULL,
+  instance,
+  n_permutations = 10,
+  sage_n_samples = 10,
+  detect_convergence = TRUE
+) {
+  # Use first resampling iteration
+  train_ids <- instance$resampling$train_set(1)
+  test_ids <- instance$resampling$test_set(1)
+
+  # Ensure Python packages (including pandas) are available before data conversion
+  .ensure_python_packages()
+
+  # Convert to sklearn format with pandas DataFrames (fippy samplers need .columns)
+  sklearn_data <- task_to_sklearn(
+    instance$task,
+    train_ids,
+    test_ids,
+    as_pandas = TRUE
+  )
+
+  # Create and train sklearn learner
+  sklearn_learner <- create_sklearn_learner(
+    learner_type = instance$learner_type,
+    task_type = instance$task_type,
+    n_trees = 500,
+    random_state = job$seed
+  )
+
+  sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+
+  # Import fippy and create Explainer with GaussianSampler
+  fippy <- reticulate::import("fippy")
+  sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+  sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
+  loss_fn <- if (instance$task_type == "regr") {
+    sklearn_metrics$mean_squared_error
+  } else {
+    sklearn_metrics$log_loss
+  }
+
+  explainer <- fippy$Explainer(
+    predict = sklearn_learner$predict,
+    X_train = sklearn_data$X_train,
+    loss = loss_fn,
+    sampler = sampler
+  )
+
+  start_time <- Sys.time()
+
+  # Compute Marginal SAGE using fippy
+  # nr_runs: number of permutation orderings (like n_permutations in xplainfi)
+  # nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
+  # Returns tuple (explanation, orderings) - we only need explanation
+  sage_result <- explainer$msage(
+    X_eval = sklearn_data$X_test,
+    y_eval = sklearn_data$y_test,
+    nr_runs = as.integer(n_permutations),
+    nr_resample_marginalize = as.integer(n_samples),
+    detect_convergence = detect_convergence
+  )
+
+  end_time <- Sys.time()
+
+  # Extract explanation object (first element of tuple)
+  explanation <- sage_result[[1]]
+  fi_series <- explanation$fi_means_stds()
+  importance_dt <- data.table::data.table(
+    feature = instance$task$feature_names,
+    importance = sapply(instance$task$feature_names, function(f) {
+      as.numeric(fi_series[[f]])
+    })
+  )
+
+  data.table::data.table(
+    importance = list(importance_dt),
+    runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+    n_features = instance$n_features,
+    n_samples = instance$n_samples,
+    task_type = instance$task_type,
+    task_name = instance$name,
+    learner_type = instance$learner_type
+  )
+}
+
+addAlgorithm(name = "MarginalSAGE_fippy", fun = algo_MarginalSAGE_fippy)
+
+# ============================================================================
+# ConditionalSAGE_fippy - Conditional SAGE from fippy package (Python)
+# ============================================================================
+
+algo_ConditionalSAGE_fippy <- function(
+  data = NULL,
+  job = NULL,
+  instance,
+  n_permutations = 10,
+  sage_n_samples = 10,
+  detect_convergence = TRUE
+) {
+  # Use first resampling iteration
+  train_ids <- instance$resampling$train_set(1)
+  test_ids <- instance$resampling$test_set(1)
+
+  # Ensure Python packages (including pandas) are available before data conversion
+  .ensure_python_packages()
+
+  # Convert to sklearn format with pandas DataFrames (fippy samplers need .columns)
+  sklearn_data <- task_to_sklearn(
+    instance$task,
+    train_ids,
+    test_ids,
+    as_pandas = TRUE
+  )
+
+  # Create and train sklearn learner
+  sklearn_learner <- create_sklearn_learner(
+    learner_type = instance$learner_type,
+    task_type = instance$task_type,
+    n_trees = 500,
+    random_state = job$seed
+  )
+
+  sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+
+  # Import fippy and create Explainer with GaussianSampler
+  fippy <- reticulate::import("fippy")
+  sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+  sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
+  loss_fn <- if (instance$task_type == "regr") {
+    sklearn_metrics$mean_squared_error
+  } else {
+    sklearn_metrics$log_loss
+  }
+
+  explainer <- fippy$Explainer(
+    predict = sklearn_learner$predict,
+    X_train = sklearn_data$X_train,
+    loss = loss_fn,
+    sampler = sampler
+  )
+
+  start_time <- Sys.time()
+
+  # Compute Conditional SAGE using fippy
+  # nr_runs: number of permutation orderings (like n_permutations in xplainfi)
+  # nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
+  # Returns tuple (explanation, orderings) - we only need explanation
+  sage_result <- explainer$csage(
+    X_eval = sklearn_data$X_test,
+    y_eval = sklearn_data$y_test,
+    nr_runs = as.integer(n_permutations),
+    nr_resample_marginalize = as.integer(n_samples),
+    detect_convergence = detect_convergence
+  )
+
+  end_time <- Sys.time()
+
+  # Extract explanation object (first element of tuple)
+  explanation <- sage_result[[1]]
+  fi_series <- explanation$fi_means_stds()
+  importance_dt <- data.table::data.table(
+    feature = instance$task$feature_names,
+    importance = sapply(instance$task$feature_names, function(f) {
+      as.numeric(fi_series[[f]])
+    })
+  )
+
+  data.table::data.table(
+    importance = list(importance_dt),
+    runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+    n_features = instance$n_features,
+    n_samples = instance$n_samples,
+    task_type = instance$task_type,
+    task_name = instance$name,
+    learner_type = instance$learner_type
+  )
+}
+
+addAlgorithm(name = "ConditionalSAGE_fippy", fun = algo_ConditionalSAGE_fippy)
 
 # ============================================================================
 # KernelSAGE - Official SAGE implementation with kernel estimator
@@ -597,9 +825,11 @@ algo_KernelSAGE <- function(
 
   # Compute SAGE values
   # n_samples parameter controls number of evaluations
+  # Convert to numpy arrays explicitly to avoid shape attribute errors
+  np <- reticulate::import("numpy", convert = FALSE)
   explanation <- estimator(
-    X = sklearn_data$X_test,
-    Y = sklearn_data$y_test,
+    X = np$array(sklearn_data$X_test),
+    Y = np$array(sklearn_data$y_test),
     n_samples = n_samples, # NULL uses default convergence-based stopping
     detect_convergence = is.null(n_samples), # Only if n_samples not specified
     verbose = FALSE,

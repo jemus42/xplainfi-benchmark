@@ -33,12 +33,13 @@ This directory contains a comprehensive benchmark setup using `batchtools` to co
 6. **ConditionalSAGE** - SAGE with conditional sampling (supports arf, gaussian, knn, ctree samplers)
 
 ### Reference Implementations
-7. **PFI_mlr3filters** - PFI from mlr3filters package
-8. **PFI_iml** - PFI from iml package (using `compare = "difference"`)
-9. **PFI_vip** - PFI from vip package
-10. **PFI_fippy** - PFI from fippy Python package
-11. **CFI_fippy** - CFI from fippy Python package (Gaussian sampler)
-12. **KernelSAGE** - Official SAGE implementation with kernel estimator (iancovert/sage)
+7. **PFI_iml** - PFI from iml package (using `compare = "difference"`)
+8. **PFI_vip** - PFI from vip package
+9. **PFI_fippy** - PFI from fippy Python package (SimpleSampler)
+10. **CFI_fippy** - CFI from fippy Python package (Gaussian sampler)
+11. **MarginalSAGE_fippy** - Marginal SAGE from fippy Python package
+12. **ConditionalSAGE_fippy** - Conditional SAGE from fippy Python package (Gaussian sampler)
+13. **KernelSAGE** - Official SAGE implementation with kernel estimator (iancovert/sage)
 
 ## Usage
 
@@ -75,12 +76,12 @@ The benchmark is configured via `config.R` with the following default settings:
 ## Experiment Design
 
 The benchmark creates a comprehensive factorial design combining:
-- **6 problems** × **12 algorithms** × **4 learner types** × **parameter combinations** × **N replications**
+- **6 problems** × **13 algorithms** × **4 learner types** × **parameter combinations** × **N replications**
 - Problems vary in sample size and feature dimensions (where applicable)
 - Each problem is paired with all learner types (featureless, linear, ranger, nnet)
 - Fixed `n_trees = 500` for ranger learner (not varied across experiments)
 - Sampler variations for CFI, RFI, and ConditionalSAGE
-- Reference implementations (iml, vip, fippy, sage) for validation
+- Reference implementations from iml, vip, fippy (PFI, CFI, Marginal/Conditional SAGE), and sage (KernelSAGE) for validation
 
 **Key design principle**: Learner type is part of the problem design (not algorithm design), ensuring fair comparison across methods with identical models.
 
@@ -123,7 +124,8 @@ The benchmark requires the following R packages:
 
 Python dependencies (managed via `reticulate::py_require()` with `uv`):
 - `scikit-learn` - Machine learning models for Python implementations
-- `fippy` - Python reference implementation for PFI and CFI
+- `pandas` - Required for fippy (DataFrames with `.columns`, Series with `.to_numpy()`)
+- `fippy` - Python reference implementation for PFI, CFI, Marginal SAGE, and Conditional SAGE
 - `sage-importance` - Official SAGE implementation with KernelSAGE estimator
 
 ## Notes

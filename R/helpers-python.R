@@ -5,18 +5,20 @@
 .ensure_python_packages <- function() {
   reticulate::py_require(
     packages = c(
+      "pandas",  # Required for fippy samplers (DataFrames with .columns)
       "scikit-learn",
-      "git+https://github.com/gcskoenig/fippy",
+      # Use fork with fix for .to_numpy() bug (handles numpy arrays and scalars)
+      "git+https://github.com/jemus42/fippy@fix-rfi-to-numpy-bug",
       "sage-importance"  # Official SAGE implementation
-    ),
-    python_version = "3.10"
+    )
   )
 }
 
 # Helper function to convert mlr3 task to scikit-learn format
 # Returns list with X_train, X_test, y_train, y_test
 # Handles categorical features via one-hot encoding
-task_to_sklearn <- function(task, train_ids, test_ids) {
+# If as_pandas=TRUE, returns pandas DataFrames (needed for fippy samplers)
+task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
   # Get training data
   train_data <- task$data(rows = train_ids)
   X_train <- train_data[, task$feature_names, with = FALSE]
@@ -53,13 +55,25 @@ task_to_sklearn <- function(task, train_ids, test_ids) {
     X_test <- encoded_data[(n_train + 1):nrow(encoded_data), ]
   }
 
-  # Convert to matrices/vectors
-  list(
-    X_train = as.matrix(X_train),
-    X_test = as.matrix(X_test),
-    y_train = as.vector(y_train),
-    y_test = as.vector(y_test)
-  )
+  if (as_pandas) {
+    # Convert to pandas DataFrames/Series for fippy
+    # Both X and y need pandas objects (DataFrames have .columns, Series have .to_numpy())
+    pd <- reticulate::import("pandas", convert = FALSE)
+    list(
+      X_train = pd$DataFrame(as.matrix(X_train), columns = names(X_train)),
+      X_test = pd$DataFrame(as.matrix(X_test), columns = names(X_test)),
+      y_train = pd$Series(as.vector(y_train)),
+      y_test = pd$Series(as.vector(y_test))
+    )
+  } else {
+    # Convert to matrices/vectors for sage and sklearn
+    list(
+      X_train = as.matrix(X_train),
+      X_test = as.matrix(X_test),
+      y_train = as.vector(y_train),
+      y_test = as.vector(y_test)
+    )
+  }
 }
 
 # Helper function to create scikit-learn learner
