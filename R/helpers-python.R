@@ -3,16 +3,18 @@
 # Declare Python requirements once
 # This creates an ephemeral environment with uv
 .ensure_python_packages <- function() {
-	reticulate::py_require(
-		packages = c(
-			"pandas", # Required for fippy samplers (DataFrames with .columns)
-			"scikit-learn",
-			# Fork for .to_numpy() bug only relevant in RFI
-			# "git+https://github.com/jemus42/fippy@fix-rfi-to-numpy-bug",
-			"git+https://github.com/gcskoenig/fippy",
-			"sage-importance" # Official SAGE implementation
+	if (!reticulate::py_available()) {
+		reticulate::py_require(
+			packages = c(
+				"pandas", # Required for fippy samplers (DataFrames with .columns)
+				"scikit-learn",
+				# Fork for .to_numpy() bug only relevant in RFI
+				# "git+https://github.com/jemus42/fippy@fix-rfi-to-numpy-bug",
+				"git+https://github.com/gcskoenig/fippy",
+				"sage-importance" # Official SAGE implementation
+			)
 		)
-	)
+	}
 }
 
 # Helper function to convert mlr3 task to scikit-learn format
@@ -57,6 +59,7 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	}
 
 	if (as_pandas) {
+		.ensure_python_packages()
 		# Convert to pandas DataFrames/Series for fippy
 		# Both X and y need pandas objects (DataFrames have .columns, Series have .to_numpy())
 		pd <- reticulate::import("pandas", convert = FALSE)
@@ -85,7 +88,6 @@ create_sklearn_learner <- function(
 	random_state = 42L
 ) {
 	.ensure_python_packages()
-
 	sklearn <- reticulate::import("sklearn")
 
 	if (learner_type == "featureless") {
