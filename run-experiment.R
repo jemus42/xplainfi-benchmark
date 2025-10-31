@@ -16,14 +16,14 @@ tab = unwrap(getJobTable())
 # Submit all jobs
 submitJobs(findNotSubmitted())
 
-ids = tab[, .SD[sample(nrow(.SD), 1)], by = c("algorithm", "problem")]
+ids = tab[repl == 1, .SD[sample(nrow(.SD), 1)], by = c("algorithm", "problem")]
 setkeyv(ids, "job.id")
-ids[, .(job.id, algorithm, problem)]
+ids[, .(job.id, algorithm, problem, sampler, learner_type)]
 
 ids[, .(job.id)] |>
-  findNotSubmitted() |>
-  # head(3) |>
-  submitJobs()
+	findNotSubmitted() |>
+	# head(3) |>
+	submitJobs()
 
 
 getStatus()
