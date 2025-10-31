@@ -91,7 +91,7 @@ prob_designs <- list(
 
   # Bike sharing: real-world data, fixed dimensions
   bike_sharing = CJ(
-    n_samples = exp_settings$n_samples,
+    # n_samples = exp_settings$n_samples,
     learner_type = exp_settings$learner_types
   ),
 
