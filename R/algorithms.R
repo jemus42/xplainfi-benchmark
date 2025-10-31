@@ -628,13 +628,15 @@ algo_MarginalSAGE_fippy <- function(
 	start_time <- Sys.time()
 
 	# Compute Marginal SAGE using fippy
-	# nr_runs: number of permutation orderings (like n_permutations in xplainfi)
+	# nr_orderings: number of permutation orderings (like n_permutations in xplainfi)
+	# nr_runs: how often each value function is computed (no xplainfi equivalent, use default 1)
 	# nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
 	# Returns tuple (explanation, orderings) - we only need explanation
 	sage_result <- explainer$msage(
 		X_eval = sklearn_data$X_test,
 		y_eval = sklearn_data$y_test,
-		nr_runs = as.integer(n_permutations),
+		nr_orderings = as.integer(n_permutations),
+		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
 		detect_convergence = detect_convergence
 	)
@@ -721,13 +723,15 @@ algo_ConditionalSAGE_fippy <- function(
 	start_time <- Sys.time()
 
 	# Compute Conditional SAGE using fippy
-	# nr_runs: number of permutation orderings (like n_permutations in xplainfi)
+	# nr_orderings: number of permutation orderings (like n_permutations in xplainfi)
+	# nr_runs: how often each value function is computed (no xplainfi equivalent, use default 1)
 	# nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
 	# Returns tuple (explanation, orderings) - we only need explanation
 	sage_result <- explainer$csage(
 		X_eval = sklearn_data$X_test,
 		y_eval = sklearn_data$y_test,
-		nr_runs = as.integer(n_permutations),
+		nr_orderings = as.integer(n_permutations),
+		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
 		detect_convergence = detect_convergence
 	)
