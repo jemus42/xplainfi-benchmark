@@ -75,14 +75,8 @@ algo_RFI <- function(
 	job = NULL,
 	instance,
 	n_repeats = 1,
-	conditioning_set = NULL,
 	sampler = "arf"
 ) {
-	# Default conditioning set: first 2 feature
-	if (is.null(conditioning_set)) {
-		conditioning_set <- instance$task$feature_names[1:2]
-	}
-
 	# Create sampler instance
 	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
 
@@ -91,7 +85,7 @@ algo_RFI <- function(
 		learner = instance$learner,
 		measure = instance$measure,
 		resampling = instance$resampling,
-		conditioning_set = conditioning_set,
+		conditioning_set = instance$conditioning_set,
 		sampler = sampler_instance,
 		n_repeats = n_repeats
 	)
@@ -149,7 +143,8 @@ algo_MarginalSAGE <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
-	sage_n_samples = 200
+	sage_n_samples = 200,
+	batch_size = 10000
 ) {
 	method <- MarginalSAGE$new(
 		task = instance$task,
@@ -157,7 +152,8 @@ algo_MarginalSAGE <- function(
 		measure = instance$measure,
 		resampling = instance$resampling,
 		n_permutations = n_permutations,
-		n_samples = sage_n_samples
+		n_samples = sage_n_samples,
+		batch_size = batch_size
 	)
 
 	start_time <- Sys.time()
@@ -185,7 +181,8 @@ algo_ConditionalSAGE <- function(
 	instance,
 	n_permutations = 10,
 	sage_n_samples = 200,
-	sampler = "arf"
+	sampler = "arf",
+	batch_size = 10000
 ) {
 	# Create sampler instance
 	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
@@ -197,7 +194,8 @@ algo_ConditionalSAGE <- function(
 		resampling = instance$resampling,
 		sampler = sampler_instance,
 		n_permutations = n_permutations,
-		n_samples = sage_n_samples
+		n_samples = sage_n_samples,
+		batch_size = batch_size
 	)
 
 	start_time <- Sys.time()

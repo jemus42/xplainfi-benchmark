@@ -16,7 +16,8 @@ prob_friedman1 <- function(
 		learner_type = learner_type,
 		n_trees = n_trees,
 		resampling_type = resampling_type,
-		problem_name = "friedman1"
+		problem_name = "friedman1",
+		conditioning_set = "important1"  # Arbitrary: use first important feature
 	)
 }
 
@@ -52,6 +53,7 @@ prob_peak <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "peak",
+		conditioning_set = "x1",  # Arbitrary: use first feature
 		n_features = n_features # Additional metadata
 	)
 }
@@ -85,7 +87,8 @@ prob_bike_sharing <- function(
 		learner_type = learner_type,
 		n_trees = n_trees,
 		resampling_type = resampling_type,
-		problem_name = "bike_sharing"
+		problem_name = "bike_sharing",
+		conditioning_set = "season"  # Arbitrary: use season
 	)
 }
 
@@ -109,7 +112,8 @@ prob_correlated <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "correlated",
-		correlation = correlation # Additional metadata
+		correlation = correlation, # Additional metadata
+		conditioning_set = "x2"  # Condition on x2 for correlated DGP
 	)
 }
 
@@ -131,7 +135,8 @@ prob_ewald <- function(
 		learner_type = learner_type,
 		n_trees = n_trees,
 		resampling_type = resampling_type,
-		problem_name = "ewald"
+		problem_name = "ewald",
+		conditioning_set = "x1"  # Arbitrary: use x1
 	)
 }
 
@@ -153,6 +158,7 @@ prob_interactions <- function(
 		learner_type = learner_type,
 		n_trees = n_trees,
 		resampling_type = resampling_type,
-		problem_name = "interactions"
+		problem_name = "interactions",
+		conditioning_set = "x1"  # Arbitrary: use x1
 	)
 }
