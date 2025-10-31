@@ -70,41 +70,40 @@ algo_CFI <- function(
 # RFI - Relative Feature Importance
 # ============================================================================
 
-algo_RFI <- function(
-	data = NULL,
-	job = NULL,
-	instance,
-	n_repeats = 1,
-	sampler = "arf"
-) {
-	# Create sampler instance
-	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
+# algo_RFI <- function(
+# 	data = NULL,
+# 	job = NULL,
+# 	instance,
+# 	n_repeats = 1,
+# 	sampler = "arf"
+# ) {
+# 	# Create sampler instance
+# 	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
 
-	method <- RFI$new(
-		task = instance$task,
-		learner = instance$learner,
-		measure = instance$measure,
-		resampling = instance$resampling,
-		conditioning_set = instance$conditioning_set,
-		sampler = sampler_instance,
-		n_repeats = n_repeats
-	)
+# 	method <- RFI$new(
+# 		task = instance$task,
+# 		learner = instance$learner,
+# 		measure = instance$measure,
+# 		resampling = instance$resampling,
+# 		conditioning_set = instance$conditioning_set,
+# 		sampler = sampler_instance,
+# 		n_repeats = n_repeats
+# 	)
 
-	start_time <- Sys.time()
-	method$compute()
-	end_time <- Sys.time()
+# 	start_time <- Sys.time()
+# 	method$compute()
+# 	end_time <- Sys.time()
 
-	data.table::data.table(
-		importance = list(method$importance()),
-		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-		n_features = instance$n_features,
-		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name,
-		conditioning_set = list(instance$conditioning_set)
-	)
-}
-
+# 	data.table::data.table(
+# 		importance = list(method$importance()),
+# 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+# 		n_features = instance$n_features,
+# 		n_samples = instance$n_samples,
+# 		task_type = instance$task_type,
+# 		task_name = instance$name,
+# 		conditioning_set = list(instance$conditioning_set)
+# 	)
+# }
 
 # ============================================================================
 # LOCO - Leave-One-Covariate-Out

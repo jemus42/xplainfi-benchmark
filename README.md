@@ -27,7 +27,7 @@ This directory contains a comprehensive benchmark setup using `batchtools` to co
 ### xplainfi Methods
 1. **PFI** - Permutation Feature Importance (marginal sampling)
 2. **CFI** - Conditional Feature Importance (supports arf, gaussian, knn, ctree samplers)
-3. **RFI** - Relative Feature Importance (conditional sampling with conditioning set)
+<!-- 3. **RFI** - Relative Feature Importance (conditional sampling with conditioning set) -->
 4. **LOCO** - Leave-One-Covariate-Out
 5. **MarginalSAGE** - SAGE with marginal sampling
 6. **ConditionalSAGE** - SAGE with conditional sampling (supports arf, gaussian, knn, ctree samplers)
@@ -35,7 +35,7 @@ This directory contains a comprehensive benchmark setup using `batchtools` to co
 ### Reference Implementations
 7. **PFI_iml** - PFI from iml package (using `compare = "difference"`)
 8. **PFI_vip** - PFI from vip package
-9. **PFI_fippy** - PFI from fippy Python package (SimpleSampler)
+<!-- 9. **PFI_fippy** - PFI from fippy Python package (SimpleSampler) -->
 10. **CFI_fippy** - CFI from fippy Python package (Gaussian sampler)
 11. **MarginalSAGE_fippy** - Marginal SAGE from fippy Python package
 12. **ConditionalSAGE_fippy** - Conditional SAGE from fippy Python package (Gaussian sampler)
