@@ -15,7 +15,7 @@ create_resampling <- function(
 # Ensures that:
 # - Same task + same replication = same splits (for fair method comparison)
 # - Same task + different replication = different splits (for independent runs)
-instantiate_resampling <- function(resampling, task, replication) {
+instantiate_resampling <- function(resampling, task, replication = 1) {
 	# Generate task-specific seed from hash using digest
 	task_seed <- digest::digest2int(task$hash)
 
@@ -115,7 +115,7 @@ create_sampler <- function(
 # Wraps common logic for all problems: creating learner, measure, resampling
 create_problem_instance <- function(
 	task,
-	job,
+	job = NULL,
 	learner_type,
 	n_trees = 5000,
 	resampling_type = "holdout",
@@ -133,10 +133,9 @@ create_problem_instance <- function(
 
 	# Create measure
 	measure <- create_measure(task_type = task_type)
-
 	# Create and instantiate resampling
 	resampling <- create_resampling(type = resampling_type)
-	instantiate_resampling(resampling, task, job$repl)
+	instantiate_resampling(resampling, task, job$repl %||% 1)
 
 	# Return complete instance with metadata
 	list(

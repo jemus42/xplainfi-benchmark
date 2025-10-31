@@ -1,8 +1,8 @@
 # Problem: Friedman1 regression task (fixed 10 features)
 prob_friedman1 <- function(
-	data,
-	job,
-	n_samples,
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
 	learner_type = "ranger",
 	resampling_type = "holdout",
 	n_trees = 500,
@@ -17,15 +17,15 @@ prob_friedman1 <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "friedman1",
-		conditioning_set = "important1"  # Arbitrary: use first important feature
+		conditioning_set = "important1" # Arbitrary: use first important feature
 	)
 }
 
 # Problem: Peak regression task
 prob_peak <- function(
-	data,
-	job,
-	n_samples,
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
 	n_features,
 	learner_type = "ranger",
 	resampling_type = "holdout",
@@ -53,15 +53,15 @@ prob_peak <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "peak",
-		conditioning_set = "x1",  # Arbitrary: use first feature
+		conditioning_set = "x1", # Arbitrary: use first feature
 		n_features = n_features # Additional metadata
 	)
 }
 
 # Problem: Bike Sharing (real-world regression task)
 prob_bike_sharing <- function(
-	data,
-	job,
+	data = NULL,
+	job = NULL,
 	# n_samples,
 	learner_type = "ranger",
 	resampling_type = "holdout",
@@ -88,15 +88,15 @@ prob_bike_sharing <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "bike_sharing",
-		conditioning_set = "season"  # Arbitrary: use season
+		conditioning_set = "season" # Arbitrary: use season
 	)
 }
 
 # Problem: Correlated features (sim_dgp_correlated)
 prob_correlated <- function(
-	data,
-	job,
-	n_samples,
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
 	learner_type = "ranger",
 	resampling_type = "holdout",
 	n_trees = 500,
@@ -113,15 +113,15 @@ prob_correlated <- function(
 		resampling_type = resampling_type,
 		problem_name = "correlated",
 		correlation = correlation, # Additional metadata
-		conditioning_set = "x2"  # Condition on x2 for correlated DGP
+		conditioning_set = "x2" # Condition on x2 for correlated DGP
 	)
 }
 
 # Problem: Ewald et al. (2024) DGP
 prob_ewald <- function(
-	data,
-	job,
-	n_samples,
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
 	learner_type = "ranger",
 	resampling_type = "holdout",
 	n_trees = 500,
@@ -136,15 +136,15 @@ prob_ewald <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "ewald",
-		conditioning_set = "x1"  # Arbitrary: use x1
+		conditioning_set = "x1" # Arbitrary: use x1
 	)
 }
 
 # Problem: Interaction effects (sim_dgp_interactions)
 prob_interactions <- function(
-	data,
-	job,
-	n_samples,
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
 	learner_type = "ranger",
 	resampling_type = "holdout",
 	n_trees = 500,
@@ -159,6 +159,6 @@ prob_interactions <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "interactions",
-		conditioning_set = "x1"  # Arbitrary: use x1
+		conditioning_set = "x1" # Arbitrary: use x1
 	)
 }
