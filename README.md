@@ -123,10 +123,16 @@ The benchmark requires the following R packages:
 - Utilities: `checkmate`, `digest`, `here`, `cli`, `fs`
 
 Python dependencies (managed via `reticulate::py_require()` with `uv`):
-- `scikit-learn` - Machine learning models for Python implementations
-- `pandas` - Required for fippy (DataFrames with `.columns`, Series with `.to_numpy()`)
-- `fippy` - Python reference implementation for PFI, CFI, Marginal SAGE, and Conditional SAGE
-- `sage-importance` - Official SAGE implementation with KernelSAGE estimator
+
+**For reproducibility, Python packages use minimum version constraints** (see `requirements.txt`):
+- Python version: **3.11+ required** (uses system default, typically 3.12)
+- `numpy>=1.26.0` - Compatible with Python 3.12+
+- `pandas>=2.1.0` - Compatible with Python 3.12+
+- `scikit-learn>=1.3.0` - Machine learning models for Python implementations
+- `fippy` (commit `a7a37aa`) - Python reference implementation for PFI, CFI, Marginal SAGE, and Conditional SAGE
+- `sage-importance>=0.0.4` - Official SAGE implementation with KernelSAGE estimator
+
+Minimum versions are defined in `R/helpers-python.R` and documented in `requirements.txt`. uv resolves exact compatible versions automatically.
 
 ## Notes
 

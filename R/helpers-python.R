@@ -1,18 +1,23 @@
 # Python/fippy integration helpers
 
+# Python and package versions for reproducibility
+# Using minimum versions (>=) to allow uv to resolve compatible versions
+# This ensures compatibility across Python 3.11+ while maintaining reproducibility
+PYTHON_PACKAGES <- c(
+	"numpy>=1.26.0",        # Minimum version compatible with Python 3.12+
+	"pandas>=2.1.0",        # Minimum version compatible with Python 3.12+
+	"scikit-learn>=1.3.0",  # Stable version with good Python 3.12+ support
+	"git+https://github.com/gcskoenig/fippy@a7a37aa5511f7074ead3289c89b1ae80036982cb",
+	"sage-importance>=0.0.4"
+)
+
 # Declare Python requirements once
 # This creates an ephemeral environment with uv
+# uv handles Python version selection and dependency resolution automatically
 .ensure_python_packages <- function() {
 	if (!reticulate::py_available()) {
 		reticulate::py_require(
-			packages = c(
-				"pandas", # Required for fippy samplers (DataFrames with .columns)
-				"scikit-learn",
-				# Fork for .to_numpy() bug only relevant in RFI
-				# "git+https://github.com/jemus42/fippy@fix-rfi-to-numpy-bug",
-				"git+https://github.com/gcskoenig/fippy",
-				"sage-importance" # Official SAGE implementation
-			)
+			packages = PYTHON_PACKAGES
 		)
 	}
 }
