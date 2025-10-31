@@ -1,3 +1,5 @@
+source("rv/scripts/rvr.R")
+source("rv/scripts/activate.R")
 # Ensure ranger behaves, particularly important for nested parallelization here with conditional sampling depending on ranger as well
 options(ranger.num.threads = 1)
 Sys.setenv(OMP_NUM_THREADS = 1)
