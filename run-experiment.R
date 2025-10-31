@@ -3,7 +3,7 @@ library(batchtools)
 
 # Load registry
 source("config.R")
-reg <- loadRegistry(reg_path, writeable = TRUE)
+reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 
 # Check status
 getStatus()

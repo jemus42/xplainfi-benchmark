@@ -106,7 +106,7 @@ create_sklearn_learner <- function(
 				max_iter = 200L
 			)
 		}
-	} else if (learner_type == "ranger") {
+	} else if (learner_type == "rf") {
 		if (task_type == "regr") {
 			sklearn$ensemble$RandomForestRegressor(
 				n_estimators = as.integer(n_trees),
@@ -120,7 +120,7 @@ create_sklearn_learner <- function(
 				n_jobs = 1L
 			)
 		}
-	} else if (learner_type == "nnet") {
+	} else if (learner_type == "mlp") {
 		if (task_type == "regr") {
 			sklearn$neural_network$MLPRegressor(
 				hidden_layer_sizes = reticulate::tuple(5L),

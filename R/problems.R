@@ -3,7 +3,7 @@ prob_friedman1 <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
-	learner_type = "ranger",
+	learner_type = "rf",
 	resampling_type = "holdout",
 	n_trees = 500,
 	...
@@ -27,7 +27,7 @@ prob_peak <- function(
 	job = NULL,
 	n_samples = 100,
 	n_features,
-	learner_type = "ranger",
+	learner_type = "rf",
 	resampling_type = "holdout",
 	n_trees = 500,
 	...
@@ -63,7 +63,7 @@ prob_bike_sharing <- function(
 	data = NULL,
 	job = NULL,
 	# n_samples,
-	learner_type = "ranger",
+	learner_type = "rf",
 	resampling_type = "holdout",
 	n_trees = 500,
 	...
@@ -97,7 +97,7 @@ prob_correlated <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
-	learner_type = "ranger",
+	learner_type = "rf",
 	resampling_type = "holdout",
 	n_trees = 500,
 	correlation = 0.75,
@@ -122,7 +122,7 @@ prob_ewald <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
-	learner_type = "ranger",
+	learner_type = "rf",
 	resampling_type = "holdout",
 	n_trees = 500,
 	...
@@ -145,7 +145,7 @@ prob_interactions <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
-	learner_type = "ranger",
+	learner_type = "rf",
 	resampling_type = "holdout",
 	n_trees = 500,
 	...

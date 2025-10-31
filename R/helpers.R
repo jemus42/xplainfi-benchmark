@@ -31,23 +31,24 @@ instantiate_resampling <- function(resampling, task, replication = 1) {
 
 # Helper function to create learner
 create_learner <- function(
-	learner_type = c("ranger", "linear", "featureless", "nnet"),
+	learner_type = c("rf", "linear", "featureless", "mlp"),
 	n_trees = 500,
+	n_units = 5,
 	task_type = c("regr", "classif")
 ) {
 	requireNamespace("mlr3learners", quietly = TRUE)
-	require("mlr3pipelines")
+	# require("mlr3pipelines")
 	learner_type <- match.arg(learner_type)
 	task_type <- match.arg(task_type)
 
 	base_learner <- switch(
 		learner_type,
 		"featureless" = {
-			learner_id <- paste0(task_type, ".featureless")
+			learner_id <- paste(task_type, "featureless", sep = ".")
 			lrn(learner_id)
 		},
-		"ranger" = {
-			learner_id <- paste0(task_type, ".ranger")
+		"rf" = {
+			learner_id <- paste(task_type, "ranger", sep = ".")
 			lrn(learner_id, num.trees = n_trees, num.threads = 1)
 		},
 		"linear" = {
@@ -57,9 +58,9 @@ create_learner <- function(
 				lrn("classif.log_reg")
 			}
 		},
-		"nnet" = {
-			learner_id <- paste0(task_type, ".nnet")
-			lrn(learner_id, size = 5, maxit = 200, decay = 0.01, trace = FALSE)
+		"mlp" = {
+			learner_id <- paste(task_type, "nnet", sep = ".")
+			lrn(learner_id, size = n_units, maxit = 200, decay = 0.01, trace = FALSE)
 		}
 	)
 
@@ -70,8 +71,8 @@ create_learner <- function(
 	#   po("imputesample", affect_columns = selector_type("factor")) %>>%
 	#   po("removeconstants")
 
-	# # Extra factor handling for linear model and nnet
-	# if (learner_type %in% c("linear", "nnet")) {
+	# # Extra factor handling for linear model and mlp
+	# if (learner_type %in% c("linear", "mlp")) {
 	#   prepoc <- prepoc %>>%
 	#     po("encode")
 	# }

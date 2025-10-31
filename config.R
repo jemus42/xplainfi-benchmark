@@ -1,19 +1,4 @@
 # Configuration file for batchtools experiment
-# Registry configuration
-reg_path <- fs::path(
-	here::here("registries"),
-	paste0("xplainfi-", packageVersion("xplainfi"))
-)
-if (!dir.exists(here::here("registries"))) {
-	dir.create(here::here("registries"))
-}
-
-# Ensure ranger behaves, particularly important for nested parallelization here with conditional sampling depending on ranger as well
-options(ranger.num.threads = 1)
-data.table::setDTthreads(1)
-Sys.setenv(OMP_NUM_THREADS = 1)
-Sys.setenv(OMP_THREAD_LIMIT = 1)
-Sys.setenv(MKL_NUM_THREADS = 1)
 
 # Package dependencies, will be checked for installation
 packages <- c(
@@ -23,21 +8,41 @@ packages <- c(
 	# "mlr3filters",
 	"mlr3pipelines",
 	"mlbench",
+	"mlr3data",
 	"batchtools",
 	"data.table",
 	"checkmate",
 	"digest",
 	"iml",
 	"vip",
+	"ranger",
 	"nnet",
 	"arf",
 	"partykit",
 	"mvtnorm"
 )
 
+stopifnot(
+	"Not all packages installed" = all(sapply(
+		packages,
+		requireNamespace,
+		quietly = TRUE
+	))
+)
+
+
+# Registry setup
+if (!dir.exists(here::here("registries"))) {
+	dir.create(here::here("registries"))
+}
+
 # Experiment settings
-exp_settings <- list(
+conf <- list(
 	# General batchtools settings
+	reg_path = fs::path(
+		here::here("registries"),
+		paste0("xplainfi-", packageVersion("xplainfi"))
+	),
 	seed = 2025,
 	repls = 1,
 	# Samples to generate or to subsample real data to (bike_sharing)
@@ -53,8 +58,8 @@ exp_settings <- list(
 	# Size of sampled data used for Monte Carlo integration in SAGE methods
 	sage_n_samples = 20L,
 	# Types of learners to use for each method, uses create_learner helper
-	learner_types = c("featureless", "linear", "ranger", "nnet"),
-	# Fixed number of trees for ranger (not varied in experiments)
+	learner_types = c("featureless", "linear", "rf", "mlp"),
+	# Fixed number of trees for rf (not varied in experiments)
 	n_trees = 500L,
 	# Conditional samplers for CFI, RFI, and ConditionalSAGE
 	samplers = c(

@@ -7,25 +7,18 @@ library(data.table)
 # Load configuration
 source(here::here("config.R"))
 
-stopifnot(
-	"Not all packages installed" = all(sapply(
-		packages,
-		requireNamespace,
-		quietly = TRUE
-	))
-)
 
 # Create or load registry
-if (dir.exists(reg_path)) {
-	cli::cli_alert_danger("Deleting existing registry at {.file {reg_path}}")
-	fs::dir_delete(reg_path)
+if (dir.exists(conf$reg_path)) {
+	cli::cli_alert_danger("Deleting existing registry at {.file {conf$reg_path}}")
+	fs::dir_delete(conf$reg_path)
 }
 
-cli::cli_alert_info("Creating registry at {.file {reg_path}}")
+cli::cli_alert_info("Creating registry at {.file {conf$reg_path}}")
 reg <- makeExperimentRegistry(
-	file.dir = reg_path,
+	file.dir = conf$reg_path,
 	packages = c("mlr3learners", "xplainfi"),
-	seed = exp_settings$seed,
+	seed = conf$seed,
 	source = here::here(c("R/helpers.R", "R/helpers-python.R", "config.R"))
 )
 
@@ -46,12 +39,12 @@ source(here::here("R/algorithms.R"))
 # Register Problems with batchtools
 # ============================================================================
 
-addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = exp_settings$seed)
-addProblem(name = "peak", data = NULL, fun = prob_peak, seed = exp_settings$seed)
-addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = exp_settings$seed)
-addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = exp_settings$seed)
-addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = exp_settings$seed)
-addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = exp_settings$seed)
+addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
+addProblem(name = "peak", data = NULL, fun = prob_peak, seed = conf$seed)
+addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = conf$seed)
+addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
+addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
+addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
 
 # ============================================================================
 # Register Algorithms with batchtools
@@ -78,40 +71,40 @@ addAlgorithm(name = "KernelSAGE", fun = algo_KernelSAGE)
 prob_designs <- list(
 	# Friedman1: fixed 10 features, varying sample sizes
 	friedman1 = CJ(
-		n_samples = exp_settings$n_samples,
-		learner_type = exp_settings$learner_types
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
 	),
 
 	# Peak: varying dimensions and sample sizes
 	peak = CJ(
-		n_samples = exp_settings$n_samples,
-		n_features = exp_settings$n_features,
-		learner_type = exp_settings$learner_types
+		n_samples = conf$n_samples,
+		n_features = conf$n_features,
+		learner_type = conf$learner_types
 	),
 
 	# Bike sharing: real-world data, fixed dimensions
 	bike_sharing = CJ(
-		# n_samples = exp_settings$n_samples,
-		learner_type = exp_settings$learner_types
+		# n_samples = conf$n_samples,
+		learner_type = conf$learner_types
 	),
 
 	# Correlated features DGP: varying correlation strength
 	correlated = CJ(
-		n_samples = exp_settings$n_samples,
-		correlation = exp_settings$correlation,
-		learner_type = exp_settings$learner_types
+		n_samples = conf$n_samples,
+		correlation = conf$correlation,
+		learner_type = conf$learner_types
 	),
 
 	# Ewald DGP: fixed structure
 	ewald = CJ(
-		n_samples = exp_settings$n_samples,
-		learner_type = exp_settings$learner_types
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
 	),
 
 	# Interactions DGP: fixed structure
 	interactions = CJ(
-		n_samples = exp_settings$n_samples,
-		learner_type = exp_settings$learner_types
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
 	)
 )
 
@@ -122,79 +115,79 @@ prob_designs <- list(
 algo_designs <- list(
 	# PFI: Permutation Feature Importance
 	PFI = data.table(
-		n_repeats = exp_settings$n_repeats
+		n_repeats = conf$n_repeats
 	),
 
 	# CFI: Conditional Feature Importance (with samplers)
 	CFI = CJ(
-		n_repeats = exp_settings$n_repeats,
-		sampler = exp_settings$samplers
+		n_repeats = conf$n_repeats,
+		sampler = conf$samplers
 	),
 
 	# RFI: Relative Feature Importance (with samplers)
-	RFI = CJ(
-		n_repeats = exp_settings$n_repeats,
-		sampler = exp_settings$samplers
-	),
+	# RFI = CJ(
+	# 	n_repeats = conf$n_repeats,
+	# 	sampler = conf$samplers
+	# ),
 
 	# LOCO: Leave-One-Covariate-Out
 	LOCO = data.table(
-		n_repeats = exp_settings$n_repeats
+		n_repeats = conf$n_repeats
 	),
 
 	# MarginalSAGE
 	MarginalSAGE = CJ(
-		n_permutations = exp_settings$n_permutations,
-		sage_n_samples = exp_settings$sage_n_samples
+		n_permutations = conf$n_permutations,
+		sage_n_samples = conf$sage_n_samples
 	),
 
 	# ConditionalSAGE (with samplers)
 	ConditionalSAGE = CJ(
-		n_permutations = exp_settings$n_permutations,
-		sage_n_samples = exp_settings$sage_n_samples,
-		sampler = exp_settings$samplers
+		n_permutations = conf$n_permutations,
+		sage_n_samples = conf$sage_n_samples,
+		sampler = conf$samplers
 	),
 
 	# PFI_mlr3filters: Reference implementation from mlr3filters
 	# PFI_mlr3filters = CJ(
-	#   n_repeats = exp_settings$n_repeats
+	#   n_repeats = conf$n_repeats
 	# ),
 
 	# PFI_iml: Reference implementation from iml package
 	PFI_iml = data.table(
-		n_repeats = exp_settings$n_repeats
+		n_repeats = conf$n_repeats
 	),
 
 	# PFI_vip: Reference implementation from vip package
 	PFI_vip = data.table(
-		n_repeats = exp_settings$n_repeats
+		n_repeats = conf$n_repeats
 	),
 
 	# PFI_fippy: Reference implementation from fippy package (Python)
-	PFI_fippy = data.table(
-		n_repeats = exp_settings$n_repeats
-	),
+	# PFI_fippy = data.table(
+	# 	n_repeats = conf$n_repeats
+	# ),
 
 	# CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
 	CFI_fippy = data.table(
-		n_repeats = exp_settings$n_repeats
+		n_repeats = conf$n_repeats
 	),
 
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
 	MarginalSAGE_fippy = data.table(
-		n_permutations = exp_settings$n_permutations,
-		sage_n_samples = exp_settings$sage_n_samples
+		n_permutations = conf$n_permutations,
+		sage_n_samples = conf$sage_n_samples
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
 	ConditionalSAGE_fippy = data.table(
-		n_permutations = exp_settings$n_permutations,
-		sage_n_samples = exp_settings$sage_n_samples
+		n_permutations = conf$n_permutations,
+		sage_n_samples = conf$sage_n_samples
 	),
 
 	# KernelSAGE: Official SAGE implementation with kernel estimator
 	KernelSAGE = data.table(
-		sage_n_samples = exp_settings$sage_n_samples
+		sage_n_samples = conf$sage_n_samples
 	)
 )
 
@@ -207,7 +200,7 @@ cli::cli_h1("Adding Experiments to Registry")
 addExperiments(
 	prob.designs = prob_designs,
 	algo.designs = algo_designs,
-	repls = exp_settings$repls
+	repls = conf$repls
 )
 
 # ============================================================================
@@ -263,7 +256,7 @@ job_table <- getJobTable()
 cli::cli_alert_info("Total jobs: {.strong {nrow(job_table)}}")
 cli::cli_alert_info("Problems: {.strong {length(prob_designs)}}")
 cli::cli_alert_info("Algorithms: {.strong {length(algo_designs)}}")
-cli::cli_alert_info("Replications: {.strong {exp_settings$repls}}")
+cli::cli_alert_info("Replications: {.strong {conf$repls}}")
 
 # Show job distribution
 cli::cli_h2("Job Distribution by Problem and Algorithm")
@@ -274,15 +267,15 @@ print(job_dist)
 # Show parameter coverage
 cli::cli_h2("Parameter Coverage")
 cli::cli_ul(c(
-	"Sample sizes: {paste(exp_settings$n_samples, collapse = ', ')}",
-	"Feature dimensions (peak task): {paste(exp_settings$n_features, collapse = ', ')}",
-	"Learner types: {paste(exp_settings$learner_types, collapse = ', ')}",
-	"n_repeats: {paste(exp_settings$n_repeats, collapse = ', ')}",
-	"n_permutations (SAGE): {paste(exp_settings$n_permutations, collapse = ', ')}",
-	"Samplers (CFI/RFI/ConditionalSAGE): {length(exp_settings$samplers)}"
+	"Sample sizes: {paste(conf$n_samples, collapse = ', ')}",
+	"Feature dimensions (peak task): {paste(conf$n_features, collapse = ', ')}",
+	"Learner types: {paste(conf$learner_types, collapse = ', ')}",
+	"n_repeats: {paste(conf$n_repeats, collapse = ', ')}",
+	"n_permutations (SAGE): {paste(conf$n_permutations, collapse = ', ')}",
+	"Samplers (CFI/RFI/ConditionalSAGE): {length(conf$samplers)}"
 ))
 
-cli::cli_alert_success("Experiment registry created at: {.path {reg_path}}")
+cli::cli_alert_success("Experiment registry created at: {.path {conf$reg_path}}")
 cli::cli_alert_info("Next steps:")
 cli::cli_ul(c(
 	"Run jobs: source('run_experiment.R')",

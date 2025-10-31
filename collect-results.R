@@ -7,7 +7,7 @@ library(kableExtra)
 
 # Load registry
 source("config.R")
-reg <- loadRegistry(reg_path, writeable = FALSE, work.dir = here::here())
+reg <- loadRegistry(conf$reg_path, writeable = FALSE, work.dir = here::here())
 
 # Check which jobs are done
 (status <- getStatus())

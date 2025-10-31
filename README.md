@@ -62,12 +62,12 @@ This directory contains a comprehensive benchmark setup using `batchtools` to co
 
 The benchmark is configured via `config.R` with the following default settings:
 
-- **Sample sizes**: 100, 500, 1000 (via `exp_settings$n_samples`)
-- **Feature dimensions**: 5, 10, 50 (via `exp_settings$n_features`, for peak problem)
-- **Correlation values**: 0.5, 0.9 (via `exp_settings$correlation`, for correlated problem)
-- **Learner types**: featureless, linear, ranger, nnet
+- **Sample sizes**: 100, 500, 1000 (via `conf$n_samples`)
+- **Feature dimensions**: 5, 10, 50 (via `conf$n_features`, for peak problem)
+- **Correlation values**: 0.5, 0.9 (via `conf$correlation`, for correlated problem)
+- **Learner types**: featureless, linear, rf, mlp
 - **n_repeats**: 1, 10, 100 (for PFI, CFI, RFI, LOCO)
-- **n_permutations**: 5, 10, 30 (for SAGE methods)
+- **n_permutations**: 5, 10, 30 (number of feature orderings to evaluate for SAGE methods)
 - **sage_n_samples**: 200 (marginalization dataset size for SAGE methods)
 - **Samplers**: arf, gaussian, knn, ctree (for CFI, RFI, ConditionalSAGE)
 - **Replications**: N independent runs per configuration (TBD)
@@ -78,8 +78,8 @@ The benchmark is configured via `config.R` with the following default settings:
 The benchmark creates a comprehensive factorial design combining:
 - **6 problems** × **13 algorithms** × **4 learner types** × **parameter combinations** × **N replications**
 - Problems vary in sample size and feature dimensions (where applicable)
-- Each problem is paired with all learner types (featureless, linear, ranger, nnet)
-- Fixed `n_trees = 500` for ranger learner (not varied across experiments)
+- Each problem is paired with all learner types (featureless, linear, rf, mlp)
+- Fixed `n_trees = 500` for rf learner (not varied across experiments)
 - Sampler variations for CFI, RFI, and ConditionalSAGE
 - Reference implementations from iml, vip, fippy (PFI, CFI, Marginal/Conditional SAGE), and sage (KernelSAGE) for validation
 
@@ -119,7 +119,7 @@ The benchmark requires the following R packages:
 - Data: `data.table`, `mlbench`, `mlr3data`
 - Samplers: `arf`, `partykit`, `mvtnorm`
 - Reference implementations: `iml`, `vip`
-- Learners: `nnet` (neural networks)
+- Learners: `nnet` (neural networks), `ranger` (random forest)
 - Utilities: `checkmate`, `digest`, `here`, `cli`, `fs`
 
 Python dependencies (managed via `reticulate::py_require()` with `uv`):
