@@ -7,8 +7,9 @@
 		packages = c(
 			"pandas", # Required for fippy samplers (DataFrames with .columns)
 			"scikit-learn",
-			# Use fork with fix for .to_numpy() bug (handles numpy arrays and scalars)
-			"git+https://github.com/jemus42/fippy@fix-rfi-to-numpy-bug",
+			# Fork for .to_numpy() bug only relevant in RFI
+			# "git+https://github.com/jemus42/fippy@fix-rfi-to-numpy-bug",
+			"git+https://github.com/gcskoenig/fippy",
 			"sage-importance" # Official SAGE implementation
 		)
 	)
