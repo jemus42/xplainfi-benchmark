@@ -104,7 +104,8 @@ create_sampler <- function(
 			task,
 			verbose = FALSE,
 			finite_bounds = "local",
-			min_node_size = 20
+			min_node_size = 20,
+			stepsize = 10000
 		),
 		"gaussian" = ConditionalGaussianSampler$new(task),
 		"knn" = ConditionalKNNSampler$new(task, k = 5),
