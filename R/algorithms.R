@@ -101,7 +101,7 @@ algo_RFI <- function(
 		n_samples = instance$n_samples,
 		task_type = instance$task_type,
 		task_name = instance$name,
-		conditioning_set = list(conditioning_set)
+		conditioning_set = list(instance$conditioning_set)
 	)
 }
 
