@@ -1,6 +1,6 @@
 [project]
 name = "xplainfi-benchmark"
-r_version = "4.4"
+r_version = "4.5"
 
 # A list of repositories to fetch packages from. Order matters: we will try to get a package from each repository in order.
 # The alias is only used in this file if you want to specifically require a dependency to come from a certain repository.
@@ -35,4 +35,5 @@ dependencies = [
     "mlr3learners",
     "reticulate",
     "mlr3fselect",
+    "gower",
 ]
