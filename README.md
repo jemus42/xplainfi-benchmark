@@ -66,9 +66,10 @@ The benchmark is configured via `config.R` with the following default settings:
 - **Feature dimensions**: 5, 10, 50 (via `conf$n_features`, for peak problem)
 - **Correlation values**: 0.5, 0.9 (via `conf$correlation`, for correlated problem)
 - **Learner types**: featureless, linear, rf, mlp
+  - Note: KernelSAGE excludes featureless learner (convergence detection incompatibility)
 - **n_repeats**: 1, 10, 100 (for PFI, CFI, RFI, LOCO)
 - **n_permutations**: 5, 10, 30 (number of feature orderings to evaluate for SAGE methods)
-- **sage_n_samples**: 200 (marginalization dataset size for SAGE methods)
+- **sage_n_samples**: 200 (background data size for marginalization in SAGE methods)
 - **Samplers**: arf, gaussian, knn, ctree (for CFI, RFI, ConditionalSAGE)
 - **Replications**: N independent runs per configuration (TBD)
 - **Random seed**: 2025
@@ -141,3 +142,4 @@ Minimum versions are defined in `R/helpers-python.R` and documented in `requirem
 - Helper functions (`create_learner()`, `create_sampler()`, `create_measure()`, `create_resampling()`) ensure consistent component creation
 - Sampler compatibility: Some samplers may not support all data types (e.g., Gaussian sampler doesn't support mixed feature types)
 - Python/fippy integration: Categorical features are automatically one-hot encoded for scikit-learn compatibility
+- KernelSAGE convergence: Jobs with featureless learner are automatically excluded from KernelSAGE experiments (convergence detection would run indefinitely). Featureless learner is only used for xplainfi runtime benchmarking.

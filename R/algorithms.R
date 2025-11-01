@@ -143,7 +143,8 @@ algo_MarginalSAGE <- function(
 	instance,
 	n_permutations = 10,
 	sage_n_samples = 200,
-	batch_size = 10000
+	batch_size = 10000,
+	early_stopping = TRUE
 ) {
 	method <- MarginalSAGE$new(
 		task = instance$task,
@@ -152,7 +153,8 @@ algo_MarginalSAGE <- function(
 		resampling = instance$resampling,
 		n_permutations = n_permutations,
 		n_samples = sage_n_samples,
-		batch_size = batch_size
+		batch_size = batch_size,
+		early_stopping = TRearly_stoppingUE
 	)
 
 	start_time <- Sys.time()
@@ -181,7 +183,8 @@ algo_ConditionalSAGE <- function(
 	n_permutations = 10,
 	sage_n_samples = 200,
 	sampler = "arf",
-	batch_size = 10000
+	batch_size = 10000,
+	early_stopping = TRUE
 ) {
 	# Create sampler instance
 	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
@@ -194,7 +197,8 @@ algo_ConditionalSAGE <- function(
 		sampler = sampler_instance,
 		n_permutations = n_permutations,
 		n_samples = sage_n_samples,
-		batch_size = batch_size
+		batch_size = batch_size,
+		early_stopping = early_stopping
 	)
 
 	start_time <- Sys.time()
@@ -579,8 +583,7 @@ algo_MarginalSAGE_fippy <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
-	sage_n_samples = 10,
-	detect_convergence = TRUE
+	sage_n_samples = 10
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -631,6 +634,7 @@ algo_MarginalSAGE_fippy <- function(
 	# nr_orderings: number of permutation orderings (like n_permutations in xplainfi)
 	# nr_runs: how often each value function is computed (no xplainfi equivalent, use default 1)
 	# nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
+	# detect_convergence: use convergence detection for optimal results (matches KernelSAGE approach)
 	# Returns tuple (explanation, orderings) - we only need explanation
 	sage_result <- explainer$msage(
 		X_eval = sklearn_data$X_test,
@@ -638,7 +642,7 @@ algo_MarginalSAGE_fippy <- function(
 		nr_orderings = as.integer(n_permutations),
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
-		detect_convergence = detect_convergence
+		detect_convergence = TRUE
 	)
 
 	end_time <- Sys.time()
@@ -674,8 +678,7 @@ algo_ConditionalSAGE_fippy <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
-	sage_n_samples = 10,
-	detect_convergence = TRUE
+	sage_n_samples = 10
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -726,6 +729,7 @@ algo_ConditionalSAGE_fippy <- function(
 	# nr_orderings: number of permutation orderings (like n_permutations in xplainfi)
 	# nr_runs: how often each value function is computed (no xplainfi equivalent, use default 1)
 	# nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
+	# detect_convergence: use convergence detection for optimal results (matches KernelSAGE approach)
 	# Returns tuple (explanation, orderings) - we only need explanation
 	sage_result <- explainer$csage(
 		X_eval = sklearn_data$X_test,
@@ -733,7 +737,7 @@ algo_ConditionalSAGE_fippy <- function(
 		nr_orderings = as.integer(n_permutations),
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
-		detect_convergence = detect_convergence
+		detect_convergence = TRUE
 	)
 
 	end_time <- Sys.time()
@@ -819,7 +823,7 @@ algo_KernelSAGE <- function(
 	explanation <- estimator(
 		X = np$array(sklearn_data$X_test),
 		Y = np$array(sklearn_data$y_test),
-		detect_convergence = TRUE,  # Use convergence detection for optimal results
+		detect_convergence = TRUE, # Use convergence detection for optimal results
 		verbose = FALSE,
 		bar = FALSE
 	)

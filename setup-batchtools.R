@@ -259,13 +259,19 @@ findExperiments(
 	addJobTags(tags = "real_data")
 
 
+findExperiments(algo.pattern = "fippy") |>
+	addJobTags(tags = "python")
+
+findExperiments(algo.pattern = "KernelSAGE") |>
+	addJobTags(tags = "python")
+
 # ============================================================================
 # Experiment Summary
 # ============================================================================
 
 cli::cli_h1("Experiment Summary")
 
-job_table <- getJobTable()
+tab <- unwrap(getJobTable())
 cli::cli_alert_info("Total jobs: {.strong {nrow(job_table)}}")
 cli::cli_alert_info("Problems: {.strong {length(prob_designs)}}")
 cli::cli_alert_info("Algorithms: {.strong {length(algo_designs)}}")
@@ -273,7 +279,7 @@ cli::cli_alert_info("Replications: {.strong {conf$repls}}")
 
 # Show job distribution
 cli::cli_h2("Job Distribution by Problem and Algorithm")
-job_dist <- unwrap(job_table)[, .N, by = .(problem, algorithm)]
+job_dist <- unwrap(tab)[, .N, by = .(problem, algorithm)]
 setorder(job_dist, problem, algorithm)
 print(job_dist)
 
