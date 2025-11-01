@@ -4,9 +4,9 @@
 # Using minimum versions (>=) to allow uv to resolve compatible versions
 # This ensures compatibility across Python 3.11+ while maintaining reproducibility
 PYTHON_PACKAGES <- c(
-	"numpy>=1.26.0",        # Minimum version compatible with Python 3.12+
-	"pandas>=2.1.0",        # Minimum version compatible with Python 3.12+
-	"scikit-learn>=1.3.0",  # Stable version with good Python 3.12+ support
+	"numpy>=1.26.0", # Minimum version compatible with Python 3.12+
+	"pandas>=2.1.0", # Minimum version compatible with Python 3.12+
+	"scikit-learn>=1.3.0", # Stable version with good Python 3.12+ support
 	"git+https://github.com/gcskoenig/fippy@a7a37aa5511f7074ead3289c89b1ae80036982cb",
 	"sage-importance>=0.0.4"
 )
@@ -55,7 +55,7 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 			target = "dummy_target",
 			id = "temp"
 		)
-		encoded_task <- po_encode$train(list(encoded_task))[[1L]]
+		encoded_task <- po_encode$train(list(encoded_task))[[1]]
 		encoded_data <- encoded_task$data()[, -"dummy_target"]
 
 		# Split back
@@ -64,7 +64,9 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	}
 
 	if (as_pandas) {
+		# Ensure Python packages (including pandas) are available before data conversion
 		.ensure_python_packages()
+
 		# Convert to pandas DataFrames/Series for fippy
 		# Both X and y need pandas objects (DataFrames have .columns, Series have .to_numpy())
 		pd <- reticulate::import("pandas", convert = FALSE)

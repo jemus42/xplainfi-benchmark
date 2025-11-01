@@ -421,9 +421,6 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
 
-	# Ensure Python packages (including pandas) are available before data conversion
-	.ensure_python_packages()
-
 	# Convert to sklearn format with pandas DataFrames (fippy samplers need .columns)
 	sklearn_data <- task_to_sklearn(
 		instance$task,
@@ -501,9 +498,6 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
-
-	# Ensure Python packages (including pandas) are available before data conversion
-	.ensure_python_packages()
 
 	# Convert to sklearn format with pandas DataFrames (fippy samplers need .columns)
 	sklearn_data <- task_to_sklearn(
