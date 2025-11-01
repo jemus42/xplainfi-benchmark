@@ -154,7 +154,7 @@ algo_MarginalSAGE <- function(
 		n_permutations = n_permutations,
 		n_samples = sage_n_samples,
 		batch_size = batch_size,
-		early_stopping = TRearly_stoppingUE
+		early_stopping = early_stopping
 	)
 
 	start_time <- Sys.time()
