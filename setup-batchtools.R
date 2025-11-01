@@ -272,7 +272,7 @@ findExperiments(algo.pattern = "KernelSAGE") |>
 cli::cli_h1("Experiment Summary")
 
 tab <- unwrap(getJobTable())
-cli::cli_alert_info("Total jobs: {.strong {nrow(job_table)}}")
+cli::cli_alert_info("Total jobs: {.strong {nrow(tab)}}")
 cli::cli_alert_info("Problems: {.strong {length(prob_designs)}}")
 cli::cli_alert_info("Algorithms: {.strong {length(algo_designs)}}")
 cli::cli_alert_info("Replications: {.strong {conf$repls}}")
