@@ -768,8 +768,7 @@ algo_KernelSAGE <- function(
 	data = NULL,
 	job = NULL,
 	instance,
-	n_samples = NULL,
-	sage_n_samples = 200
+	sage_n_samples = 200 # Background data size for marginalization
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -812,15 +811,15 @@ algo_KernelSAGE <- function(
 
 	start_time <- Sys.time()
 
-	# Compute SAGE values
-	# n_samples parameter controls number of evaluations
+	# Compute SAGE values with convergence detection
+	# Note: Featureless learners are excluded from KernelSAGE in experiment setup
+	# to avoid indefinite convergence loops
 	# Convert to numpy arrays explicitly to avoid shape attribute errors
 	np <- reticulate::import("numpy", convert = FALSE)
 	explanation <- estimator(
 		X = np$array(sklearn_data$X_test),
 		Y = np$array(sklearn_data$y_test),
-		n_samples = n_samples, # NULL uses default convergence-based stopping
-		detect_convergence = is.null(n_samples), # Only if n_samples not specified
+		detect_convergence = TRUE,  # Use convergence detection for optimal results
 		verbose = FALSE,
 		bar = FALSE
 	)

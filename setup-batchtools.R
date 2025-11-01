@@ -220,6 +220,19 @@ if (nrow(incompatible_jobs) > 0) {
 	removeExperiments(incompatible_jobs)
 }
 
+# KernelSAGE convergence detection runs indefinitely with featureless learner
+# Featureless learner is only used for xplainfi runtime benchmarking
+kernel_sage_featureless_jobs = unwrap(getJobTable())[
+	algorithm == "KernelSAGE" & learner_type == "featureless",
+]
+
+if (nrow(kernel_sage_featureless_jobs) > 0) {
+	cli::cli_alert_warning(
+		"Removing {nrow(kernel_sage_featureless_jobs)} job(s): KernelSAGE × featureless learner (convergence issue)"
+	)
+	removeExperiments(kernel_sage_featureless_jobs)
+}
+
 # ============================================================================
 # Optional: Tag specific job combinations for analysis
 # ============================================================================
