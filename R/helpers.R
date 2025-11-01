@@ -119,7 +119,7 @@ create_problem_instance <- function(
 	task,
 	job = NULL,
 	learner_type,
-	n_trees = 5000,
+	n_trees = 500,
 	resampling_type = "holdout",
 	problem_name,
 	...
