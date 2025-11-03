@@ -22,8 +22,7 @@ algo_PFI <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -60,8 +59,7 @@ algo_CFI <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -127,8 +125,7 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -164,10 +161,11 @@ algo_MarginalSAGE <- function(
 	data.table::data.table(
 		importance = list(method$importance()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		n_permutations_used = method$n_permutations_used,
+		converged = method$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -208,10 +206,11 @@ algo_ConditionalSAGE <- function(
 	data.table::data.table(
 		importance = list(method$importance()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		n_permutations_used = method$n_permutations_used,
+		converged = method$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -322,8 +321,7 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -351,6 +349,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	target_name <- instance$task$target_names
 
 	# Determine metric based on task type
+	# Doesn't support MSE accoridng to vip::list_metrics()
 	metric <- if (instance$task_type == "regr") "rmse" else "accuracy"
 
 	# Create wrapper predict function for vip
@@ -358,22 +357,17 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	pred_wrapper <- function(object, newdata) {
 		# Create temporary task for prediction
 		temp_task <- instance$task$clone()
-		temp_task$select(setdiff(colnames(newdata), target_name))
 
-		# Predict
-		if (is.function(object$predict_newdata)) {
+		# Predict using predict_newdata_fast if available
+		if (is.function(object$predict_newdata_fast)) {
+			preds <- object$predict_newdata_fast(newdata, task = temp_task)
+		} else {
 			preds <- object$predict_newdata(newdata, task = temp_task)
-		} else {
-			stop("Learner does not have predict_newdata method")
 		}
 
-		if (instance$task_type == "classif") {
-			# For classification, return class predictions
-			preds$response
-		} else {
-			# For regression, return numeric predictions
-			preds$response
-		}
+		# For regression, return numeric predictions
+		# class predictions for classif
+		preds$response
 	}
 
 	start_time <- Sys.time()
@@ -406,8 +400,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name
+		task_type = instance$task_type
 	)
 }
 
@@ -483,9 +476,7 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name,
-		learner_type = instance$learner_type
+		task_type = instance$task_type
 	)
 }
 
@@ -561,9 +552,7 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name,
-		learner_type = instance$learner_type
+		task_type = instance$task_type
 	)
 }
 
@@ -641,8 +630,11 @@ algo_MarginalSAGE_fippy <- function(
 
 	end_time <- Sys.time()
 
-	# Extract explanation object (first element of tuple)
+	# Extract explanation object (first element of tuple) and orderings (second element)
 	explanation <- sage_result[[1]]
+	orderings <- sage_result[[2]]
+	n_permutations_used <- length(orderings)
+
 	fi_series <- explanation$fi_means_stds()
 	importance_dt <- data.table::data.table(
 		feature = instance$task$feature_names,
@@ -650,15 +642,16 @@ algo_MarginalSAGE_fippy <- function(
 			as.numeric(fi_series[[f]])
 		})
 	)
+	# Remove sd col for consistency with other results
+	importance_dt[, StDev := NULL]
 
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		n_permutations_used = n_permutations_used,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name,
-		learner_type = instance$learner_type
+		task_type = instance$task_type
 	)
 }
 
@@ -736,8 +729,11 @@ algo_ConditionalSAGE_fippy <- function(
 
 	end_time <- Sys.time()
 
-	# Extract explanation object (first element of tuple)
+	# Extract explanation object (first element of tuple) and orderings (second element)
 	explanation <- sage_result[[1]]
+	orderings <- sage_result[[2]]
+	n_permutations_used <- length(orderings)
+
 	fi_series <- explanation$fi_means_stds()
 	importance_dt <- data.table::data.table(
 		feature = instance$task$feature_names,
@@ -749,11 +745,10 @@ algo_ConditionalSAGE_fippy <- function(
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		n_permutations_used = n_permutations_used,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name,
-		learner_type = instance$learner_type
+		task_type = instance$task_type
 	)
 }
 
@@ -836,8 +831,6 @@ algo_KernelSAGE <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		task_name = instance$name,
-		learner_type = instance$learner_type
+		task_type = instance$task_type
 	)
 }
