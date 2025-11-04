@@ -39,12 +39,14 @@ source(here::here("R/algorithms.R"))
 # Register Problems with batchtools
 # ============================================================================
 
-addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
+addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
+addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
+addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
 addProblem(name = "peak", data = NULL, fun = prob_peak, seed = conf$seed)
 addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = conf$seed)
-addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
-addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
-addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
+addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
+addProblem(name = "confounded", data = NULL, fun = prob_confounded, seed = conf$seed)
+addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed)
 
 # ============================================================================
 # Register Algorithms with batchtools
@@ -170,7 +172,8 @@ algo_designs <- list(
 
 	# CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
 	CFI_fippy = data.table(
-		n_repeats = conf$n_repeats
+		n_repeats = conf$n_repeats,
+		sampler = "gaussian"
 	),
 
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
@@ -182,7 +185,8 @@ algo_designs <- list(
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
 	ConditionalSAGE_fippy = data.table(
 		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples
+		sage_n_samples = conf$sage_n_samples,
+		sampler = "gaussian"
 	),
 
 	# KernelSAGE: Official SAGE implementation with kernel estimator
@@ -220,17 +224,17 @@ if (nrow(incompatible_jobs) > 0) {
 	removeExperiments(incompatible_jobs)
 }
 
-# KernelSAGE convergence detection runs indefinitely with featureless learner
 # Featureless learner is only used for xplainfi runtime benchmarking
-kernel_sage_featureless_jobs = unwrap(getJobTable())[
-	algorithm == "KernelSAGE" & learner_type == "featureless",
+featureless_non_xplainfi_jobs = unwrap(getJobTable())[
+	learner_type == "featureless" &
+		algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO"),
 ]
 
-if (nrow(kernel_sage_featureless_jobs) > 0) {
+if (nrow(featureless_non_xplainfi_jobs) > 0) {
 	cli::cli_alert_warning(
-		"Removing {nrow(kernel_sage_featureless_jobs)} job(s): KernelSAGE × featureless learner (convergence issue)"
+		"Removing {nrow(featureless_non_xplainfi_jobs)} job(s) for other methods with featureless learner"
 	)
-	removeExperiments(kernel_sage_featureless_jobs)
+	removeExperiments(featureless_non_xplainfi_jobs)
 }
 
 # ============================================================================
@@ -264,6 +268,12 @@ findExperiments(algo.pattern = "fippy") |>
 
 findExperiments(algo.pattern = "KernelSAGE") |>
 	addJobTags(tags = "python")
+
+# Explictly tag xplainfi jobs
+for (algo in c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")) {
+	findExperiments(algo.name = algo) |>
+		addJobTags(tags = "xplainfi")
+}
 
 # ============================================================================
 # Experiment Summary

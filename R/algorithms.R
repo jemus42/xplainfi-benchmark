@@ -485,7 +485,7 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 # CFI_fippy - Conditional Feature Importance from fippy (Python, Gaussian sampler)
 # ============================================================================
 
-algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
+algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sampler = "gaussian") {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -512,7 +512,11 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-	sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
+	sampler <- switch(
+		"gaussian" = fippy$samplers$GaussianSampler(sklearn_data$X_train),
+		cli::cli_abort("Sampler {.val {sampler}} not found")
+	)
+
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
@@ -665,7 +669,8 @@ algo_ConditionalSAGE_fippy <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
-	sage_n_samples = 10
+	sage_n_samples = 10,
+	sampler = "gaussian"
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -696,7 +701,11 @@ algo_ConditionalSAGE_fippy <- function(
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-	sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
+	sampler <- switch(
+		"gaussian" = fippy$samplers$GaussianSampler(sklearn_data$X_train),
+		cli::cli_abort("Sampler {.val {sampler}} not found")
+	)
+
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
