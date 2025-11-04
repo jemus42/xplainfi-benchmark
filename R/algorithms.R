@@ -513,6 +513,7 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
 	sampler <- switch(
+		sampler,
 		"gaussian" = fippy$samplers$GaussianSampler(sklearn_data$X_train),
 		cli::cli_abort("Sampler {.val {sampler}} not found")
 	)
@@ -600,6 +601,8 @@ algo_MarginalSAGE_fippy <- function(
 	# Import fippy and create Explainer with GaussianSampler
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+	# FIXME: UnivRFSampler, + ContUnivRFSampler in SequentialSampler
 
 	sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
 	loss_fn <- if (instance$task_type == "regr") {
@@ -702,6 +705,7 @@ algo_ConditionalSAGE_fippy <- function(
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
 	sampler <- switch(
+		sampler,
 		"gaussian" = fippy$samplers$GaussianSampler(sklearn_data$X_train),
 		cli::cli_abort("Sampler {.val {sampler}} not found")
 	)
