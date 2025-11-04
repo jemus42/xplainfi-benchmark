@@ -2,12 +2,15 @@
 create_resampling <- function(
 	type = "holdout",
 	ratio = 2 / 3,
-	folds = 3
+	folds = 3,
+	repeats = 10
 ) {
 	switch(
 		type,
 		"cv" = mlr3::rsmp("cv", folds = folds),
-		"holdout" = mlr3::rsmp("holdout", ratio = ratio)
+		"holdout" = mlr3::rsmp("holdout", ratio = ratio),
+		"subsampling" = mlr3::rsmp("subsampling", ratio = ratio, repeats = repeats),
+		"bootstrap" = mlr3::msr("bootstrap", ratio = 1, repeats = repeats)
 	)
 }
 
@@ -148,7 +151,6 @@ create_problem_instance <- function(
 		# Metadata
 		n_features = length(task$feature_names),
 		n_samples = task$nrow,
-		name = problem_name,
 		task_type = task_type,
 		learner_type = learner_type,
 		resampling_type = resampling_type,
