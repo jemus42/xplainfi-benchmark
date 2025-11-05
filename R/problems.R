@@ -181,7 +181,7 @@ prob_confounded <- function(
 }
 
 # Problem: Mediation  (sim_dgp_mediated)
-prob_confounded <- function(
+prob_mediation <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
