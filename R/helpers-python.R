@@ -91,39 +91,42 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 create_sklearn_learner <- function(
 	learner_type,
 	task_type,
+	encode = FALSE,
 	n_trees = 500,
 	random_state = 42L
 ) {
 	.ensure_python_packages()
 	sklearn <- reticulate::import("sklearn")
+	ce <- reticulate::import("category_encoders")
 
-	if (learner_type == "featureless") {
+	# if (learner_type == "featureless") {
+	# 	if (task_type == "regr") {
+	# 		sklearn$dummy$DummyRegressor(strategy = "mean")
+	# 	} else {
+	# 		sklearn$dummy$DummyClassifier(
+	# 			strategy = "most_frequent",
+	# 			random_state = random_state
+	# 		)
+	# 	}
+	# } else
+	if (learner_type == "linear") {
 		if (task_type == "regr") {
-			sklearn$dummy$DummyRegressor(strategy = "mean")
+			learner <- sklearn$linear_model$LinearRegression()
 		} else {
-			sklearn$dummy$DummyClassifier(
-				strategy = "most_frequent",
-				random_state = random_state
-			)
-		}
-	} else if (learner_type == "linear") {
-		if (task_type == "regr") {
-			sklearn$linear_model$LinearRegression()
-		} else {
-			sklearn$linear_model$LogisticRegression(
+			learner <- sklearn$linear_model$LogisticRegression(
 				random_state = random_state,
 				max_iter = 200L
 			)
 		}
 	} else if (learner_type == "rf") {
 		if (task_type == "regr") {
-			sklearn$ensemble$RandomForestRegressor(
+			learner <- sklearn$ensemble$RandomForestRegressor(
 				n_estimators = as.integer(n_trees),
 				random_state = random_state,
 				n_jobs = 1L
 			)
 		} else {
-			sklearn$ensemble$RandomForestClassifier(
+			learner <- sklearn$ensemble$RandomForestClassifier(
 				n_estimators = as.integer(n_trees),
 				random_state = random_state,
 				n_jobs = 1L
@@ -131,13 +134,13 @@ create_sklearn_learner <- function(
 		}
 	} else if (learner_type == "mlp") {
 		if (task_type == "regr") {
-			sklearn$neural_network$MLPRegressor(
+			learner <- sklearn$neural_network$MLPRegressor(
 				hidden_layer_sizes = reticulate::tuple(5L),
 				max_iter = 200L,
 				random_state = random_state
 			)
 		} else {
-			sklearn$neural_network$MLPClassifier(
+			learner <- sklearn$neural_network$MLPClassifier(
 				hidden_layer_sizes = reticulate::tuple(5L),
 				max_iter = 200L,
 				random_state = random_state
@@ -146,4 +149,8 @@ create_sklearn_learner <- function(
 	} else {
 		stop("Unknown learner_type: ", learner_type)
 	}
+	if (encode) {
+		learner <- sklearn$pipeline$make_pipeline(ce$OneHotEncoder(), learner)
+	}
+	learner
 }
