@@ -47,12 +47,10 @@ create_learner <- function(
 	base_learner <- switch(
 		learner_type,
 		"featureless" = {
-			learner_id <- paste(task_type, "featureless", sep = ".")
-			lrn(learner_id)
+			lrn(paste(task_type, "featureless", sep = "."))
 		},
 		"rf" = {
-			learner_id <- paste(task_type, "ranger", sep = ".")
-			lrn(learner_id, num.trees = n_trees, num.threads = 1)
+			lrn(paste(task_type, "ranger", sep = "."), num.trees = n_trees, num.threads = 1)
 		},
 		"linear" = {
 			if (task_type == "regr") {
