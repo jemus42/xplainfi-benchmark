@@ -24,7 +24,6 @@ ids1 = tab[
 
 ids1 |>
 	findNotSubmitted() |>
-	head(3) |>
 	submitJobs()
 # submitJobs(ids1)
 

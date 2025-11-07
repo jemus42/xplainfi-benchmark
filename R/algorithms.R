@@ -831,6 +831,15 @@ algo_MarginalSAGE_sage <- function(
 
 	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
 
+	# Calculate learner performance on test set
+	sklearn_metrics <- reticulate::import("sklearn.metrics")
+	test_predictions <- sklearn_learner$predict(sklearn_data$X_test)
+	learner_performance <- if (instance$task_type == "regr") {
+		as.numeric(sklearn_metrics$r2_score(sklearn_data$y_test, test_predictions))
+	} else {
+		as.numeric(sklearn_metrics$accuracy_score(sklearn_data$y_test, test_predictions))
+	}
+
 	# Import sage and create MarginalImputer + KernelEstimator
 	sage <- reticulate::import("sage")
 
