@@ -72,12 +72,14 @@ prob_bike_sharing <- function(
 	}
 
 	xdat = mlr3data::bike_sharing
-	xdat[, temperature := NULL]
-	xdat[, date := NULL]
-	xdat[, holiday := as.integer(holiday)]
+	# xdat[, temperature := NULL]
+	# xdat[, date := NULL]
+	# xdat[, holiday := as.integer(holiday)]
 	xdat[, working_day := as.integer(working_day)]
 
 	task = as_task_regr(xdat, target = "count", id = "bike_share")
+
+	stopifnot(setequal(unique(task$feature_types$type), c("numeric", "integer", "factor")))
 
 	create_problem_instance(
 		task = task,
@@ -85,7 +87,8 @@ prob_bike_sharing <- function(
 		learner_type = learner_type,
 		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = "season" # Arbitrary: use season
+		has_categoricals = TRUE,
+		conditioning_set = NULL
 	)
 }
 
@@ -153,7 +156,30 @@ prob_interactions <- function(
 		learner_type = learner_type,
 		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = "x1" # Arbitrary: use x1
+		conditioning_set = NULL
+	)
+}
+
+# Problem: Indepdendent (sim_dgp_independent)
+prob_independent <- function(
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
+	hidden = FALSE,
+	learner_type = "rf",
+	resampling_type = "holdout",
+	n_trees = 500,
+	...
+) {
+	task <- sim_dgp_independent(n = n_samples)
+
+	create_problem_instance(
+		task = task,
+		job = job,
+		learner_type = learner_type,
+		n_trees = n_trees,
+		resampling_type = resampling_type,
+		conditioning_set = NULL
 	)
 }
 
@@ -181,7 +207,7 @@ prob_confounded <- function(
 }
 
 # Problem: Mediation  (sim_dgp_mediated)
-prob_mediation <- function(
+prob_mediated <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
