@@ -7,6 +7,7 @@ PYTHON_PACKAGES <- c(
 	"numpy>=1.26.0", # Minimum version compatible with Python 3.12+
 	"pandas>=2.1.0", # Minimum version compatible with Python 3.12+
 	"scikit-learn>=1.3.0", # Stable version with good Python 3.12+ support
+	"xgboost>=2.0.0", # For boosting learner (matches R xgboost)
 	"git+https://github.com/gcskoenig/fippy@a7a37aa5511f7074ead3289c89b1ae80036982cb",
 	"sage-importance>=0.0.4"
 )
@@ -49,8 +50,8 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 		pd <- reticulate::import("pandas", convert = FALSE)
 
 		# Convert factors to strings for pandas compatibility
-		X_train_converted <- copy(X_train)
-		X_test_converted <- copy(X_test)
+		X_train_converted <- data.table::copy(X_train)
+		X_test_converted <- data.table::copy(X_test)
 		factor_cols <- names(X_train_converted)[sapply(X_train_converted, is.factor)]
 		if (length(factor_cols) > 0) {
 			X_train_converted[, (factor_cols) := lapply(.SD, as.character), .SDcols = factor_cols]
@@ -85,6 +86,7 @@ create_sklearn_learner <- function(
 ) {
 	.ensure_python_packages()
 	sklearn <- reticulate::import("sklearn")
+	xgb <- reticulate::import("xgboost")
 	ce <- reticulate::import("category_encoders")
 
 	# if (learner_type == "featureless") {
@@ -132,6 +134,28 @@ create_sklearn_learner <- function(
 				hidden_layer_sizes = reticulate::tuple(5L),
 				max_iter = 200L,
 				random_state = random_state
+			)
+		}
+	} else if (learner_type == "boosting") {
+		# XGBoost with parameters matching R implementation
+		# Note: early_stopping_rounds is set via fit() with eval_set, not in constructor
+		if (task_type == "regr") {
+			learner <- xgb$XGBRegressor(
+				n_estimators = 1000L,
+				learning_rate = 0.1,
+				tree_method = "hist",
+				early_stopping_rounds = 10L,
+				random_state = random_state,
+				n_jobs = 1L
+			)
+		} else {
+			learner <- xgb$XGBClassifier(
+				n_estimators = 1000L,
+				learning_rate = 0.1,
+				tree_method = "hist",
+				early_stopping_rounds = 10L,
+				random_state = random_state,
+				n_jobs = 1L
 			)
 		}
 	} else {

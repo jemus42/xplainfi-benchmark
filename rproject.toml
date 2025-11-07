@@ -42,4 +42,5 @@ dependencies = [
     "reactable",
     "kableExtra",
     "mlr3torch",
+    "xgboost",
 ]

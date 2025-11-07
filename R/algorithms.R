@@ -22,7 +22,8 @@ algo_PFI <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		learner_performance = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -59,7 +60,8 @@ algo_CFI <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		learner_score = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -125,7 +127,8 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		learner_score = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -165,7 +168,8 @@ algo_MarginalSAGE <- function(
 		converged = method$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		learner_score = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -210,7 +214,8 @@ algo_ConditionalSAGE <- function(
 		converged = method$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		learner_score = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -283,6 +288,7 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = learner_performance,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -402,6 +408,14 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
+	# Calculate learner performance on test set
+	test_predictions <- sklearn_learner$predict(sklearn_data$X_test)
+	learner_performance <- if (instance$task_type == "regr") {
+		as.numeric(sklearn_metrics$r2_score(sklearn_data$y_test, test_predictions))
+	} else {
+		as.numeric(sklearn_metrics$accuracy_score(sklearn_data$y_test, test_predictions))
+	}
+
 	sampler_obj <- create_fippy_sampler(
 		task = instance$task,
 		X_train_pandas = sklearn_data$X_train,
@@ -445,6 +459,7 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = learner_performance,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -483,6 +498,14 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+	# Calculate learner performance on test set
+	test_predictions <- sklearn_learner$predict(sklearn_data$X_test)
+	learner_performance <- if (instance$task_type == "regr") {
+		as.numeric(sklearn_metrics$r2_score(sklearn_data$y_test, test_predictions))
+	} else {
+		as.numeric(sklearn_metrics$accuracy_score(sklearn_data$y_test, test_predictions))
+	}
 
 	sampler_obj <- create_fippy_sampler(
 		task = instance$task,
@@ -527,6 +550,7 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = learner_performance,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -575,6 +599,14 @@ algo_MarginalSAGE_fippy <- function(
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+	# Calculate learner performance on test set
+	test_predictions <- sklearn_learner$predict(sklearn_data$X_test)
+	learner_performance <- if (instance$task_type == "regr") {
+		as.numeric(sklearn_metrics$r2_score(sklearn_data$y_test, test_predictions))
+	} else {
+		as.numeric(sklearn_metrics$accuracy_score(sklearn_data$y_test, test_predictions))
+	}
 
 	sampler_obj <- create_fippy_sampler(
 		task = instance$task,
@@ -629,6 +661,7 @@ algo_MarginalSAGE_fippy <- function(
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = learner_performance,
 		n_permutations_used = n_permutations_used,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
@@ -678,6 +711,14 @@ algo_ConditionalSAGE_fippy <- function(
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
+
+	# Calculate learner performance on test set
+	test_predictions <- sklearn_learner$predict(sklearn_data$X_test)
+	learner_performance <- if (instance$task_type == "regr") {
+		as.numeric(sklearn_metrics$r2_score(sklearn_data$y_test, test_predictions))
+	} else {
+		as.numeric(sklearn_metrics$accuracy_score(sklearn_data$y_test, test_predictions))
+	}
 
 	sampler_obj <- create_fippy_sampler(
 		task = instance$task,
@@ -733,6 +774,7 @@ algo_ConditionalSAGE_fippy <- function(
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = learner_performance,
 		n_permutations_used = n_permutations_used,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
@@ -817,6 +859,7 @@ algo_MarginalSAGE_sage <- function(
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = learner_performance,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type

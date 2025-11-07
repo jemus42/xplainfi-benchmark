@@ -3,28 +3,30 @@
 conf <- list(
 	# General batchtools settings
 	reg_path = fs::path(
-		here::here("registries", "importance"),
+		here::here("registries", "runtime"),
 		paste0("xplainfi-", packageVersion("xplainfi"))
 	),
 	seed = 2025,
-	repls = 1,
+	repls = 10,
 	# Samples to generate or to subsample real data to (bike_sharing)
-	n_samples = c(100, 500, 1000),
+	n_samples = c(100, 500, 1000, 5000, 10000),
+	# Only one task with variable number of features
+	n_features = c(5, 10, 50),
 	# Affects correlation task
-	correlation = c(0.2, 0.5, 0.9),
+	correlation = 0.5,
 	# Affects PFI, CFI, RFI, and LOCO iterations
-	n_repeats = 50,
+	n_repeats = c(1, 10, 50, 100),
 	# For SAGE permutations
 	n_permutations = c(5, 10, 30),
 	# Size of sampled data used for Monte Carlo integration in SAGE methods
-	sage_n_samples = 200L,
+	sage_n_samples = c(10, 100, 200),
 	# Types of learners to use for each method, uses create_learner helper
-	learner_types = c("linear", "rf", "mlp", "boosting"),
-	# Fixed number of trees for rf (not varied in experiments)
-	n_trees = 500L,
+	learner_types = c("featureless", "linear"),
 	# Conditional samplers for CFI, RFI, and ConditionalSAGE
 	samplers = c(
 		"arf",
-		"gaussian"
+		"gaussian",
+		"knn",
+		"ctree"
 	)
 )

@@ -34,7 +34,7 @@ instantiate_resampling <- function(resampling, task, replication = 1) {
 
 # Helper function to create learner
 create_learner <- function(
-	learner_type = c("rf", "linear", "featureless", "mlp"),
+	learner_type = c("rf", "linear", "featureless", "mlp", "boosting"),
 	n_trees = 500,
 	n_units = 5,
 	task_type = c("regr", "classif")
@@ -53,26 +53,30 @@ create_learner <- function(
 			lrn(paste(task_type, "ranger", sep = "."), num.trees = n_trees, num.threads = 1)
 		},
 		"linear" = {
-			if (task_type == "regr") {
-				lrn("regr.lm")
-			} else {
-				lrn("classif.log_reg")
-			}
+			switch(task_type, regr = lrn("regr.lm"), classif = lrn("classif.log_reg"))
 		},
 		"mlp" = {
 			require(mlr3torch)
 			# learner_id <- paste(task_type, "nnet", sep = ".")
 			# lrn(learner_id, size = n_units, maxit = 200, decay = 0.01, trace = FALSE)
-			learner_id <- paste(task_type, "mlp", sep = ".")
-
 			lrn(
-				"regr.mlp",
+				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
-				neurons = c(5),
+				neurons = n_units,
 				# training arguments
 				batch_size = 32,
 				epochs = 30,
 				device = "cpu"
+			)
+		},
+		"boosting" = {
+			lrn(
+				paste(task_type, "xgboost", sep = "."),
+				nrounds = 1000,
+				early_stopping_rounds = 10,
+				eta = 0.1,
+				tree_method = "hist",
+				validate = "test"
 			)
 		}
 	)
@@ -97,11 +101,17 @@ create_learner <- function(
 
 # Helper function to create measure
 create_measure <- function(task_type = "regr") {
-	switch(
+	importance = switch(
 		task_type,
 		"regr" = mlr3::msr("regr.mse"),
 		"classif" = mlr3::msr("classif.ce")
 	)
+	eval = switch(
+		task_type,
+		"regr" = mlr3::msr("regr.rsq"),
+		"classif" = mlr3::msr("classif.acc")
+	)
+	list(importance = importance, eval = eval)
 }
 
 # Helper function to create conditional sampler
@@ -148,7 +158,7 @@ create_problem_instance <- function(
 	)
 
 	# Create measure
-	measure <- create_measure(task_type = task_type)
+	measures <- create_measure(task_type = task_type)
 	# Create and instantiate resampling
 	resampling <- create_resampling(type = resampling_type)
 	instantiate_resampling(resampling, task, job$repl %||% 1)
@@ -157,7 +167,8 @@ create_problem_instance <- function(
 	list(
 		task = task,
 		learner = learner,
-		measure = measure,
+		measure = measures$importance,
+		measure_eval = measures$eval,
 		resampling = resampling,
 		# Metadata
 		n_features = length(task$feature_names),

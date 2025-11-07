@@ -1,0 +1,220 @@
+---
+title: "{xplainfi} Benchmark Overview"
+format: 
+  revealjs:
+    smaller: true
+---
+
+## xplainfi Benchmark Suite
+
+-   Goals: 3 different scopes
+      a)  **Sanity check** / regression tests for `xplainfi` implementations
+      b)  **Runtime** comparison, performance analysis
+      c)  Comparing **importance** results + **runtime** between implementations for paper   
+          --> combination / subset of a + b
+-   Different algorithm / problem combinations fit different scopes
+- Priority: What's needed for paper
+
+##   General components
+
+- Standard batchtools + mlr3 setup: Problems & algorithms
+-   **Problem instance**: 
+    - Fixed: 
+      - Simulated/real data/task  (instantiated resampling (holdout))
+        - `Parameter`: n (p, correlation structure, ...)
+        - Currently regression tasks only (sufficient?)
+      - Measure (MSE for regr (acc for classif))
+      - `Parameter`: Learner/model class for train/predict step
+-   **Algorithm**: 
+    -  FI method from specific package
+    -  `Parameter`: Conditional sampler
+
+## Algorithms to include
+
+Focus on **model agnostic** methods and implementations in R (/python)
+
+|            |            |        *Software*   |   |    |       |
+|------------|------------|--------------|-------|-------|-----------------|
+| *Method*   | `xplainfi` | `fippy` (py) | `iml` | `vip` | `sage` (py)     |
+| **PFI**    | ✅         | ❌           | ✅    | ❓    | ---             |
+| **CFI**    | ✅         | ✅           | ---   | ---   | ---             |
+| **RFI**    | ❓         | ❓           | ---   | ---   | ---             |
+| **LOCO**   | ✅         | ---          | ---   | ---   | ---             |
+| **mSAGE**  | ✅         | ✅           | ---   | ---   | ✅ (KernelSAGE) |
+| **cSAGE**  | ✅         | ✅           | ---   | ---   | ---             |
+
+
+- Python implementations set up via `reticulate`
+- ✅ include, ❌ exclude, ❓ unsure, --- not implemented
+
+
+## Algorithm part: Model classes
+
+| Class         | R           | Python  | Purpose                                         |
+|---------------|-------------|---------|-------------------------------------------------|
+| Featureless   | featureless | ---     | Runtime overhead in xplainfi only               |
+| Linear        | lm/log_reg  | sklearn | "Basic", misses interactions                    |
+| RF (untuned)  | ranger      | sklearn | Picks up interactions, correlations problematic |
+| MLP (untuned) | nnet        | sklearn | People will ask for this anyway                 |
+
+
+## Algorithm part: Samplers
+
+| Type          | xplainfi | fippy   | Scope           |
+|---------------|----------|---------|-----------------|
+| **Gaussian**  | ✅  | ✅ | Compare xplainfi / fippy       |
+| kNN           | ✅  | --      | Everything else |
+| ctree         | ✅  | ---     | Everything else |
+| ARF           | ✅  | ---     | Everything else |
+| Normal. Flows | ---      | ✅ | Can't compare in R            |
+| RF-based univariate cont./cat.  | ---   | ✅ |  Categorical features, used in Marginal SAGE  |
+<!-- | Sequential    | --       | ✅ |  Combine multiple samplers   | -->
+
+- ✅ implemented, --- not implemented
+
+
+
+## Problems / DGPs for paper
+
+|DGP             |Challenge               |Goal / scope           |
+|:--------------|:------------------------|:---------------------|
+| ✅ `ewald`        | Mixed effects            | Compare methods in general |
+| ✅ `correlated`   | Spurious correlation     | Marginal vs. conditional |
+| ✅ `interactions` | Interaction effects      | Dependency on model class |
+| ✅ `mlbench.peak` | varying n, p           | **Runtime** only |
+| ✅ `bike_sharing`   | somewhat large / wide   | Real data, well known   |
+| ❓ `independent`  | Baseline (no challenges) | Sanity check? |
+| ❓ `friedman1`   | *Nonlinear* DGP, 5 causal / noise | Model class dependency? |
+| ❓ `confounded`   | Confounding              | Unsure |
+| ❓ `mediated`     | Mediation effects        | Unsure |
+
+Most tasks: p <= 5, linear DGP
+
+<!-- ## Unknowns
+
+- Categorical feature handling (bike_sharing)?
+  - In R no encoding needed, in Python> one-hot encoding
+  - -> FI not comparable, not sure
+  - Worth the effort? 🫠
+-  -->
+
+
+
+## Runtime
+
+- Mainly via `mlbench.peak` across different n, p
+- `bike_sharing` large
+- Caveat:
+  - `xplainfi` faster with `learner$predict_newdata_fast`
+  - -> Not available if learner is `GraphLearner`, in general
+  - Overhead is understood, setup here is without graphs, so optimistic scenario
+- Conditional samplers: large effect depending on data size
+- Pretests with
+  - learners, problems, samplers as shown
+  - `n_repeats` in `{1, 10}`
+  - n_samples in `{100, 500, 1000}` (+ bike_sharing)
+
+```{r read-data}
+res = readRDS("runtime-pretest.rds")
+library(ggplot2)
+library(dplyr)
+```
+
+## Runtime: median (max.) minutes {.scrollable}
+
+
+```{r runtime-minutes}
+res |>
+	filter(problem %in% c("peak", "bike_sharing", "ewald")) |>
+	# filter(n_repeats == max(n_repeats) | is.na(n_repeats)) |>
+	mutate(
+		# problem = glue::glue("{problem} ({n_samples}⨉{n_features})"),
+		method = case_when(
+			stringr::str_detect(algorithm, "^(ConditionalSAGE|CFI)$") ~ glue::glue(
+				"{algorithm} ({sampler})",
+				.na = ""
+			),
+			TRUE ~ algorithm
+		),
+		runtime = runtime / 60
+	) |>
+	group_by(method, problem, learner_type) |>
+	summarize(
+		q25 = quantile(runtime, probs = 0.25),
+		median = median(runtime),
+		q75 = quantile(runtime, 0.75),
+		max = max(runtime)
+	) |>
+	mutate(across(where(is.numeric), \(x) round(x, 1))) |>
+	mutate(
+		fmt = as.character(glue::glue("{median} ({max})"))
+	) |>
+	arrange(desc(median)) |>
+	tidyr::pivot_wider(
+		id_cols = c("method", "learner_type"),
+		values_from = "fmt",
+		names_from = "problem"
+	) |>
+	# reactable::reactable(sortable = TRUE, filterable = TRUE)
+	kableExtra::kbl() |>
+	kableExtra::kable_styling()
+```
+
+
+## Runtime: `mlbench.peak` {.nostretch .scrollable}
+
+
+```{r peak-runtime}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-align: center
+res |>
+	dplyr::filter(
+		problem == "peak",
+		learner_type == "rf"
+		# is.na(sampler) | sampler == "arf",
+	) |>
+	dplyr::mutate(
+		method = ifelse(!is.na(sampler), glue::glue("{algorithm} ({sampler})"), algorithm)
+	) |>
+	ggplot(aes(y = reorder(method, runtime), x = runtime / 60 / 60)) +
+	facet_wrap(vars(n_samples, n_features), labeller = label_both) +
+	geom_boxplot() +
+	scale_x_log10(labels = scales::label_log()) +
+	labs(
+		# title = "mlbench.peak with varying n, p",
+		subtitle = "RF, 1 and 10 repeats",
+		x = "Runtime (log 10 hours)",
+		y = "Algorithm"
+	) +
+	theme_bw(base_size = 13) +
+	theme(
+		plot.title.position = "plot",
+		axis.text.y = element_text(size = 7.5),
+		strip.text = element_text(size = rel(0.7))
+	)
+```
+
+## Runtime: `bike_sharing` {.nostretch .scrollable}
+
+```{r bikesharing-runtime}
+#| fig-width: 10
+#| fig-height: 6
+#| fig-align: center
+res |>
+	dplyr::filter(problem == "bike_sharing") |>
+	dplyr::mutate(
+		method = ifelse(!is.na(sampler), glue::glue("{algorithm} ({sampler})"), algorithm)
+	) |>
+	ggplot(aes(y = reorder(method, runtime), x = runtime / 60 / 60)) +
+	facet_wrap(vars(learner_type)) +
+	geom_boxplot() +
+	scale_x_log10(labels = scales::label_log()) +
+	labs(
+		# title = "Runtime per algorithm, learner",
+		x = "Runtime (log10 hours)",
+		y = NULL
+	) +
+	theme_bw(base_size = 13) +
+	theme(plot.title.position = "plot")
+```

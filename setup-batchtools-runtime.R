@@ -1,13 +1,9 @@
 # Main experiment setup and execution script
 # Problem definitions for batchtools experiment
-library(batchtools)
-library(mlr3)
-library(data.table)
 
 # Load configuration
 source(here::here("setup-common.R"))
-source(here::here("config.R"))
-
+source(here::here("config-runtime.R"))
 
 # Create or load registry
 if (dir.exists(conf$reg_path)) {
@@ -40,14 +36,7 @@ source(here::here("R/algorithms.R"))
 # Register Problems with batchtools
 # ============================================================================
 
-addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
-addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
-addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
-addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = conf$seed)
-addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
-addProblem(name = "independent", data = NULL, fun = prob_independent, seed = conf$seed)
-addProblem(name = "confounded", data = NULL, fun = prob_confounded, seed = conf$seed)
-addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed)
+addProblem(name = "peak", data = NULL, fun = prob_peak, seed = conf$seed)
 
 # ============================================================================
 # Register Algorithms with batchtools
@@ -55,7 +44,6 @@ addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed
 
 addAlgorithm(name = "PFI", fun = algo_PFI)
 addAlgorithm(name = "CFI", fun = algo_CFI)
-# addAlgorithm(name = "RFI", fun = algo_RFI)
 addAlgorithm(name = "LOCO", fun = algo_LOCO)
 addAlgorithm(name = "MarginalSAGE", fun = algo_MarginalSAGE)
 addAlgorithm(name = "ConditionalSAGE", fun = algo_ConditionalSAGE)
@@ -72,49 +60,10 @@ addAlgorithm(name = "MarginalSAGE_sage", fun = algo_MarginalSAGE_sage)
 # ============================================================================
 
 prob_designs <- list(
-	# Friedman1: fixed 10 features, varying sample sizes
-	friedman1 = CJ(
+	# Peak: varying dimensions and sample sizes
+	peak = CJ(
 		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	# Bike sharing: real-world data, fixed dimensions
-	bike_sharing = CJ(
-		# n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	# Correlated features DGP: varying correlation strength
-	correlated = CJ(
-		n_samples = conf$n_samples,
-		correlation = conf$correlation,
-		learner_type = conf$learner_types
-	),
-
-	# Ewald DGP: fixed structure
-	ewald = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	# Interactions DGP: fixed structure
-	interactions = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	independent = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	confounded = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	mediated = CJ(
-		n_samples = conf$n_samples,
+		n_features = conf$n_features,
 		learner_type = conf$learner_types
 	)
 )
@@ -134,12 +83,6 @@ algo_designs <- list(
 		n_repeats = conf$n_repeats,
 		sampler = conf$samplers
 	),
-
-	# RFI: Relative Feature Importance (with samplers)
-	# RFI = CJ(
-	# 	n_repeats = conf$n_repeats,
-	# 	sampler = conf$samplers
-	# ),
 
 	# LOCO: Leave-One-Covariate-Out
 	LOCO = data.table(
