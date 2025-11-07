@@ -75,6 +75,7 @@ create_learner <- function(
 				nrounds = 1000,
 				early_stopping_rounds = 10,
 				eta = 0.1,
+				booster = "gbtree",
 				tree_method = "hist",
 				validate = "test"
 			)

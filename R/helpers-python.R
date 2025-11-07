@@ -150,6 +150,7 @@ create_sklearn_learner <- function(
 			learner <- xgb$XGBRegressor(
 				n_estimators = 1000L,
 				learning_rate = 0.1,
+				booster = "gbtree",
 				tree_method = "hist",
 				early_stopping_rounds = 10L,
 				random_state = random_state,
@@ -159,6 +160,7 @@ create_sklearn_learner <- function(
 			learner <- xgb$XGBClassifier(
 				n_estimators = 1000L,
 				learning_rate = 0.1,
+				booster = "gbtree",
 				tree_method = "hist",
 				early_stopping_rounds = 10L,
 				random_state = random_state,
