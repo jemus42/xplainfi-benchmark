@@ -60,8 +60,20 @@ create_learner <- function(
 			}
 		},
 		"mlp" = {
-			learner_id <- paste(task_type, "nnet", sep = ".")
-			lrn(learner_id, size = n_units, maxit = 200, decay = 0.01, trace = FALSE)
+			require(mlr3torch)
+			# learner_id <- paste(task_type, "nnet", sep = ".")
+			# lrn(learner_id, size = n_units, maxit = 200, decay = 0.01, trace = FALSE)
+			learner_id <- paste(task_type, "mlp", sep = ".")
+
+			lrn(
+				"regr.mlp",
+				# architecture parameters
+				neurons = c(5),
+				# training arguments
+				batch_size = 32,
+				epochs = 30,
+				device = "cpu"
+			)
 		}
 	)
 
@@ -123,6 +135,7 @@ create_problem_instance <- function(
 	n_trees = 500,
 	resampling_type = "holdout",
 	problem_name,
+	has_categoricals = FALSE,
 	...
 ) {
 	task_type <- task$task_type
@@ -152,6 +165,7 @@ create_problem_instance <- function(
 		task_type = task_type,
 		learner_type = learner_type,
 		resampling_type = resampling_type,
+		has_categoricals = has_categoricals,
 		... # Additional problem-specific metadata
 	)
 }
