@@ -214,42 +214,6 @@ algo_ConditionalSAGE <- function(
 	)
 }
 
-
-# ============================================================================
-# PFI_mlr3filters - Reference implementation from mlr3filters
-# ============================================================================
-
-# BB recommended to leave this out
-# Side issue: Does not accept instantiated resamplings
-# addAlgorithm(
-#   name = "PFI_mlr3filters",
-#   fun = function(data, job, instance, n_repeats = 1) {
-#     require(mlr3filters)
-
-#     filter_pfi <- flt(
-#       "permutation",
-#       learner = instance$learner,
-#       measure = instance$measure,
-#       resampling = instance$resampling,
-#       nmc = n_repeats,
-#       standardize = FALSE
-#     )
-
-#     start_time <- Sys.time()
-#     filter_pfi$calculate(task = instance$task)
-#     end_time <- Sys.time()
-
-#     data.table::data.table(
-#       importance = list(as.data.table(filter_pfi)),
-#       runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-#       n_features = instance$n_features,
-#       n_samples = instance$n_samples,
-#       task_type = instance$task_type,
-#       task_name = instance$name
-#     )
-#   }
-# )
-
 # ============================================================================
 # PFI_iml - Reference implementation from iml package
 # ============================================================================
@@ -396,7 +360,8 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	)
 
 	data.table::data.table(
-		importance = list(importance_dt),
+		# if n_repeats > 1, there's a StDev column we don't keep
+		importance = list(importance_dt[, .(feature, importance)]),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
@@ -409,7 +374,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 # PFI_fippy - Reference implementation from fippy package (Python)
 # ============================================================================
 
-algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
+algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sampler = "simple") {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -422,21 +387,27 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		as_pandas = TRUE
 	)
 
-	# Create and train sklearn learner
+	# Create and train sklearn learner (with encoding if categoricals present)
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
+		encode = instance$has_categoricals,
 		n_trees = 500,
 		random_state = job$seed
 	)
 
 	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
 
-	# Import fippy and create Explainer with SimpleSampler for marginal PFI
+	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-	sampler <- fippy$samplers$SimpleSampler(sklearn_data$X_train)
+	sampler_obj <- create_fippy_sampler(
+		task = instance$task,
+		X_train_pandas = sklearn_data$X_train,
+		sampler = sampler
+	)
+
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
@@ -447,7 +418,7 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		predict = sklearn_learner$predict, # Pass the predict method, not the model
 		X_train = sklearn_data$X_train,
 		loss = loss_fn, # Pass function object, not string
-		sampler = sampler
+		sampler = sampler_obj
 	)
 
 	start_time <- Sys.time()
@@ -498,24 +469,25 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		as_pandas = TRUE
 	)
 
-	# Create and train sklearn learner
+	# Create and train sklearn learner (with encoding if categoricals present)
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
+		encode = instance$has_categoricals,
 		n_trees = 500,
 		random_state = job$seed
 	)
 
 	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
 
-	# Import fippy and create Explainer with Gaussian sampler
+	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-	sampler <- switch(
-		sampler,
-		"gaussian" = fippy$samplers$GaussianSampler(sklearn_data$X_train),
-		cli::cli_abort("Sampler {.val {sampler}} not found")
+	sampler_obj <- create_fippy_sampler(
+		task = instance$task,
+		X_train_pandas = sklearn_data$X_train,
+		sampler = sampler
 	)
 
 	loss_fn <- if (instance$task_type == "regr") {
@@ -528,7 +500,7 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		predict = sklearn_learner$predict, # Pass the predict method, not the model
 		X_train = sklearn_data$X_train,
 		loss = loss_fn, # Pass function object, not string
-		sampler = sampler
+		sampler = sampler_obj
 	)
 
 	start_time <- Sys.time()
@@ -571,7 +543,8 @@ algo_MarginalSAGE_fippy <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
-	sage_n_samples = 10
+	sage_n_samples = 10,
+	sampler = "gaussian"
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -588,23 +561,26 @@ algo_MarginalSAGE_fippy <- function(
 		as_pandas = TRUE
 	)
 
-	# Create and train sklearn learner
+	# Create and train sklearn learner (with encoding if categoricals present)
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
+		encode = instance$has_categoricals,
 		n_trees = 500,
 		random_state = job$seed
 	)
 
 	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
 
-	# Import fippy and create Explainer with GaussianSampler
+	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-	# FIXME: UnivRFSampler, + ContUnivRFSampler in SequentialSampler
-
-	sampler <- fippy$samplers$GaussianSampler(sklearn_data$X_train)
+	sampler_obj <- create_fippy_sampler(
+		task = instance$task,
+		X_train_pandas = sklearn_data$X_train,
+		sampler = sampler
+	)
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
@@ -615,7 +591,7 @@ algo_MarginalSAGE_fippy <- function(
 		predict = sklearn_learner$predict,
 		X_train = sklearn_data$X_train,
 		loss = loss_fn,
-		sampler = sampler
+		sampler = sampler_obj
 	)
 
 	start_time <- Sys.time()
@@ -649,8 +625,6 @@ algo_MarginalSAGE_fippy <- function(
 			as.numeric(fi_series[[f]])
 		})
 	)
-	# Remove sd col for consistency with other results
-	importance_dt[, StDev := NULL]
 
 	data.table::data.table(
 		importance = list(importance_dt),
@@ -690,24 +664,25 @@ algo_ConditionalSAGE_fippy <- function(
 		as_pandas = TRUE
 	)
 
-	# Create and train sklearn learner
+	# Create and train sklearn learner (with encoding if categoricals present)
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
+		encode = instance$has_categoricals,
 		n_trees = 500,
 		random_state = job$seed
 	)
 
 	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
 
-	# Import fippy and create Explainer with GaussianSampler
+	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
 
-	sampler <- switch(
-		sampler,
-		"gaussian" = fippy$samplers$GaussianSampler(sklearn_data$X_train),
-		cli::cli_abort("Sampler {.val {sampler}} not found")
+	sampler_obj <- create_fippy_sampler(
+		task = instance$task,
+		X_train_pandas = sklearn_data$X_train,
+		sampler = sampler
 	)
 
 	loss_fn <- if (instance$task_type == "regr") {
@@ -720,7 +695,7 @@ algo_ConditionalSAGE_fippy <- function(
 		predict = sklearn_learner$predict,
 		X_train = sklearn_data$X_train,
 		loss = loss_fn,
-		sampler = sampler
+		sampler = sampler_obj
 	)
 
 	start_time <- Sys.time()
@@ -767,10 +742,10 @@ algo_ConditionalSAGE_fippy <- function(
 
 
 # ============================================================================
-# KernelSAGE - Official SAGE implementation with kernel estimator
+# MarginalSAGE_sage - Official SAGE implementation with kernel estimator
 # ============================================================================
 
-algo_KernelSAGE <- function(
+algo_MarginalSAGE_sage <- function(
 	data = NULL,
 	job = NULL,
 	instance,

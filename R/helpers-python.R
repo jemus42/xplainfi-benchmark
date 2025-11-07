@@ -24,7 +24,9 @@ PYTHON_PACKAGES <- c(
 
 # Helper function to convert mlr3 task to scikit-learn format
 # Returns list with X_train, X_test, y_train, y_test
-# Handles categorical features via one-hot encoding
+# Does NOT encode categorical features - that is now handled by:
+#   - Learner: via create_sklearn_learner(..., encode = TRUE)
+#   - Sampler: via create_fippy_sampler() using SequentialSampler with RFSamplers
 # If as_pandas=TRUE, returns pandas DataFrames (needed for fippy samplers)
 task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	# Get training data
@@ -37,47 +39,33 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	X_test <- test_data[, task$feature_names, with = FALSE]
 	y_test <- test_data[[task$target_names]]
 
-	# Identify categorical features
-	factor_cols <- names(X_train)[sapply(X_train, is.factor)]
-	char_cols <- names(X_train)[sapply(X_train, is.character)]
-	categorical_cols <- c(factor_cols, char_cols)
-
-	# One-hot encode categorical features if present
-	if (length(categorical_cols) > 0) {
-		# Combine train and test for consistent encoding
-		combined <- rbind(X_train, X_test)
-		n_train <- nrow(X_train)
-
-		# One-hot encode using mlr3pipelines
-		po_encode <- mlr3pipelines::po("encode", method = "one-hot")
-		encoded_task <- mlr3::as_task_regr(
-			cbind(combined, dummy_target = 1),
-			target = "dummy_target",
-			id = "temp"
-		)
-		encoded_task <- po_encode$train(list(encoded_task))[[1]]
-		encoded_data <- encoded_task$data()[, -"dummy_target"]
-
-		# Split back
-		X_train <- encoded_data[1:n_train, ]
-		X_test <- encoded_data[(n_train + 1):nrow(encoded_data), ]
-	}
-
 	if (as_pandas) {
 		# Ensure Python packages (including pandas) are available before data conversion
 		.ensure_python_packages()
 
 		# Convert to pandas DataFrames/Series for fippy
 		# Both X and y need pandas objects (DataFrames have .columns, Series have .to_numpy())
+		# Note: Categorical features remain as-is (factor/character columns)
 		pd <- reticulate::import("pandas", convert = FALSE)
+
+		# Convert factors to strings for pandas compatibility
+		X_train_converted <- copy(X_train)
+		X_test_converted <- copy(X_test)
+		factor_cols <- names(X_train_converted)[sapply(X_train_converted, is.factor)]
+		if (length(factor_cols) > 0) {
+			X_train_converted[, (factor_cols) := lapply(.SD, as.character), .SDcols = factor_cols]
+			X_test_converted[, (factor_cols) := lapply(.SD, as.character), .SDcols = factor_cols]
+		}
+
 		list(
-			X_train = pd$DataFrame(as.matrix(X_train), columns = names(X_train)),
-			X_test = pd$DataFrame(as.matrix(X_test), columns = names(X_test)),
+			X_train = pd$DataFrame(X_train_converted),
+			X_test = pd$DataFrame(X_test_converted),
 			y_train = pd$Series(as.vector(y_train)),
 			y_test = pd$Series(as.vector(y_test))
 		)
 	} else {
 		# Convert to matrices/vectors for sage and sklearn
+		# Note: Matrices don't support categorical, so this assumes numeric data only
 		list(
 			X_train = as.matrix(X_train),
 			X_test = as.matrix(X_test),
@@ -154,3 +142,65 @@ create_sklearn_learner <- function(
 	}
 	learner
 }
+
+# Helper function to create fippy sampler based on task features and sampler type
+# sampler: "simple" (bootstrap resample), "gaussian" (parametric), or "rf" (RF-based)
+# - SimpleSampler: Resamples from observed data (no assumptions, works with categoricals)
+# - GaussianSampler: Assumes multivariate Gaussian (continuous features only)
+# - SequentialSampler with RF: Semi-parametric, handles mixed data
+create_fippy_sampler <- function(task, X_train_pandas, sampler = "gaussian") {
+	.ensure_python_packages()
+	fippy <- reticulate::import("fippy")
+
+	# Validate sampler
+	checkmate::assert_choice(sampler, choices = c("simple", "gaussian", "rf"))
+
+	# SimpleSampler: bootstrap resampling, no distributional assumptions
+	if (sampler == "simple") {
+		cli::cli_inform("Using SimpleSampler (bootstrap resampling)")
+		return(fippy$samplers$SimpleSampler(X_train_pandas))
+	}
+
+	# Get task data to check for categorical features (for gaussian/rf validation)
+	task_data <- task$data()
+	feature_names <- task$feature_names
+
+	# Identify categorical features
+	categorical_features <- character(0)
+	for (feat in feature_names) {
+		if (is.factor(task_data[[feat]]) || is.character(task_data[[feat]])) {
+			categorical_features <- c(categorical_features, feat)
+		}
+	}
+
+	# Validate sampler choice with categorical features
+	if (length(categorical_features) > 0 && sampler == "gaussian") {
+		cli::cli_abort(c(
+			"x" = "GaussianSampler cannot be used with categorical features",
+			"i" = "Task has {length(categorical_features)} categorical feature{?s}: {.val {categorical_features}}",
+			"i" = "Use {.code sampler = 'rf'} or {.code sampler = 'simple'} for tasks with categorical features"
+		))
+	}
+
+	if (sampler == "gaussian") {
+		# Use GaussianSampler (only valid for continuous features)
+		cli::cli_inform("Using GaussianSampler")
+		fippy$samplers$GaussianSampler(X_train_pandas)
+	} else {
+		# Use SequentialSampler with RF-based samplers
+		cli::cli_inform("Using SequentialSampler with RF samplers{if (length(categorical_features) > 0) glue::glue(' ({length(categorical_features)} categorical feature{ifelse(length(categorical_features) > 1, \"s\", \"\")})')}")
+
+		# Create RF-based samplers
+		cat_sampler <- fippy$samplers$UnivRFSampler(X_train_pandas, cat_inputs = categorical_features)
+		cont_sampler <- fippy$samplers$ContUnivRFSampler(X_train_pandas, cat_inputs = categorical_features)
+
+		# Combine into SequentialSampler
+		fippy$samplers$SequentialSampler(
+			X_train_pandas,
+			categorical_fs = categorical_features,
+			cat_sampler = cat_sampler,
+			cont_sampler = cont_sampler
+		)
+	}
+}
+
