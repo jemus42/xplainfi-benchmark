@@ -65,7 +65,7 @@ create_learner <- function(
 				neurons = n_units,
 				# training arguments
 				batch_size = 32,
-				epochs = 30,
+				epochs = 50,
 				device = "cpu"
 			)
 		},

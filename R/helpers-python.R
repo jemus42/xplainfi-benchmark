@@ -133,19 +133,19 @@ create_sklearn_learner <- function(
 		if (task_type == "regr") {
 			learner <- sklearn$neural_network$MLPRegressor(
 				hidden_layer_sizes = reticulate::tuple(5L),
-				max_iter = 200L,
+				max_iter = 500L,
 				random_state = random_state
 			)
 		} else {
 			learner <- sklearn$neural_network$MLPClassifier(
 				hidden_layer_sizes = reticulate::tuple(5L),
-				max_iter = 200L,
+				max_iter = 500L,
 				random_state = random_state
 			)
 		}
 	} else if (learner_type == "boosting") {
 		# XGBoost with parameters matching R implementation
-		# Note: early_stopping_rounds is set via fit() with eval_set, not in constructor
+		# Note: early_stopping_rounds requires validation data in fit()
 		if (task_type == "regr") {
 			learner <- xgb$XGBRegressor(
 				n_estimators = 1000L,
@@ -174,6 +174,28 @@ create_sklearn_learner <- function(
 		learner <- sklearn$pipeline$make_pipeline(ce$OneHotEncoder(), learner)
 	}
 	learner
+}
+
+# Helper function to fit sklearn learner with proper XGBoost early stopping
+fit_sklearn_learner <- function(learner, X_train, y_train, X_test, y_test) {
+	# Check if it's an XGBoost model that needs validation data for early stopping
+	learner_class <- class(learner)[1]
+	is_xgboost <- grepl("XGB", learner_class)
+
+	# Check if it's a pipeline containing XGBoost
+	if (!is_xgboost && "steps" %in% names(learner)) {
+		is_xgboost <- any(sapply(learner$steps, function(step) grepl("XGB", class(step[[2]])[1])))
+	}
+
+	if (is_xgboost) {
+		# For XGBoost, provide validation data for early stopping
+		learner$fit(X_train, y_train, eval_set = list(list(X_test, y_test)), verbose = FALSE)
+	} else {
+		# For other learners, use standard fit
+		learner$fit(X_train, y_train)
+	}
+
+	invisible(learner)
 }
 
 # Helper function to create fippy sampler based on task features and sampler type

@@ -239,8 +239,17 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Clone learner to avoid modifying the instance
 	learner_clone <- instance$learner$clone(deep = TRUE)
 
-	# Train on training set
-	learner_clone$train(instance$task, row_ids = train_ids)
+	# Use resample() with the existing resampling to properly handle XGBoost early stopping
+	# This ensures early stopping uses the test set for validation
+	resample_result <- resample(
+		instance$task,
+		learner_clone,
+		instance$resampling,
+		store_models = TRUE
+	)
+
+	# Extract the trained learner from first iteration (early stopping applied)
+	learner_clone <- resample_result$learners[[1]]
 
 	# Create iml Predictor object
 	# iml expects a predict function that returns predictions
@@ -318,8 +327,17 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Clone learner to avoid modifying the instance
 	learner_clone <- instance$learner$clone(deep = TRUE)
 
-	# Train on training set
-	learner_clone$train(instance$task, row_ids = train_ids)
+	# Use resample() with the existing resampling to properly handle XGBoost early stopping
+	# This ensures early stopping uses the test set for validation
+	resample_result <- resample(
+		instance$task,
+		learner_clone,
+		instance$resampling,
+		store_models = TRUE
+	)
+
+	# Extract the trained learner from first iteration (early stopping applied)
+	learner_clone <- resample_result$learners[[1]]
 
 	# Prepare data for vip
 	test_data <- instance$task$data(rows = test_ids)
@@ -412,7 +430,8 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		random_state = job$seed
 	)
 
-	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
+		sklearn_data$X_test, sklearn_data$y_test)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -505,7 +524,8 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		random_state = job$seed
 	)
 
-	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
+		sklearn_data$X_test, sklearn_data$y_test)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -609,7 +629,8 @@ algo_MarginalSAGE_fippy <- function(
 		random_state = job$seed
 	)
 
-	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
+		sklearn_data$X_test, sklearn_data$y_test)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -724,7 +745,8 @@ algo_ConditionalSAGE_fippy <- function(
 		random_state = job$seed
 	)
 
-	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
+		sklearn_data$X_test, sklearn_data$y_test)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -829,7 +851,8 @@ algo_MarginalSAGE_sage <- function(
 		random_state = job$seed
 	)
 
-	sklearn_learner$fit(sklearn_data$X_train, sklearn_data$y_train)
+	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
+		sklearn_data$X_test, sklearn_data$y_test)
 
 	# Calculate learner performance on test set
 	sklearn_metrics <- reticulate::import("sklearn.metrics")
