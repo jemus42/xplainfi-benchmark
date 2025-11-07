@@ -11,11 +11,11 @@ source(here::here("config.R"))
 
 # Create or load registry
 if (dir.exists(conf$reg_path)) {
-	cli::cli_alert_danger("Deleting existing registry at {.file {conf$reg_path}}")
+	cli::cli_alert_danger("Deleting existing registry at {.file {fs::path_rel(conf$reg_path)}}")
 	fs::dir_delete(conf$reg_path)
 }
 
-cli::cli_alert_info("Creating registry at {.file {conf$reg_path}}")
+cli::cli_alert_info("Creating registry at {.file {fs::path_rel(conf$reg_path)}}")
 reg <- makeExperimentRegistry(
 	file.dir = conf$reg_path,
 	packages = c("mlr3learners", "xplainfi"),
@@ -218,7 +218,7 @@ addExperiments(
 # Gaussian sampler doesn't support mixed feature types (bike_sharing)
 # sampler is NA for most jobs, findExperiments() didn't play nice
 incompatible_jobs = unwrap(getJobTable())[!is.na(sampler)][
-	(sampler == "gaussian") & problem == "bike_sharing",
+	(sampler %in% c("gaussian", "ctree")) & problem == "bike_sharing",
 ]
 
 if (nrow(incompatible_jobs) > 0) {
@@ -245,32 +245,16 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 # Optional: Tag specific job combinations for analysis
 # ============================================================================
 
-# Tag runtime benchmark jobs (e.g., featureless learner on peak)
-findExperiments(
-	prob.pars = learner_type == "featureless",
-	prob.name = "peak"
-) |>
-	addJobTags(tags = "runtime")
-
-# Tag DGP comparison experiments
-mlr3misc::walk(c("ewald", "interactions", "correlated", "friedman1"), \(x) {
-	findExperiments(
-		prob.name = x
-	) |>
-		addJobTags(tags = "dgp_comparison")
-})
-
 # Tag real data comparison experiments
 findExperiments(
 	prob.name = c("bike_sharing")
 ) |>
 	addJobTags(tags = "real_data")
 
-
-findExperiments(algo.pattern = "fippy") |>
+findExperiments(algo.pattern = "_fippy") |>
 	addJobTags(tags = "python")
 
-findExperiments(algo.pattern = "KernelSAGE") |>
+findExperiments(algo.pattern = "_sage") |>
 	addJobTags(tags = "python")
 
 # Explictly tag xplainfi jobs
@@ -308,9 +292,4 @@ cli::cli_ul(c(
 	"Samplers (CFI/RFI/ConditionalSAGE): {length(conf$samplers)}"
 ))
 
-cli::cli_alert_success("Experiment registry created at: {.path {conf$reg_path}}")
-cli::cli_alert_info("Next steps:")
-cli::cli_ul(c(
-	"Run jobs: source('run_experiment.R')",
-	"Collect results: source('collect_results.R')"
-))
+cli::cli_alert_success("Experiment registry created at: {.path {fs::path_rel(conf$reg_path)}}")

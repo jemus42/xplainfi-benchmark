@@ -61,7 +61,7 @@ algo_CFI <- function(
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type,
-		learner_score = method$resample_result$aggregate(instance$measure_eval)
+		learner_performance = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -128,7 +128,7 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type,
-		learner_score = method$resample_result$aggregate(instance$measure_eval)
+		learner_performance = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -169,7 +169,7 @@ algo_MarginalSAGE <- function(
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type,
-		learner_score = method$resample_result$aggregate(instance$measure_eval)
+		learner_performance = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -215,7 +215,7 @@ algo_ConditionalSAGE <- function(
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type,
-		learner_score = method$resample_result$aggregate(instance$measure_eval)
+		learner_performance = method$resample_result$aggregate(instance$measure_eval)
 	)
 }
 
@@ -422,16 +422,18 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		sampler = sampler
 	)
 
+	# For regression use MSE, for classification use zero-one loss (classification error)
+	# Note: Using predict (labels) for both, not predict_proba
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
-		sklearn_metrics$log_loss
+		sklearn_metrics$zero_one_loss
 	}
 
 	explainer <- fippy$Explainer(
-		predict = sklearn_learner$predict, # Pass the predict method, not the model
+		predict = sklearn_learner$predict,
 		X_train = sklearn_data$X_train,
-		loss = loss_fn, # Pass function object, not string
+		loss = loss_fn,
 		sampler = sampler_obj
 	)
 
@@ -513,16 +515,18 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		sampler = sampler
 	)
 
+	# For regression use MSE, for classification use zero-one loss (classification error)
+	# Note: Using predict (labels) for both, not predict_proba
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
-		sklearn_metrics$log_loss
+		sklearn_metrics$zero_one_loss
 	}
 
 	explainer <- fippy$Explainer(
-		predict = sklearn_learner$predict, # Pass the predict method, not the model
+		predict = sklearn_learner$predict,
 		X_train = sklearn_data$X_train,
-		loss = loss_fn, # Pass function object, not string
+		loss = loss_fn,
 		sampler = sampler_obj
 	)
 
@@ -613,10 +617,12 @@ algo_MarginalSAGE_fippy <- function(
 		X_train_pandas = sklearn_data$X_train,
 		sampler = sampler
 	)
+	# For regression use MSE, for classification use zero-one loss (classification error)
+	# Note: Using predict (labels) for both, not predict_proba
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
-		sklearn_metrics$log_loss
+		sklearn_metrics$zero_one_loss
 	}
 
 	explainer <- fippy$Explainer(
@@ -726,10 +732,12 @@ algo_ConditionalSAGE_fippy <- function(
 		sampler = sampler
 	)
 
+	# For regression use MSE, for classification use zero-one loss (classification error)
+	# Note: Using predict (labels) for both, not predict_proba
 	loss_fn <- if (instance$task_type == "regr") {
 		sklearn_metrics$mean_squared_error
 	} else {
-		sklearn_metrics$log_loss
+		sklearn_metrics$zero_one_loss
 	}
 
 	explainer <- fippy$Explainer(

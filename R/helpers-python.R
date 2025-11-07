@@ -28,6 +28,7 @@ PYTHON_PACKAGES <- c(
 # Does NOT encode categorical features - that is now handled by:
 #   - Learner: via create_sklearn_learner(..., encode = TRUE)
 #   - Sampler: via create_fippy_sampler() using SequentialSampler with RFSamplers
+# For classification tasks, encodes target labels as integers for fippy compatibility
 # If as_pandas=TRUE, returns pandas DataFrames (needed for fippy samplers)
 task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	# Get training data
@@ -39,6 +40,22 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	test_data <- task$data(rows = test_ids)
 	X_test <- test_data[, task$feature_names, with = FALSE]
 	y_test <- test_data[[task$target_names]]
+
+	# For classification, encode target labels as integers
+	# This is needed for fippy to work properly (numeric predictions can be averaged)
+	label_encoder <- NULL
+	if (task$task_type == "classif") {
+		.ensure_python_packages()
+		sklearn_preprocessing <- reticulate::import("sklearn.preprocessing")
+		label_encoder <- sklearn_preprocessing$LabelEncoder()
+
+		# Convert factors to characters first, then encode
+		y_train_chr <- as.character(y_train)
+		y_test_chr <- as.character(y_test)
+
+		y_train <- label_encoder$fit_transform(y_train_chr)
+		y_test <- label_encoder$transform(y_test_chr)
+	}
 
 	if (as_pandas) {
 		# Ensure Python packages (including pandas) are available before data conversion
@@ -89,16 +106,6 @@ create_sklearn_learner <- function(
 	xgb <- reticulate::import("xgboost")
 	ce <- reticulate::import("category_encoders")
 
-	# if (learner_type == "featureless") {
-	# 	if (task_type == "regr") {
-	# 		sklearn$dummy$DummyRegressor(strategy = "mean")
-	# 	} else {
-	# 		sklearn$dummy$DummyClassifier(
-	# 			strategy = "most_frequent",
-	# 			random_state = random_state
-	# 		)
-	# 	}
-	# } else
 	if (learner_type == "linear") {
 		if (task_type == "regr") {
 			learner <- sklearn$linear_model$LinearRegression()
@@ -212,11 +219,16 @@ create_fippy_sampler <- function(task, X_train_pandas, sampler = "gaussian") {
 		fippy$samplers$GaussianSampler(X_train_pandas)
 	} else {
 		# Use SequentialSampler with RF-based samplers
-		cli::cli_inform("Using SequentialSampler with RF samplers{if (length(categorical_features) > 0) glue::glue(' ({length(categorical_features)} categorical feature{ifelse(length(categorical_features) > 1, \"s\", \"\")})')}")
+		cli::cli_inform(
+			"Using SequentialSampler with RF samplers{if (length(categorical_features) > 0) glue::glue(' ({length(categorical_features)} categorical feature{ifelse(length(categorical_features) > 1, \"s\", \"\")})')}"
+		)
 
 		# Create RF-based samplers
 		cat_sampler <- fippy$samplers$UnivRFSampler(X_train_pandas, cat_inputs = categorical_features)
-		cont_sampler <- fippy$samplers$ContUnivRFSampler(X_train_pandas, cat_inputs = categorical_features)
+		cont_sampler <- fippy$samplers$ContUnivRFSampler(
+			X_train_pandas,
+			cat_inputs = categorical_features
+		)
 
 		# Combine into SequentialSampler
 		fippy$samplers$SequentialSampler(
@@ -227,4 +239,3 @@ create_fippy_sampler <- function(task, X_train_pandas, sampler = "gaussian") {
 		)
 	}
 }
-
