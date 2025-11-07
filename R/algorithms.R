@@ -19,11 +19,12 @@ algo_PFI <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 
 	data.table::data.table(
 		importance = list(method$importance()),
+		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = method$resample_result$aggregate(instance$measure_eval),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		learner_performance = method$resample_result$aggregate(instance$measure_eval)
+		task_type = instance$task_type
 	)
 }
 
@@ -57,11 +58,12 @@ algo_CFI <- function(
 
 	data.table::data.table(
 		importance = list(method$importance()),
+		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = method$resample_result$aggregate(instance$measure_eval),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		learner_performance = method$resample_result$aggregate(instance$measure_eval)
+		task_type = instance$task_type
 	)
 }
 
@@ -124,11 +126,12 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 
 	data.table::data.table(
 		importance = list(method$importance()),
+		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = method$resample_result$aggregate(instance$measure_eval),
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		learner_performance = method$resample_result$aggregate(instance$measure_eval)
+		task_type = instance$task_type
 	)
 }
 
@@ -163,13 +166,14 @@ algo_MarginalSAGE <- function(
 
 	data.table::data.table(
 		importance = list(method$importance()),
+		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = method$resample_result$aggregate(instance$measure_eval),
 		n_permutations_used = method$n_permutations_used,
 		converged = method$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		learner_performance = method$resample_result$aggregate(instance$measure_eval)
+		task_type = instance$task_type
 	)
 }
 
@@ -209,13 +213,14 @@ algo_ConditionalSAGE <- function(
 
 	data.table::data.table(
 		importance = list(method$importance()),
+		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = method$resample_result$aggregate(instance$measure_eval),
 		n_permutations_used = method$n_permutations_used,
 		converged = method$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
-		task_type = instance$task_type,
-		learner_performance = method$resample_result$aggregate(instance$measure_eval)
+		task_type = instance$task_type
 	)
 }
 
@@ -340,6 +345,8 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		preds$response
 	}
 
+	perf = learner_clone$predict(instance$task, row_ids = test_ids)$score(instance$measure_eval)
+
 	start_time <- Sys.time()
 
 	# Compute permutation importance using vip
@@ -369,6 +376,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		# if n_repeats > 1, there's a StDev column we don't keep
 		importance = list(importance_dt[, .(feature, importance)]),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
+		learner_performance = perf,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -572,7 +580,8 @@ algo_MarginalSAGE_fippy <- function(
 	instance,
 	n_permutations = 10,
 	sage_n_samples = 10,
-	sampler = "gaussian"
+	sampler = "gaussian",
+	early_stopping = TRUE
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -646,7 +655,7 @@ algo_MarginalSAGE_fippy <- function(
 		nr_orderings = as.integer(n_permutations),
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
-		detect_convergence = TRUE
+		detect_convergence = early_stopping
 	)
 
 	end_time <- Sys.time()
@@ -686,7 +695,8 @@ algo_ConditionalSAGE_fippy <- function(
 	instance,
 	n_permutations = 10,
 	sage_n_samples = 10,
-	sampler = "gaussian"
+	sampler = "gaussian",
+	early_stopping = TRUE
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -761,7 +771,7 @@ algo_ConditionalSAGE_fippy <- function(
 		nr_orderings = as.integer(n_permutations),
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
-		detect_convergence = TRUE
+		detect_convergence = early_stopping
 	)
 
 	end_time <- Sys.time()
@@ -799,7 +809,8 @@ algo_MarginalSAGE_sage <- function(
 	data = NULL,
 	job = NULL,
 	instance,
-	sage_n_samples = 200 # Background data size for marginalization
+	sage_n_samples = 200, # Background data size for marginalization
+	early_stopping = TRUE
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -850,7 +861,7 @@ algo_MarginalSAGE_sage <- function(
 	explanation <- estimator(
 		X = np$array(sklearn_data$X_test),
 		Y = np$array(sklearn_data$y_test),
-		detect_convergence = TRUE, # Use convergence detection for optimal results
+		detect_convergence = early_stopping,
 		verbose = FALSE,
 		bar = FALSE
 	)

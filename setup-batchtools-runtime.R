@@ -92,14 +92,16 @@ algo_designs <- list(
 	# MarginalSAGE
 	MarginalSAGE = CJ(
 		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples
+		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping
 	),
 
 	# ConditionalSAGE (with samplers)
 	ConditionalSAGE = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
-		sampler = conf$samplers
+		sampler = conf$samplers,
+		early_stopping = conf$sage_early_stopping
 	),
 
 	# PFI_iml: Reference implementation from iml package
@@ -126,19 +128,22 @@ algo_designs <- list(
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
 	MarginalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples
+		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
 	ConditionalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping,
 		sampler = "gaussian"
 	),
 
 	# Kernel SAGE: Official SAGE implementation with kernel estimator
-	MarginalSAGE_sage = data.table(
-		sage_n_samples = conf$sage_n_samples
+	MarginalSAGE_sage = CJ(
+		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping
 	)
 )
 
@@ -161,7 +166,7 @@ addExperiments(
 # Featureless learner is only used for xplainfi runtime benchmarking
 featureless_non_xplainfi_jobs = unwrap(getJobTable())[
 	learner_type == "featureless" &
-		algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO"),
+		!(algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")),
 ]
 
 if (nrow(featureless_non_xplainfi_jobs) > 0) {
@@ -170,6 +175,20 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 	)
 	removeExperiments(featureless_non_xplainfi_jobs)
 }
+
+# for SAGE with early stopping we only keep maximum n_permutations
+sage_early_stopping = unwrap(getJobTable())[
+	early_stopping & n_permutations < max(n_permutations, na.rm = TRUE),
+]
+# sage_early_stopping[, .N, by = c("early_stopping", "n_permutations", "algorithm")]
+
+if (nrow(sage_early_stopping) > 0) {
+	cli::cli_alert_warning(
+		"Removing {nrow(sage_early_stopping)} job(s) for other SAGE with early stopping and lower n_permutations"
+	)
+	removeExperiments(sage_early_stopping)
+}
+
 
 # ============================================================================
 # Optional: Tag specific job combinations for analysis

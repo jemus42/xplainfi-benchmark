@@ -149,13 +149,15 @@ algo_designs <- list(
 	# MarginalSAGE
 	MarginalSAGE = CJ(
 		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples
+		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping
 	),
 
 	# ConditionalSAGE (with samplers)
 	ConditionalSAGE = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping,
 		sampler = conf$samplers
 	),
 
@@ -183,19 +185,22 @@ algo_designs <- list(
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
 	MarginalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples
+		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
 	ConditionalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping,
 		sampler = "gaussian"
 	),
 
 	# Kernel SAGE: Official SAGE implementation with kernel estimator
 	MarginalSAGE_sage = data.table(
-		sage_n_samples = conf$sage_n_samples
+		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping
 	)
 )
 
