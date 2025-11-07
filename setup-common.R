@@ -49,6 +49,8 @@ if (requireNamespace("torch", quietly = TRUE)) {
 	}
 }
 
+fs::dir_create(here::here("registries", c("runtime", "importance")))
+
 library(batchtools)
 library(mlr3)
 library(data.table)

@@ -270,6 +270,8 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		}
 	)
 
+	perf = learner_clone$predict(instance$task, row_ids = test_ids)$score(instance$measure_eval)
+
 	start_time <- Sys.time()
 	# Create FeatureImp object
 	# iml computes importance on initialization
@@ -293,7 +295,7 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-		learner_performance = learner_performance,
+		learner_performance = perf,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type

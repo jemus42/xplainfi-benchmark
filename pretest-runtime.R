@@ -1,6 +1,6 @@
 # Submit jobs
 library(batchtools)
-source("config-runtime.R")\
+source("config-runtime.R")
 cli::cli_alert_info("Loading registry at {.file {fs::path_rel(conf$reg_path)}}")
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 tab <- unwrap(getJobTable())
@@ -21,4 +21,7 @@ ids1 = tab[
 	by = c("algorithm", "learner_type", "sampler")
 ]
 
-submitJobs(ids1)
+
+ids1 |>
+	findNotSubmitted() |>
+	submitJobs()

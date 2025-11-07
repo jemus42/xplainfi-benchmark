@@ -6,3 +6,6 @@ Sys.setenv(OMP_NUM_THREADS = 1)
 Sys.setenv(OMP_THREAD_LIMIT = 1)
 Sys.setenv(MKL_NUM_THREADS = 1)
 try(data.table::setDTthreads(1))
+
+# Force torch to install cpu-only version
+Sys.setenv(CUDA = "cpu")
