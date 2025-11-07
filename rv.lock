@@ -102,6 +102,13 @@ force_source = false
 dependencies = []
 
 [[packages]]
+name = "base64enc"
+version = "0.1-3"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
 name = "base64url"
 version = "1.4"
 source = { repository = "https://cloud.r-project.org/" }
@@ -146,11 +153,66 @@ dependencies = [
 ]
 
 [[packages]]
+name = "bit"
+version = "4.6.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
+name = "bit64"
+version = "4.6.0-1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "bit", requirement = "(>= 4.0.0)" },
+]
+
+[[packages]]
 name = "brew"
 version = "1.0-10"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
+
+[[packages]]
+name = "bslib"
+version = "0.9.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "base64enc",
+    "cachem",
+    { name = "fastmap", requirement = "(>= 1.1.1)" },
+    { name = "htmltools", requirement = "(>= 0.5.8)" },
+    { name = "jquerylib", requirement = "(>= 0.1.3)" },
+    "jsonlite",
+    "lifecycle",
+    { name = "memoise", requirement = "(>= 2.0.1)" },
+    "mime",
+    "rlang",
+    { name = "sass", requirement = "(>= 0.4.9)" },
+]
+
+[[packages]]
+name = "cachem"
+version = "1.1.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "rlang",
+    { name = "fastmap", requirement = "(>= 1.2.0)" },
+]
+
+[[packages]]
+name = "callr"
+version = "3.7.6"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "processx", requirement = "(>= 3.6.1)" },
+    "R6",
+]
 
 [[packages]]
 name = "checkmate"
@@ -176,6 +238,22 @@ force_source = false
 dependencies = []
 
 [[packages]]
+name = "coro"
+version = "1.1.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "rlang", requirement = "(>= 0.4.12)" },
+]
+
+[[packages]]
+name = "cpp11"
+version = "0.5.2"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
 name = "crayon"
 version = "1.5.3"
 source = { repository = "https://cloud.r-project.org/" }
@@ -188,6 +266,16 @@ version = "1.17.8"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
+
+[[packages]]
+name = "desc"
+version = "1.4.3"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "cli",
+    "R6",
+]
 
 [[packages]]
 name = "digest"
@@ -228,6 +316,23 @@ version = "2.1.2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
+
+[[packages]]
+name = "fastmap"
+version = "1.2.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
+name = "fontawesome"
+version = "0.5.3"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "rlang", requirement = "(>= 1.0.6)" },
+    { name = "htmltools", requirement = "(>= 0.5.1.1)" },
+]
 
 [[packages]]
 name = "foreach"
@@ -351,6 +456,15 @@ dependencies = [
 ]
 
 [[packages]]
+name = "highr"
+version = "0.11"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "xfun", requirement = "(>= 0.18)" },
+]
+
+[[packages]]
 name = "hms"
 version = "1.1.4"
 source = { repository = "https://cloud.r-project.org/" }
@@ -361,6 +475,31 @@ dependencies = [
     "pkgconfig",
     { name = "rlang", requirement = "(>= 1.0.2)" },
     { name = "vctrs", requirement = "(>= 0.3.8)" },
+]
+
+[[packages]]
+name = "htmltools"
+version = "0.5.8.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "base64enc",
+    "digest",
+    { name = "fastmap", requirement = "(>= 1.1.0)" },
+    { name = "rlang", requirement = "(>= 1.0.0)" },
+]
+
+[[packages]]
+name = "htmlwidgets"
+version = "1.6.4"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "htmltools", requirement = "(>= 0.5.7)" },
+    { name = "jsonlite", requirement = "(>= 0.9.16)" },
+    { name = "knitr", requirement = "(>= 1.8)" },
+    "rmarkdown",
+    "yaml",
 ]
 
 [[packages]]
@@ -403,11 +542,51 @@ force_source = false
 dependencies = []
 
 [[packages]]
+name = "jquerylib"
+version = "0.1.4"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "htmltools",
+]
+
+[[packages]]
 name = "jsonlite"
 version = "2.0.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
+
+[[packages]]
+name = "kableExtra"
+version = "1.4.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "knitr", requirement = "(>= 1.33)" },
+    "magrittr",
+    { name = "stringr", requirement = "(>= 1.0)" },
+    { name = "xml2", requirement = "(>= 1.1.1)" },
+    { name = "rmarkdown", requirement = "(>= 1.6.0)" },
+    "scales",
+    "viridisLite",
+    "htmltools",
+    "rstudioapi",
+    "digest",
+    "svglite",
+]
+
+[[packages]]
+name = "knitr"
+version = "1.50"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "evaluate", requirement = "(>= 0.15)" },
+    { name = "highr", requirement = "(>= 0.11)" },
+    { name = "xfun", requirement = "(>= 0.51)" },
+    { name = "yaml", requirement = "(>= 2.1.19)" },
+]
 
 [[packages]]
 name = "labeling"
@@ -454,7 +633,7 @@ dependencies = [
 
 [[packages]]
 name = "listenv"
-version = "0.9.1"
+version = "0.10.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -462,6 +641,23 @@ dependencies = []
 [[packages]]
 name = "magrittr"
 version = "2.0.4"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
+name = "memoise"
+version = "2.0.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "rlang", requirement = "(>= 0.4.10)" },
+    "cachem",
+]
+
+[[packages]]
+name = "mime"
+version = "0.13"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -590,6 +786,26 @@ dependencies = [
 ]
 
 [[packages]]
+name = "mlr3torch"
+version = "0.3.2"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "mlr3", requirement = "(>= 1.0.1)" },
+    { name = "mlr3pipelines", requirement = "(>= 0.6.0)" },
+    { name = "torch", requirement = "(>= 0.16.2)" },
+    "backports",
+    "cli",
+    { name = "checkmate", requirement = "(>= 2.2.0)" },
+    "data.table",
+    "lgr",
+    { name = "mlr3misc", requirement = "(>= 0.14.0)" },
+    { name = "paradox", requirement = "(>= 1.0.0)" },
+    "R6",
+    "withr",
+]
+
+[[packages]]
 name = "mvtnorm"
 version = "1.3-3"
 source = { repository = "https://cloud.r-project.org/" }
@@ -598,7 +814,7 @@ dependencies = []
 
 [[packages]]
 name = "nanonext"
-version = "1.7.1"
+version = "1.7.2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -687,6 +903,16 @@ force_source = false
 dependencies = []
 
 [[packages]]
+name = "processx"
+version = "3.8.6"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "ps", requirement = "(>= 1.2.0)" },
+    "R6",
+]
+
+[[packages]]
 name = "progress"
 version = "1.2.3"
 source = { repository = "https://cloud.r-project.org/" }
@@ -696,6 +922,26 @@ dependencies = [
     "hms",
     "prettyunits",
     "R6",
+]
+
+[[packages]]
+name = "ps"
+version = "1.9.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
+name = "purrr"
+version = "1.2.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "cli", requirement = "(>= 3.6.1)" },
+    { name = "lifecycle", requirement = "(>= 1.0.3)" },
+    { name = "magrittr", requirement = "(>= 1.5.0)" },
+    { name = "rlang", requirement = "(>= 1.1.1)" },
+    { name = "vctrs", requirement = "(>= 0.6.3)" },
 ]
 
 [[packages]]
@@ -715,6 +961,28 @@ version = "0.3.3"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
+
+[[packages]]
+name = "reactR"
+version = "0.6.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "htmltools",
+]
+
+[[packages]]
+name = "reactable"
+version = "0.4.4"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "digest",
+    { name = "htmltools", requirement = "(>= 0.5.2)" },
+    { name = "htmlwidgets", requirement = "(>= 1.5.3)" },
+    "jsonlite",
+    "reactR",
+]
 
 [[packages]]
 name = "reticulate"
@@ -741,6 +1009,24 @@ force_source = false
 dependencies = []
 
 [[packages]]
+name = "rmarkdown"
+version = "2.30"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "bslib", requirement = "(>= 0.2.5.1)" },
+    { name = "evaluate", requirement = "(>= 0.13)" },
+    { name = "fontawesome", requirement = "(>= 0.5.0)" },
+    { name = "htmltools", requirement = "(>= 0.5.1)" },
+    "jquerylib",
+    "jsonlite",
+    { name = "knitr", requirement = "(>= 1.43)" },
+    { name = "tinytex", requirement = "(>= 0.31)" },
+    { name = "xfun", requirement = "(>= 0.36)" },
+    { name = "yaml", requirement = "(>= 2.1.19)" },
+]
+
+[[packages]]
 name = "rpart"
 version = "4.1.24"
 source = { builtin = true }
@@ -753,6 +1039,38 @@ version = "2.1.1"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
+
+[[packages]]
+name = "rstudioapi"
+version = "0.17.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
+name = "safetensors"
+version = "0.2.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "cli",
+    "jsonlite",
+    "R6",
+    "rlang",
+]
+
+[[packages]]
+name = "sass"
+version = "0.4.10"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "fs", requirement = "(>= 1.2.4)" },
+    { name = "rlang", requirement = "(>= 0.4.10)" },
+    { name = "htmltools", requirement = "(>= 0.5.1)" },
+    "R6",
+    "rappdirs",
+]
 
 [[packages]]
 name = "scales"
@@ -801,7 +1119,7 @@ dependencies = []
 
 [[packages]]
 name = "stringr"
-version = "1.5.2"
+version = "1.6.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -824,6 +1142,45 @@ dependencies = [
 ]
 
 [[packages]]
+name = "svglite"
+version = "2.2.2"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "base64enc",
+    "cli",
+    "lifecycle",
+    { name = "rlang", requirement = "(>= 1.1.0)" },
+    { name = "systemfonts", requirement = "(>= 1.3.0)" },
+    { name = "textshaping", requirement = "(>= 0.3.0)" },
+    "cpp11",
+]
+
+[[packages]]
+name = "systemfonts"
+version = "1.3.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "base64enc",
+    "jsonlite",
+    "lifecycle",
+    { name = "cpp11", requirement = "(>= 0.2.1)" },
+]
+
+[[packages]]
+name = "textshaping"
+version = "1.0.4"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "lifecycle",
+    "stringi",
+    { name = "systemfonts", requirement = "(>= 1.3.0)" },
+    { name = "cpp11", requirement = "(>= 0.2.1)" },
+]
+
+[[packages]]
 name = "tibble"
 version = "3.3.0"
 source = { repository = "https://cloud.r-project.org/" }
@@ -839,6 +1196,26 @@ dependencies = [
 ]
 
 [[packages]]
+name = "tidyr"
+version = "1.3.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "cli", requirement = "(>= 3.4.1)" },
+    { name = "dplyr", requirement = "(>= 1.0.10)" },
+    "glue",
+    { name = "lifecycle", requirement = "(>= 1.0.3)" },
+    "magrittr",
+    { name = "purrr", requirement = "(>= 1.0.1)" },
+    { name = "rlang", requirement = "(>= 1.1.1)" },
+    { name = "stringr", requirement = "(>= 1.5.0)" },
+    { name = "tibble", requirement = "(>= 2.1.1)" },
+    { name = "tidyselect", requirement = "(>= 1.2.0)" },
+    { name = "vctrs", requirement = "(>= 0.5.2)" },
+    { name = "cpp11", requirement = "(>= 0.4.0)" },
+]
+
+[[packages]]
 name = "tidyselect"
 version = "1.2.1"
 source = { repository = "https://cloud.r-project.org/" }
@@ -850,6 +1227,37 @@ dependencies = [
     { name = "rlang", requirement = "(>= 1.0.4)" },
     { name = "vctrs", requirement = "(>= 0.5.2)" },
     "withr",
+]
+
+[[packages]]
+name = "tinytex"
+version = "0.57"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "xfun", requirement = "(>= 0.48)" },
+]
+
+[[packages]]
+name = "torch"
+version = "0.16.3"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "Rcpp",
+    "R6",
+    "withr",
+    { name = "rlang", requirement = "(>= 1.0.0)" },
+    "bit64",
+    "magrittr",
+    { name = "coro", requirement = "(>= 1.0.2)" },
+    "callr",
+    { name = "cli", requirement = "(>= 3.0.0)" },
+    "glue",
+    "desc",
+    { name = "safetensors", requirement = "(>= 0.1.1)" },
+    "jsonlite",
+    "scales",
 ]
 
 [[packages]]
@@ -912,20 +1320,45 @@ force_source = false
 dependencies = []
 
 [[packages]]
+name = "xfun"
+version = "0.54"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
+name = "xml2"
+version = "1.4.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    "cli",
+    { name = "rlang", requirement = "(>= 1.1.0)" },
+]
+
+[[packages]]
 name = "xplainfi"
-version = "0.1.0.9004"
-source = { git = "https://github.com/mlr-org/xplainfi", sha = "4e9a53b70c7a3ff1bbcdcb784ad2d97713902676", branch = "main" }
+version = "0.1.0.9006"
+source = { git = "https://github.com/mlr-org/xplainfi", sha = "353212d0275146370e5de3a19c347e9b2d3ff3eb", branch = "main" }
 force_source = true
 dependencies = [
     "checkmate",
     "cli",
     { name = "data.table", requirement = "(>= 1.15.0)" },
     "lgr",
+    "mirai",
     { name = "mlr3", requirement = "(>= 1.1.0)" },
     "mvtnorm",
     { name = "paradox", requirement = "(>= 1.0.0)" },
     "R6",
 ]
+
+[[packages]]
+name = "yaml"
+version = "2.3.10"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
 
 [[packages]]
 name = "yardstick"

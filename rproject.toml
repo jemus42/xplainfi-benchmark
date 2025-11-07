@@ -36,4 +36,10 @@ dependencies = [
     "reticulate",
     "mlr3fselect",
     "gower",
+    "rmarkdown",
+    "ggplot2",
+    "tidyr",
+    "reactable",
+    "kableExtra",
+    "mlr3torch",
 ]
