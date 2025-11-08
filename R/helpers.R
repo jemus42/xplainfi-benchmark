@@ -71,7 +71,7 @@ create_learner <- function(
 			lrn(
 				paste(task_type, "xgboost", sep = "."),
 				nrounds = 1000,
-				early_stopping_rounds = 10,
+				early_stopping_rounds = 50,
 				eta = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",

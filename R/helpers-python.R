@@ -148,21 +148,19 @@ create_sklearn_learner <- function(
 		# Note: early_stopping_rounds requires validation data in fit()
 		if (task_type == "regr") {
 			learner <- xgb$XGBRegressor(
-				n_estimators = 1000L,
 				learning_rate = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",
-				early_stopping_rounds = 10L,
+				early_stopping_rounds = 50L,
 				random_state = random_state,
 				n_jobs = 1L
 			)
 		} else {
 			learner <- xgb$XGBClassifier(
-				n_estimators = 1000L,
 				learning_rate = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",
-				early_stopping_rounds = 10L,
+				early_stopping_rounds = 50L,
 				random_state = random_state,
 				n_jobs = 1L
 			)
