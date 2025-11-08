@@ -57,8 +57,6 @@ create_learner <- function(
 		},
 		"mlp" = {
 			require(mlr3torch)
-			# learner_id <- paste(task_type, "nnet", sep = ".")
-			# lrn(learner_id, size = n_units, maxit = 200, decay = 0.01, trace = FALSE)
 			lrn(
 				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
@@ -151,23 +149,16 @@ create_problem_instance <- function(
 ) {
 	task_type <- task$task_type
 
-	# Create learner
-	learner <- create_learner(
-		learner_type = learner_type,
-		n_trees = n_trees,
-		task_type = task_type
-	)
-
 	# Create measure
 	measures <- create_measure(task_type = task_type)
 	# Create and instantiate resampling
 	resampling <- create_resampling(type = resampling_type)
 	instantiate_resampling(resampling, task, job$repl %||% 1)
 
-	# Return complete instance with metadata
+	# Return instance with metadata - no learner created here!
+	# Algorithms will create their own learners as needed
 	list(
 		task = task,
-		learner = learner,
 		measure = measures$importance,
 		measure_eval = measures$eval,
 		resampling = resampling,
