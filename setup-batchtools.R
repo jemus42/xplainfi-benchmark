@@ -176,10 +176,10 @@ algo_designs <- list(
 		n_repeats = conf$n_repeats
 	),
 
-	# CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
+	# CFI_fippy: Conditional FI from fippy package (Python)
 	CFI_fippy = CJ(
 		n_repeats = conf$n_repeats,
-		sampler = "gaussian"
+		sampler = c("gaussian", "rf")
 	),
 
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
@@ -194,7 +194,7 @@ algo_designs <- list(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = "gaussian"
+		sampler = c("gaussian", "rf")
 	),
 
 	# Kernel SAGE: Official SAGE implementation with kernel estimator
@@ -221,14 +221,14 @@ addExperiments(
 # ============================================================================
 
 # Gaussian sampler doesn't support mixed feature types (bike_sharing)
-# sampler is NA for most jobs, findExperiments() didn't play nice
+# RF and ARF samplers can handle mixed data, so only remove gaussian and ctree
 incompatible_jobs = unwrap(getJobTable())[!is.na(sampler)][
 	(sampler %in% c("gaussian", "ctree")) & problem == "bike_sharing",
 ]
 
 if (nrow(incompatible_jobs) > 0) {
 	cli::cli_alert_warning(
-		"Removing {nrow(incompatible_jobs)} incompatible job(s): bike_sharing × gaussian sampler"
+		"Removing {nrow(incompatible_jobs)} incompatible job(s): bike_sharing × gaussian/ctree samplers"
 	)
 	removeExperiments(incompatible_jobs)
 }

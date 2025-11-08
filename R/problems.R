@@ -72,9 +72,9 @@ prob_bike_sharing <- function(
 	}
 
 	xdat = mlr3data::bike_sharing
-	# xdat[, temperature := NULL]
-	# xdat[, date := NULL]
-	# xdat[, holiday := as.integer(holiday)]
+	# Remove problematic features and convert logical to integer
+	xdat[, date := NULL]  # Remove character feature
+	xdat[, holiday := as.integer(holiday)]  # Convert logical to integer
 	xdat[, working_day := as.integer(working_day)]
 
 	task = as_task_regr(xdat, target = "count", id = "bike_share")
