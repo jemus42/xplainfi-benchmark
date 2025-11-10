@@ -44,6 +44,7 @@ create_learner <- function(
 	require("mlr3pipelines")
 	learner_type <- match.arg(learner_type)
 	task_type <- match.arg(task_type)
+	needs_encoding <- any(task$feature_types$type %in% c("factor", "character"))
 
 	base_learner <- switch(
 		learner_type,
@@ -58,7 +59,7 @@ create_learner <- function(
 		},
 		"mlp" = {
 			require(mlr3torch)
-			base_mlp <- lrn(
+			base_learner <- lrn(
 				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
 				neurons = n_units,
@@ -67,15 +68,27 @@ create_learner <- function(
 				batch_size = 32,
 				epochs = 100,
 				patience = 10,
-				min_delta = 0.1,
+				measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
+				min_delta = 0.01,
 				shuffle = TRUE,
 				device = "cpu"
 			)
-			set_validate(base_mlp, validate = "test", ids = base_mlp$id)
-			base_mlp
+
+			# Add encoding, sadly makes predict_newdata_fast impossible
+			if (needs_encoding) {
+				po("encode", method = "one-hot") %>>%
+					base_learner |>
+					as_learner()
+			}
+
+			# lrn(
+			# 	paste(task_type, "nnet", sep = "."),
+			# 	size = n_units,
+			# 	trace = FALSE
+			# )
 		},
 		"boosting" = {
-			base_xgb <- lrn(
+			base_learner <- lrn(
 				paste(task_type, "xgboost", sep = "."),
 				nrounds = 1000,
 				early_stopping_rounds = 50,
@@ -85,68 +98,21 @@ create_learner <- function(
 				nthread = 1
 			)
 
-			set_validate(base_xgb, validate = "test", ids = base_xgb$id)
-			base_xgb
+			# Add encoding, sadly makes predict_newdata_fast impossible
+			if (needs_encoding) {
+				po("encode", method = "one-hot") %>>%
+					base_learner |>
+					as_learner()
+			}
 		}
 	)
 
-	# Check if encoding is needed based on task
-	needs_encoding <- FALSE
-	if (!is.null(task)) {
-		# Check if task has categorical features (factor or character)
-		feature_types <- task$feature_types$type
-		has_categoricals <- any(feature_types %in% c("factor", "character"))
-
-		# Determine which learners need encoding for categorical features
-		# - RF (ranger) handles factors natively
-		# - Linear models need encoding
-		# - MLP needs encoding
-		# - XGBoost needs encoding
-		# - Featureless doesn't need features at all
-		needs_encoding <- has_categoricals && learner_type %in% c("linear", "mlp", "boosting")
+	# Add validation field for xgb and mlp, requires use of resample()
+	if (learner_type %in% c("boosting", "mlp")) {
+		set_validate(base_learner, validate = "test")
 	}
 
-	# Apply encoding pipeline if needed
-	if (needs_encoding) {
-		# Use treatment/one-hot encoding for categorical features
-		# This handles factor and character columns automatically
-		if (learner_type == "linear") {
-			po_encode <- po("encode", method = "treatment")
-		} else {
-			po_encode <- po("encode", method = "one-hot")
-		}
-		learner <- po_encode %>>% base_learner
-		learner <- as_learner(learner)
-
-		# For XGBoost/MLP in pipeline, set validate on the graph learner
-		if (learner_type %in% c("boosting", "mlp")) {
-			# This enables early stopping for XGBoost when used in resample()
-			# Note: validate="test" only works with resample(), not direct $train()
-			set_validate(learner, validate = "test", ids = base_learner$id)
-		}
-	} else {
-		learner <- base_learner
-
-		# For XGBoost without pipeline, validate is already NULL (set above)
-		# It will be set to "test" only when used with resample()
-	}
-
-	learner
-
-	# Minimal prerpoc just to make things not break on accident
-	# prepoc = po("fixfactors") %>>%
-	#   po("imputesample", affect_columns = selector_type("factor")) %>>%
-	#   po("removeconstants")
-
-	# # Extra factor handling for linear model and mlp
-	# if (learner_type %in% c("linear", "mlp")) {
-	#   prepoc <- prepoc %>>%
-	#     po("encode")
-	# }
-
-	# prepoc %>>%
-	#   po("learner", base_learner) |>
-	#   as_learner()
+	base_learner
 }
 
 # Helper function to create measure
