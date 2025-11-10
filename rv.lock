@@ -1349,14 +1349,13 @@ dependencies = [
 
 [[packages]]
 name = "xplainfi"
-version = "0.1.0.9006"
-source = { git = "https://github.com/mlr-org/xplainfi", sha = "353212d0275146370e5de3a19c347e9b2d3ff3eb", branch = "main" }
+version = "0.2.0"
+source = { git = "https://github.com/mlr-org/xplainfi", sha = "f8c0b3d3bf98c37bac77467f5d0f4b2f808d0010", branch = "main" }
 force_source = true
 dependencies = [
     "checkmate",
     "cli",
     { name = "data.table", requirement = "(>= 1.15.0)" },
-    "lgr",
     "mirai",
     { name = "mlr3", requirement = "(>= 1.1.0)" },
     "mvtnorm",
