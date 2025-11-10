@@ -140,15 +140,15 @@ create_sklearn_learner <- function(
 	} else if (learner_type == "mlp") {
 		if (task_type == "regr") {
 			learner <- sklearn$neural_network$MLPRegressor(
-				hidden_layer_sizes = reticulate::tuple(5L),
-				max_iter = 500L,
+				hidden_layer_sizes = reticulate::tuple(20L),
+				max_iter = 200L,
 				early_stopping = TRUE,
 				random_state = random_state
 			)
 		} else {
 			learner <- sklearn$neural_network$MLPClassifier(
-				hidden_layer_sizes = reticulate::tuple(5L),
-				max_iter = 500L,
+				hidden_layer_sizes = reticulate::tuple(20L),
+				max_iter = 200L,
 				early_stopping = TRUE,
 				random_state = random_state
 			)
