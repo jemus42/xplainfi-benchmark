@@ -71,10 +71,10 @@ prob_bike_sharing <- function(
 		stop("mlr3data package required for bike_sharing task")
 	}
 
-	xdat = mlr3data::bike_sharing
+	xdat = mlr3misc::load_dataset("bike_sharing", package = "mlr3data")
 	# Remove problematic features and convert logical to integer
-	xdat[, date := NULL]  # Remove character feature
-	xdat[, holiday := as.integer(holiday)]  # Convert logical to integer
+	xdat[, date := NULL] # Remove character feature
+	xdat[, holiday := as.integer(holiday)] # Convert logical to integer
 	xdat[, working_day := as.integer(working_day)]
 
 	task = as_task_regr(xdat, target = "count", id = "bike_share")
@@ -226,5 +226,38 @@ prob_mediated <- function(
 		n_trees = n_trees,
 		resampling_type = resampling_type,
 		conditioning_set = "mediator"
+	)
+}
+
+# Simple problem for debugging
+prob_debug <- function(
+	data = NULL,
+	job = NULL,
+	n_samples = 100,
+	factors = TRUE,
+	learner_type = "rf",
+	resampling_type = "holdout",
+	n_trees = 500,
+	...
+) {
+	xdf <- data.table::data.table(x1 = rnorm(n_samples), x2 = rnorm(n_samples))
+	if (factors) {
+		xdf[,
+			x3 := data.table::fcase(
+				x2 > 1 , "a" ,
+				x1 < 0 , "b" ,
+				default = "c"
+			)
+		]
+	}
+	xdf[, y := x1 + rnorm(n_samples, sd = 0.1)]
+
+	create_problem_instance(
+		task = task,
+		job = job,
+		learner_type = learner_type,
+		n_trees = n_trees,
+		resampling_type = resampling_type,
+		conditioning_set = NULL
 	)
 }
