@@ -18,7 +18,7 @@ conf <- list(
 	n_repeats = c(1, 50, 100),
 	# For SAGE permutations
 	n_permutations = c(5, 10, 50),
-	sage_early_stopping = c(TRUE, FALSE),
+	sage_early_stopping = FALSE,
 	# Size of sampled data used for Monte Carlo integration in SAGE methods
 	sage_n_samples = c(10, 200, 500),
 	# Types of learners to use for each method, uses create_learner helper
