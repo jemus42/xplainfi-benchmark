@@ -58,36 +58,34 @@ create_learner <- function(
 			switch(task_type, regr = lrn("regr.lm"), classif = lrn("classif.log_reg"))
 		},
 		"mlp" = {
-			require(mlr3torch)
-			lrn(
-				paste(task_type, "mlp", sep = "."),
-				# architecture parameters
-				neurons = n_units,
-				n_layers = 1,
-				# training arguments
-				batch_size = 32,
-				epochs = 200,
-				patience = 10,
-				measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
-				min_delta = 0.01,
-				shuffle = TRUE,
-				device = "cpu"
-			)
-
-			# Add encoding, sadly makes predict_newdata_fast impossible
-			if (needs_encoding) {
-				po("encode", method = "one-hot") %>>%
-					base_learner |>
-					as_learner()
-			} else {
-				base_learner
-			}
-
-			# lrn(
-			# 	paste(task_type, "nnet", sep = "."),
-			# 	size = n_units,
-			# 	trace = FALSE
+			# require(mlr3torch)
+			# base_learner <- lrn(
+			# 	paste(task_type, "mlp", sep = "."),
+			# 	# architecture parameters
+			# 	neurons = n_units,
+			# 	n_layers = 1,
+			# 	# training arguments
+			# 	batch_size = 32,
+			# 	epochs = 200,
+			# 	patience = 10,
+			# 	measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
+			# 	min_delta = 0.01,
+			# 	shuffle = TRUE,
+			# 	device = "cpu"
 			# )
+			# # Add encoding, sadly makes predict_newdata_fast impossible
+			# if (needs_encoding) {
+			# 	po("encode", method = "one-hot") %>>%
+			# 		base_learner |>
+			# 		as_learner()
+			# } else {
+			# 	base_learner
+			# }
+			lrn(
+				paste(task_type, "nnet", sep = "."),
+				size = n_units,
+				trace = FALSE
+			)
 		},
 		"boosting" = {
 			base_learner <- lrn(
@@ -102,19 +100,15 @@ create_learner <- function(
 
 			# Add encoding, sadly makes predict_newdata_fast impossible
 			if (needs_encoding) {
-				po("encode", method = "one-hot") %>>%
+				base_learner = po("encode", method = "one-hot") %>>%
 					base_learner |>
 					as_learner()
-			} else {
-				base_learner
 			}
+
+			set_validate(base_learner, validate = "test")
+			base_learner
 		}
 	)
-	# Add validation field for xgb and mlp, requires use of resample()
-	if (learner_type %in% c("boosting", "mlp")) {
-		set_validate(base_learner, validate = "test")
-	}
-
 	base_learner
 }
 

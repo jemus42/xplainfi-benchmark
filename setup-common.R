@@ -6,7 +6,7 @@ local({
 		"mlr3learners",
 		"mlr3pipelines",
 		"mlr3fselect",
-		"mlr3torch",
+		# "mlr3torch",
 		"reticulate",
 		"batchtools",
 		"mlbench",
@@ -18,7 +18,7 @@ local({
 		"iml",
 		"vip",
 		"ranger",
-		# "nnet",
+		"nnet",
 		"xgboost",
 		"arf",
 		"partykit",
@@ -40,14 +40,14 @@ local({
 	}
 })
 
-if (requireNamespace("torch", quietly = TRUE)) {
-	if (!torch::torch_is_installed()) {
-		cli::cli_warn(c(
-			"!" = "torch is not installed yet",
-			i = "Run {.code library(mlr3torch)} and follow the instructions on screen"
-		))
-	}
-}
+# if (requireNamespace("torch", quietly = TRUE)) {
+# 	if (!torch::torch_is_installed()) {
+# 		cli::cli_warn(c(
+# 			"!" = "torch is not installed yet",
+# 			i = "Run {.code library(mlr3torch)} and follow the instructions on screen"
+# 		))
+# 	}
+# }
 
 fs::dir_create(here::here("registries", c("runtime", "importance")))
 
