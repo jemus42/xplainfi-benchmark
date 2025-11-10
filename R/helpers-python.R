@@ -142,12 +142,14 @@ create_sklearn_learner <- function(
 			learner <- sklearn$neural_network$MLPRegressor(
 				hidden_layer_sizes = reticulate::tuple(5L),
 				max_iter = 500L,
+				early_stopping = TRUE,
 				random_state = random_state
 			)
 		} else {
 			learner <- sklearn$neural_network$MLPClassifier(
 				hidden_layer_sizes = reticulate::tuple(5L),
 				max_iter = 500L,
+				early_stopping = TRUE,
 				random_state = random_state
 			)
 		}
