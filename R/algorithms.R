@@ -475,7 +475,6 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
 		encode = instance$has_categoricals,
-		n_trees = 500,
 		random_state = job$seed
 	)
 
@@ -579,7 +578,6 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
 		encode = instance$has_categoricals,
-		n_trees = 500,
 		random_state = job$seed
 	)
 
@@ -694,7 +692,6 @@ algo_MarginalSAGE_fippy <- function(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
 		encode = instance$has_categoricals,
-		n_trees = 500,
 		random_state = job$seed
 	)
 
@@ -820,7 +817,6 @@ algo_ConditionalSAGE_fippy <- function(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
 		encode = instance$has_categoricals,
-		n_trees = 500,
 		random_state = job$seed
 	)
 
@@ -937,7 +933,6 @@ algo_MarginalSAGE_sage <- function(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
 		encode = instance$has_categoricals,
-		n_trees = 500,
 		random_state = job$seed
 	)
 

@@ -21,8 +21,6 @@ conf <- list(
 	sage_n_samples = 300L,
 	# Types of learners to use for each method, uses create_learner helper
 	learner_types = c("linear", "rf", "mlp", "boosting"),
-	# Fixed number of trees for rf (not varied in experiments)
-	n_trees = 500L,
 	# Conditional samplers for CFI, RFI, and ConditionalSAGE
 	samplers = c(
 		"arf",

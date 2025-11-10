@@ -5,7 +5,6 @@ prob_friedman1 <- function(
 	n_samples = 100,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	task <- tgen("friedman1")$generate(n = n_samples)
@@ -14,10 +13,10 @@ prob_friedman1 <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
 		problem_name = "friedman1",
-		conditioning_set = NULL
+		conditioning_set = NULL,
+		...
 	)
 }
 
@@ -29,7 +28,6 @@ prob_peak <- function(
 	n_features,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	# Generate peak data
@@ -50,9 +48,9 @@ prob_peak <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = NULL
+		conditioning_set = NULL,
+		...
 	)
 }
 
@@ -63,7 +61,6 @@ prob_bike_sharing <- function(
 	# n_samples,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	# Load bike sharing task (requires mlr3data)
@@ -85,10 +82,10 @@ prob_bike_sharing <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
 		has_categoricals = TRUE,
-		conditioning_set = NULL
+		conditioning_set = NULL,
+		...
 	)
 }
 
@@ -99,7 +96,6 @@ prob_correlated <- function(
 	n_samples = 100,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	correlation = 0.75,
 	...
 ) {
@@ -109,10 +105,11 @@ prob_correlated <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
 		correlation = correlation, # Additional metadata
-		conditioning_set = "x2" # Condition on x2 for correlated DGP
+		# Condition on x2 for correlated DGP
+		conditioning_set = "x2",
+		...
 	)
 }
 
@@ -123,7 +120,6 @@ prob_ewald <- function(
 	n_samples = 100,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	task <- sim_dgp_ewald(n = n_samples)
@@ -132,9 +128,9 @@ prob_ewald <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = c("x1", "x2", "x3")
+		conditioning_set = c("x1", "x2", "x3"),
+		...
 	)
 }
 
@@ -145,7 +141,6 @@ prob_interactions <- function(
 	n_samples = 100,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	task <- sim_dgp_interactions(n = n_samples)
@@ -154,9 +149,9 @@ prob_interactions <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = NULL
+		conditioning_set = NULL,
+		...
 	)
 }
 
@@ -168,7 +163,6 @@ prob_independent <- function(
 	hidden = FALSE,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	task <- sim_dgp_independent(n = n_samples)
@@ -177,9 +171,9 @@ prob_independent <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = NULL
+		conditioning_set = NULL,
+		...
 	)
 }
 
@@ -191,7 +185,6 @@ prob_confounded <- function(
 	hidden = FALSE,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	task <- sim_dgp_confounded(n = n_samples, hidden = hidden)
@@ -200,9 +193,9 @@ prob_confounded <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = "confounder"
+		conditioning_set = "confounder",
+		...
 	)
 }
 
@@ -214,7 +207,6 @@ prob_mediated <- function(
 	hidden = FALSE,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	task <- sim_dgp_mediated(n = n_samples)
@@ -223,9 +215,9 @@ prob_mediated <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = "mediator"
+		conditioning_set = "mediator",
+		...
 	)
 }
 
@@ -237,7 +229,6 @@ prob_debug <- function(
 	factors = TRUE,
 	learner_type = "rf",
 	resampling_type = "holdout",
-	n_trees = 500,
 	...
 ) {
 	xdf <- data.table::data.table(x1 = rnorm(n_samples), x2 = rnorm(n_samples))
@@ -256,8 +247,8 @@ prob_debug <- function(
 		task = task,
 		job = job,
 		learner_type = learner_type,
-		n_trees = n_trees,
 		resampling_type = resampling_type,
-		conditioning_set = NULL
+		conditioning_set = NULL,
+		...
 	)
 }

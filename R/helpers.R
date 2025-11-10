@@ -36,7 +36,7 @@ instantiate_resampling <- function(resampling, task, replication = 1) {
 create_learner <- function(
 	learner_type = c("rf", "linear", "featureless", "mlp", "boosting"),
 	n_trees = 500,
-	n_units = 5,
+	n_units = 20,
 	task_type = c("regr", "classif"),
 	task = NULL # Optional task to check for categorical features
 ) {
@@ -66,7 +66,7 @@ create_learner <- function(
 				n_layers = 1,
 				# training arguments
 				batch_size = 32,
-				epochs = 100,
+				epochs = 200,
 				patience = 10,
 				measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
 				min_delta = 0.01,
@@ -158,7 +158,6 @@ create_problem_instance <- function(
 	task,
 	job = NULL,
 	learner_type,
-	n_trees = 500,
 	resampling_type = "holdout",
 	problem_name,
 	has_categoricals = FALSE,
