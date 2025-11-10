@@ -25,3 +25,10 @@ ids1 = tab[
 ids1 |>
 	findNotSubmitted() |>
 	submitJobs()
+
+
+ids = tab[
+	repl == 1,
+	.SD[sample(nrow(.SD), 1)],
+	by = c("algorithm", "learner_type", "sampler", "n_permutations", "early_stopping")
+]

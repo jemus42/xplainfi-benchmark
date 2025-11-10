@@ -8,7 +8,6 @@ tab <- unwrap(getJobTable())
 tab[, .N, by = learner_type]
 tab[, .N, by = problem]
 tab[, .N, by = algorithm]
-tab[, .N, by = .(problem, n_samples, n_features)]
 tab[, .N, by = .(algorithm, sampler)]
 tab[, .N, by = .(algorithm, n_permutations)]
 tab[, .N, by = .(algorithm, n_repeats)]
@@ -17,7 +16,8 @@ tab[, .N, by = .(algorithm, n_repeats)]
 
 ids1 = tab[
 	repl == 1 &
-		n_samples == 100,
+		(problem == "independent" & n_samples == 100) |
+		problem == "bike_sharing",
 	.SD[sample(nrow(.SD), 1)],
 	by = c("algorithm", "problem", "learner_type", "sampler")
 ]
@@ -48,35 +48,21 @@ ids1 = tab[,
 ]
 submitJobs(findNotSubmitted(ids1))
 
+ids = tab[
+	repl == 1 &
+		problem == "bike_sharing",
+	.SD[sample(nrow(.SD), 1)],
+	by = c("algorithm", "learner_type")
+]
 
-ijoin(findNotSubmitted(), ids[, .(job.id, chunk)]) |>
+ijoin(ids, findTagged("python")) |>
 	submitJobs()
 
-findTagged("runtime") |>
-	ijoin(findExperiments(repls = c(1, 2))) |>
-	findNotSubmitted() |>
-	submitJobs()
+submitJobs(findNotSubmitted(ids))
+getStatus()
 
-ids = findTagged("runtime") |>
-	findNotSubmitted()
+loadResult(findDone()[1])
 
-ids[, chunk := chunk(job.id, chunk.size = 50)]
-submitJobs(ids[, .(job.id, chunk)])
+errs = tab[getErrorMessages()][, .(algorithm, sampler, problem, getErrorMessages())]
 
-
-ids = ijoin(tab, findNotSubmitted())
-ids[, chunk := chunk(algorithm, chunk.size = 100)]
-ids[, .N, by = chunk]
-ids = ids[, .(job.id, chunk)]
-
-submitJobs(ids, resources = list(walltime = 12 * 3600))
-
-
-tab <- unwrap(getJobTable())
-
-tab[algorithm == "PFI_fippy"][1, ] |> testJob()
-tab[algorithm == "CFI_fippy"][1, ] |> testJob()
-tab[algorithm == "KernelSAGE"][1, ] |> testJob()
-
-
-testJob(6121)
+errs |> View()

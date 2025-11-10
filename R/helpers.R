@@ -59,7 +59,7 @@ create_learner <- function(
 		},
 		"mlp" = {
 			require(mlr3torch)
-			base_learner <- lrn(
+			lrn(
 				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
 				neurons = n_units,
@@ -79,6 +79,8 @@ create_learner <- function(
 				po("encode", method = "one-hot") %>>%
 					base_learner |>
 					as_learner()
+			} else {
+				base_learner
 			}
 
 			# lrn(
@@ -103,10 +105,11 @@ create_learner <- function(
 				po("encode", method = "one-hot") %>>%
 					base_learner |>
 					as_learner()
+			} else {
+				base_learner
 			}
 		}
 	)
-
 	# Add validation field for xgb and mlp, requires use of resample()
 	if (learner_type %in% c("boosting", "mlp")) {
 		set_validate(base_learner, validate = "test")

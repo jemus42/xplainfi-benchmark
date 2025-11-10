@@ -321,7 +321,10 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		}
 	)
 
-	perf = learner_clone$predict(instance$task, row_ids = test_ids)$score(instance$measure_eval)
+	perf = resample_result$score(instance$measure_eval)[,
+		.SD,
+		.SDcols = mlr3misc::ids(c(instance$measure_eval))
+	]
 
 	start_time <- Sys.time()
 	# Create FeatureImp object
@@ -414,7 +417,10 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		preds$response
 	}
 
-	perf = learner_clone$predict(instance$task, row_ids = test_ids)$score(instance$measure_eval)
+	perf = resample_result$score(instance$measure_eval)[,
+		.SD,
+		.SDcols = mlr3misc::ids(c(instance$measure_eval))
+	]
 
 	start_time <- Sys.time()
 

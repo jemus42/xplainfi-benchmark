@@ -186,7 +186,8 @@ algo_designs <- list(
 	MarginalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
+		early_stopping = conf$sage_early_stopping,
+		sampler = "rf"  # Use RF sampler for compatibility with categorical features
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
