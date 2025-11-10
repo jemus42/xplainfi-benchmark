@@ -513,8 +513,13 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		sklearn_metrics$zero_one_loss
 	}
 
+	# Create a wrapper function for the predict method to handle potential conversion issues
+	predict_wrapper <- function(X) {
+		sklearn_learner$predict(X)
+	}
+
 	explainer <- fippy$Explainer(
-		predict = sklearn_learner$predict,
+		predict = predict_wrapper,
 		X_train = sklearn_data$X_train,
 		loss = loss_fn,
 		sampler = sampler_obj
@@ -612,8 +617,13 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		sklearn_metrics$zero_one_loss
 	}
 
+	# Create a wrapper function for the predict method to handle potential conversion issues
+	predict_wrapper <- function(X) {
+		sklearn_learner$predict(X)
+	}
+
 	explainer <- fippy$Explainer(
-		predict = sklearn_learner$predict,
+		predict = predict_wrapper,
 		X_train = sklearn_data$X_train,
 		loss = loss_fn,
 		sampler = sampler_obj
@@ -721,8 +731,13 @@ algo_MarginalSAGE_fippy <- function(
 		sklearn_metrics$zero_one_loss
 	}
 
+	# Create a wrapper function for the predict method to handle potential conversion issues
+	predict_wrapper <- function(X) {
+		sklearn_learner$predict(X)
+	}
+
 	explainer <- fippy$Explainer(
-		predict = sklearn_learner$predict,
+		predict = predict_wrapper,
 		X_train = sklearn_data$X_train,
 		loss = loss_fn,
 		sampler = sampler_obj
@@ -843,8 +858,13 @@ algo_ConditionalSAGE_fippy <- function(
 		sklearn_metrics$zero_one_loss
 	}
 
+	# Create a wrapper function for the predict method to handle potential conversion issues
+	predict_wrapper <- function(X) {
+		sklearn_learner$predict(X)
+	}
+
 	explainer <- fippy$Explainer(
-		predict = sklearn_learner$predict,
+		predict = predict_wrapper,
 		X_train = sklearn_data$X_train,
 		loss = loss_fn,
 		sampler = sampler_obj

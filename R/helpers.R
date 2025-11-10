@@ -58,28 +58,35 @@ create_learner <- function(
 		},
 		"mlp" = {
 			require(mlr3torch)
-			lrn(
+			base_mlp <- lrn(
 				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
 				neurons = n_units,
+				n_layers = 1,
 				# training arguments
 				batch_size = 32,
-				epochs = 50,
+				epochs = 100,
+				patience = 10,
+				min_delta = 0.1,
 				shuffle = TRUE,
 				device = "cpu"
 			)
+			set_validate(base_mlp, validate = "test", ids = base_mlp$id)
+			base_mlp
 		},
 		"boosting" = {
-			lrn(
+			base_xgb <- lrn(
 				paste(task_type, "xgboost", sep = "."),
 				nrounds = 1000,
 				early_stopping_rounds = 50,
 				eta = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",
-				validate = "test",
 				nthread = 1
 			)
+
+			set_validate(base_xgb, validate = "test", ids = base_xgb$id)
+			base_xgb
 		}
 	)
 
@@ -111,8 +118,8 @@ create_learner <- function(
 		learner <- po_encode %>>% base_learner
 		learner <- as_learner(learner)
 
-		# For XGBoost in pipeline, set validate on the graph learner
-		if (learner_type == "boosting") {
+		# For XGBoost/MLP in pipeline, set validate on the graph learner
+		if (learner_type %in% c("boosting", "mlp")) {
 			# This enables early stopping for XGBoost when used in resample()
 			# Note: validate="test" only works with resample(), not direct $train()
 			set_validate(learner, validate = "test", ids = base_learner$id)

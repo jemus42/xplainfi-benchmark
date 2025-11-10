@@ -99,10 +99,16 @@ create_sklearn_learner <- function(
 	task_type,
 	encode = FALSE,
 	n_trees = 500,
-	random_state = 42L
+	random_state = NULL
 ) {
 	# Ensure random_state is integer
+	if (is.null(random_state)) {
+		# Easier for debugging but should not occur in actual benchmark
+		cli::cli_alert_info("{.code random_state} not specified, using constant seed")
+		random_state <- 2093564
+	}
 	random_state <- as.integer(random_state)
+
 	.ensure_python_packages()
 	sklearn <- reticulate::import("sklearn")
 	xgb <- reticulate::import("xgboost")
@@ -147,7 +153,6 @@ create_sklearn_learner <- function(
 		}
 	} else if (learner_type == "boosting") {
 		# XGBoost with parameters matching R implementation
-		# Note: early_stopping_rounds requires validation data in fit()
 		if (task_type == "regr") {
 			learner <- xgb$XGBRegressor(
 				n_estimators = 1000L,
@@ -181,7 +186,11 @@ create_sklearn_learner <- function(
 			encoder <- ce$OrdinalEncoder(handle_unknown = "value")
 		} else if (learner_type == "linear") {
 			# Linear: Use target encoding or one-hot with drop_first
-			encoder <- ce$OneHotEncoder(handle_unknown = "value", use_cat_names = TRUE, drop_invariant = TRUE)
+			encoder <- ce$OneHotEncoder(
+				handle_unknown = "value",
+				use_cat_names = TRUE,
+				drop_invariant = TRUE
+			)
 		} else {
 			# MLP and XGBoost: Need one-hot encoding
 			encoder <- ce$OneHotEncoder(handle_unknown = "value", use_cat_names = TRUE)
@@ -211,46 +220,36 @@ fit_sklearn_learner <- function(learner, X_train, y_train, X_test, y_test) {
 		# Direct XGBoost model: provide validation data for early stopping
 		learner$fit(X_train, y_train, eval_set = list(list(X_test, y_test)), verbose = FALSE)
 	} else if (is_xgboost && is_pipeline) {
-		# XGBoost in pipeline: need to transform test data through encoder first
-		# Then pass eval_set to XGBoost step
+		# XGBoost in pipeline: need to transform validation data through encoder first
+		# Fit the encoder on training data and transform both sets
+		encoder <- learner$steps[[1]][[2]]
+		encoder$fit(X_train, y_train)
+		X_train_encoded <- encoder$transform(X_train)
+		X_test_encoded <- encoder$transform(X_test)
 
-		# Transform test data through all steps except the last (the model)
-		encoder_steps <- learner$steps[1:(length(learner$steps) - 1)]
-		X_test_transformed <- X_test
-		for (step in encoder_steps) {
-			transformer <- step[[2]]
-			# Fit and transform if not fitted yet
-			if (!("transform" %in% names(transformer))) {
-				transformer$fit(X_train)
-			}
-			X_test_transformed <- transformer$transform(X_test_transformed)
-		}
+		# Now fit XGBoost with encoded validation data
+		xgb_model <- learner$steps[[2]][[2]]
+		xgb_model$fit(
+			X_train_encoded,
+			y_train,
+			eval_set = list(list(X_test_encoded, y_test)),
+			verbose = FALSE
+		)
 
-		# Get the name of the XGBoost step (last step)
-		last_step_name <- learner$steps[[length(learner$steps)]][[1]]
-
-		# Create fit_params for the XGBoost step
-		eval_set_param <- paste0(last_step_name, "__eval_set")
-		verbose_param <- paste0(last_step_name, "__verbose")
-
-		# Create kwargs list with transformed test data
-		fit_kwargs <- list()
-		fit_kwargs[[eval_set_param]] <- list(list(X_test_transformed, y_test))
-		fit_kwargs[[verbose_param]] <- FALSE
-
-		# Call fit with the parameters
-		do.call(learner$fit, c(list(X_train, y_train), fit_kwargs))
+		# Store the fitted components back in the pipeline
+		learner$steps[[1]][[2]] <- encoder
+		learner$steps[[2]][[2]] <- xgb_model
 	} else {
-		# For other learners, use standard fit
+		# For other learners (including pipelines), use standard fit
 		learner$fit(X_train, y_train)
 	}
 
 	invisible(learner)
 }
 
-# Helper function to create fippy sampler based on task features and sampler type
+# Helper function to create fippy sampler based on original task data
 # sampler: "simple" (bootstrap resample), "gaussian" (parametric), or "rf" (RF-based)
-# - SimpleSampler: Resamples from observed data (no assumptions, works with categoricals)
+# - SimpleSampler: Resamples from observed data (no assumptions, works with any data)
 # - GaussianSampler: Assumes multivariate Gaussian (continuous features only)
 # - SequentialSampler with RF: Semi-parametric, handles mixed data
 create_fippy_sampler <- function(task, X_train_pandas, sampler = "gaussian") {
@@ -266,23 +265,21 @@ create_fippy_sampler <- function(task, X_train_pandas, sampler = "gaussian") {
 		return(fippy$samplers$SimpleSampler(X_train_pandas))
 	}
 
-	# Get task data to check for categorical features (for gaussian/rf validation)
-	task_data <- task$data()
-	feature_names <- task$feature_names
+	# Check if task has categorical features (from the task, not the pandas data)
+	# The sampler receives unprocessed data, so we check the original feature types
+	feature_types <- task$feature_types$type
+	has_categoricals <- any(feature_types %in% c("factor", "character"))
 
-	# Identify categorical features
-	categorical_features <- character(0)
-	for (feat in feature_names) {
-		if (is.factor(task_data[[feat]]) || is.character(task_data[[feat]])) {
-			categorical_features <- c(categorical_features, feat)
-		}
-	}
+	# For fippy, also check the actual pandas DataFrame for object columns
+	pd <- reticulate::import("pandas")
+	dtypes <- X_train_pandas$dtypes
+	object_cols <- names(dtypes[dtypes == "object"])
 
-	# Validate sampler choice with categorical features
-	if (length(categorical_features) > 0 && sampler == "gaussian") {
+	# Validate sampler choice
+	if (has_categoricals && sampler == "gaussian") {
 		cli::cli_abort(c(
 			"x" = "GaussianSampler cannot be used with categorical features",
-			"i" = "Task has {length(categorical_features)} categorical feature{?s}: {.val {categorical_features}}",
+			"i" = "Task has categorical features",
 			"i" = "Use {.code sampler = 'rf'} or {.code sampler = 'simple'} for tasks with categorical features"
 		))
 	}
@@ -291,25 +288,29 @@ create_fippy_sampler <- function(task, X_train_pandas, sampler = "gaussian") {
 		# Use GaussianSampler (only valid for continuous features)
 		cli::cli_inform("Using GaussianSampler")
 		fippy$samplers$GaussianSampler(X_train_pandas)
-	} else {
-		# Use SequentialSampler with RF-based samplers
-		cli::cli_inform(
-			"Using SequentialSampler with RF samplers{if (length(categorical_features) > 0) glue::glue(' ({length(categorical_features)} categorical feature{ifelse(length(categorical_features) > 1, \"s\", \"\")})')}"
-		)
+	} else if (sampler == "rf") {
+		# Use SequentialSampler with RF-based samplers for mixed data
+		# This follows the fippy example for handling categorical features
 
-		# Create RF-based samplers
-		cat_sampler <- fippy$samplers$UnivRFSampler(X_train_pandas, cat_inputs = categorical_features)
-		cont_sampler <- fippy$samplers$ContUnivRFSampler(
-			X_train_pandas,
-			cat_inputs = categorical_features
-		)
+		if (length(object_cols) > 0) {
+			# Have categorical columns - use SequentialSampler like in fippy example
+			cli::cli_inform("Using SequentialSampler with RF samplers for mixed data")
 
-		# Combine into SequentialSampler
-		fippy$samplers$SequentialSampler(
-			X_train_pandas,
-			categorical_fs = categorical_features,
-			cat_sampler = cat_sampler,
-			cont_sampler = cont_sampler
-		)
+			# Create RF-based samplers
+			cat_sampler <- fippy$samplers$UnivRFSampler(X_train_pandas, cat_inputs = object_cols)
+			cont_sampler <- fippy$samplers$ContUnivRFSampler(X_train_pandas, cat_inputs = object_cols)
+
+			# Combine into SequentialSampler
+			fippy$samplers$SequentialSampler(
+				X_train_pandas,
+				categorical_fs = object_cols,
+				cat_sampler = cat_sampler,
+				cont_sampler = cont_sampler
+			)
+		} else {
+			# All features are numeric - use ContUnivRFSampler
+			cli::cli_inform("Using ContUnivRFSampler (all features numeric)")
+			fippy$samplers$ContUnivRFSampler(X_train_pandas, cat_inputs = character(0))
+		}
 	}
 }
