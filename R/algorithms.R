@@ -8,7 +8,8 @@ algo_PFI <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	method <- PFI$new(
@@ -49,7 +50,8 @@ algo_CFI <- function(
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	# Create sampler instance
@@ -127,7 +129,8 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	method <- LOCO$new(
@@ -170,7 +173,8 @@ algo_MarginalSAGE <- function(
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	method <- MarginalSAGE$new(
@@ -219,7 +223,8 @@ algo_ConditionalSAGE <- function(
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	# Create sampler instance
@@ -269,7 +274,8 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	# Clone learner to avoid modifying the instance
@@ -363,7 +369,8 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Create learner for this algorithm
 	learner <- create_learner(
 		learner_type = instance$learner_type,
-		task_type = instance$task_type
+		task_type = instance$task_type,
+		task = instance$task
 	)
 
 	# Clone learner to avoid modifying the instance
@@ -451,7 +458,6 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 # ============================================================================
 
 algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sampler = "simple") {
-
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -473,8 +479,13 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		random_state = job$seed
 	)
 
-	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
-		sklearn_data$X_test, sklearn_data$y_test)
+	fit_sklearn_learner(
+		sklearn_learner,
+		sklearn_data$X_train,
+		sklearn_data$y_train,
+		sklearn_data$X_test,
+		sklearn_data$y_test
+	)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -546,7 +557,6 @@ algo_PFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 # ============================================================================
 
 algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sampler = "gaussian") {
-
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -568,8 +578,13 @@ algo_CFI_fippy <- function(data = NULL, job = NULL, instance, n_repeats = 1, sam
 		random_state = job$seed
 	)
 
-	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
-		sklearn_data$X_test, sklearn_data$y_test)
+	fit_sklearn_learner(
+		sklearn_learner,
+		sklearn_data$X_train,
+		sklearn_data$y_train,
+		sklearn_data$X_test,
+		sklearn_data$y_test
+	)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -649,7 +664,6 @@ algo_MarginalSAGE_fippy <- function(
 	sampler = "gaussian",
 	early_stopping = TRUE
 ) {
-
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -674,8 +688,13 @@ algo_MarginalSAGE_fippy <- function(
 		random_state = job$seed
 	)
 
-	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
-		sklearn_data$X_test, sklearn_data$y_test)
+	fit_sklearn_learner(
+		sklearn_learner,
+		sklearn_data$X_train,
+		sklearn_data$y_train,
+		sklearn_data$X_test,
+		sklearn_data$y_test
+	)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -766,7 +785,6 @@ algo_ConditionalSAGE_fippy <- function(
 	sampler = "gaussian",
 	early_stopping = TRUE
 ) {
-
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -791,8 +809,13 @@ algo_ConditionalSAGE_fippy <- function(
 		random_state = job$seed
 	)
 
-	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
-		sklearn_data$X_test, sklearn_data$y_test)
+	fit_sklearn_learner(
+		sklearn_learner,
+		sklearn_data$X_train,
+		sklearn_data$y_train,
+		sklearn_data$X_test,
+		sklearn_data$y_test
+	)
 
 	# Import fippy and create sampler using helper function
 	fippy <- reticulate::import("fippy")
@@ -882,7 +905,6 @@ algo_MarginalSAGE_sage <- function(
 	sage_n_samples = 200, # Background data size for marginalization
 	early_stopping = TRUE
 ) {
-
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -890,16 +912,22 @@ algo_MarginalSAGE_sage <- function(
 	# Convert to sklearn format
 	sklearn_data <- task_to_sklearn(instance$task, train_ids, test_ids)
 
-	# Create and train sklearn learner (ensures Python packages are available)
+	# Create and train sklearn learner (with encoding if categoricals present)
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
+		encode = instance$has_categoricals,
 		n_trees = 500,
 		random_state = job$seed
 	)
 
-	fit_sklearn_learner(sklearn_learner, sklearn_data$X_train, sklearn_data$y_train,
-		sklearn_data$X_test, sklearn_data$y_test)
+	fit_sklearn_learner(
+		sklearn_learner,
+		sklearn_data$X_train,
+		sklearn_data$y_train,
+		sklearn_data$X_test,
+		sklearn_data$y_test
+	)
 
 	# Calculate learner performance on test set
 	sklearn_metrics <- reticulate::import("sklearn.metrics")

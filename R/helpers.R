@@ -37,10 +37,11 @@ create_learner <- function(
 	learner_type = c("rf", "linear", "featureless", "mlp", "boosting"),
 	n_trees = 500,
 	n_units = 5,
-	task_type = c("regr", "classif")
+	task_type = c("regr", "classif"),
+	task = NULL # Optional task to check for categorical features
 ) {
 	requireNamespace("mlr3learners", quietly = TRUE)
-	# require("mlr3pipelines")
+	require("mlr3pipelines")
 	learner_type <- match.arg(learner_type)
 	task_type <- match.arg(task_type)
 
@@ -64,6 +65,7 @@ create_learner <- function(
 				# training arguments
 				batch_size = 32,
 				epochs = 50,
+				shuffle = TRUE,
 				device = "cpu"
 			)
 		},
@@ -75,12 +77,54 @@ create_learner <- function(
 				eta = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",
-				validate = "test"
+				validate = "test",
+				nthread = 1
 			)
 		}
 	)
 
-	base_learner
+	# Check if encoding is needed based on task
+	needs_encoding <- FALSE
+	if (!is.null(task)) {
+		# Check if task has categorical features (factor or character)
+		feature_types <- task$feature_types$type
+		has_categoricals <- any(feature_types %in% c("factor", "character"))
+
+		# Determine which learners need encoding for categorical features
+		# - RF (ranger) handles factors natively
+		# - Linear models need encoding
+		# - MLP needs encoding
+		# - XGBoost needs encoding
+		# - Featureless doesn't need features at all
+		needs_encoding <- has_categoricals && learner_type %in% c("linear", "mlp", "boosting")
+	}
+
+	# Apply encoding pipeline if needed
+	if (needs_encoding) {
+		# Use treatment/one-hot encoding for categorical features
+		# This handles factor and character columns automatically
+		if (learner_type == "linear") {
+			po_encode <- po("encode", method = "treatment")
+		} else {
+			po_encode <- po("encode", method = "one-hot")
+		}
+		learner <- po_encode %>>% base_learner
+		learner <- as_learner(learner)
+
+		# For XGBoost in pipeline, set validate on the graph learner
+		if (learner_type == "boosting") {
+			# This enables early stopping for XGBoost when used in resample()
+			# Note: validate="test" only works with resample(), not direct $train()
+			set_validate(learner, validate = "test", ids = base_learner$id)
+		}
+	} else {
+		learner <- base_learner
+
+		# For XGBoost without pipeline, validate is already NULL (set above)
+		# It will be set to "test" only when used with resample()
+	}
+
+	learner
 
 	# Minimal prerpoc just to make things not break on accident
 	# prepoc = po("fixfactors") %>>%

@@ -101,6 +101,8 @@ create_sklearn_learner <- function(
 	n_trees = 500,
 	random_state = 42L
 ) {
+	# Ensure random_state is integer
+	random_state <- as.integer(random_state)
 	.ensure_python_packages()
 	sklearn <- reticulate::import("sklearn")
 	xgb <- reticulate::import("xgboost")
@@ -171,7 +173,22 @@ create_sklearn_learner <- function(
 		stop("Unknown learner_type: ", learner_type)
 	}
 	if (encode) {
-		learner <- sklearn$pipeline$make_pipeline(ce$OneHotEncoder(), learner)
+		# For simplicity with mixed types, use encoders from category_encoders
+		# These handle both numeric and categorical seamlessly
+		# cols=NULL means auto-detect categorical columns (object dtype)
+		if (learner_type == "rf") {
+			# RF: Can handle categoricals directly with OrdinalEncoder
+			encoder <- ce$OrdinalEncoder(handle_unknown = "value")
+		} else if (learner_type == "linear") {
+			# Linear: Use target encoding or one-hot with drop_first
+			encoder <- ce$OneHotEncoder(handle_unknown = "value", use_cat_names = TRUE, drop_invariant = TRUE)
+		} else {
+			# MLP and XGBoost: Need one-hot encoding
+			encoder <- ce$OneHotEncoder(handle_unknown = "value", use_cat_names = TRUE)
+		}
+
+		# Create pipeline with encoder
+		learner <- sklearn$pipeline$make_pipeline(encoder, learner)
 	}
 	learner
 }
@@ -183,13 +200,46 @@ fit_sklearn_learner <- function(learner, X_train, y_train, X_test, y_test) {
 	is_xgboost <- grepl("XGB", learner_class)
 
 	# Check if it's a pipeline containing XGBoost
-	if (!is_xgboost && "steps" %in% names(learner)) {
-		is_xgboost <- any(sapply(learner$steps, function(step) grepl("XGB", class(step[[2]])[1])))
+	is_pipeline <- "steps" %in% names(learner)
+	if (!is_xgboost && is_pipeline) {
+		# Get the last step of the pipeline (the actual learner)
+		last_step <- learner$steps[[length(learner$steps)]]
+		is_xgboost <- grepl("XGB", class(last_step[[2]])[1])
 	}
 
-	if (is_xgboost) {
-		# For XGBoost, provide validation data for early stopping
+	if (is_xgboost && !is_pipeline) {
+		# Direct XGBoost model: provide validation data for early stopping
 		learner$fit(X_train, y_train, eval_set = list(list(X_test, y_test)), verbose = FALSE)
+	} else if (is_xgboost && is_pipeline) {
+		# XGBoost in pipeline: need to transform test data through encoder first
+		# Then pass eval_set to XGBoost step
+
+		# Transform test data through all steps except the last (the model)
+		encoder_steps <- learner$steps[1:(length(learner$steps) - 1)]
+		X_test_transformed <- X_test
+		for (step in encoder_steps) {
+			transformer <- step[[2]]
+			# Fit and transform if not fitted yet
+			if (!("transform" %in% names(transformer))) {
+				transformer$fit(X_train)
+			}
+			X_test_transformed <- transformer$transform(X_test_transformed)
+		}
+
+		# Get the name of the XGBoost step (last step)
+		last_step_name <- learner$steps[[length(learner$steps)]][[1]]
+
+		# Create fit_params for the XGBoost step
+		eval_set_param <- paste0(last_step_name, "__eval_set")
+		verbose_param <- paste0(last_step_name, "__verbose")
+
+		# Create kwargs list with transformed test data
+		fit_kwargs <- list()
+		fit_kwargs[[eval_set_param]] <- list(list(X_test_transformed, y_test))
+		fit_kwargs[[verbose_param]] <- FALSE
+
+		# Call fit with the parameters
+		do.call(learner$fit, c(list(X_train, y_train), fit_kwargs))
 	} else {
 		# For other learners, use standard fit
 		learner$fit(X_train, y_train)
