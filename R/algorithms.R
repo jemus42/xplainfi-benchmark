@@ -927,48 +927,25 @@ algo_MarginalSAGE_sage <- function(
 	sage_n_samples = 200, # Background data size for marginalization
 	early_stopping = TRUE
 ) {
-	# Pre-encode factors if present (following official SAGE bike example)
-	# This simplifies the pipeline and avoids DataFrame conversion issues
-	task <- instance$task
-	if (any(task$feature_types$type == "factor")) {
-		# Create a copy of the task with encoded factors
-		task_data <- task$data()
-		factor_cols <- task$feature_types[type == "factor", id]
-
-		for (col in factor_cols) {
-			# Convert factors to integers (1-based)
-			task_data[[col]] <- as.integer(task_data[[col]])
-		}
-
-		# Create new task with encoded data (preserving task type)
-		if (instance$task_type == "regr") {
-			task <- as_task_regr(task_data, target = task$target_names, id = task$id)
-		} else {
-			task <- as_task_classif(task_data, target = task$target_names, id = task$id)
-		}
-
-		# Update instance with encoded task
-		instance$task <- task
-		instance$has_categoricals <- FALSE
-	}
-
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
 
-	# Convert to sklearn format (no pandas needed since factors are pre-encoded)
+	# Convert to sklearn format with factor pre-encoding for SAGE compatibility
+	# This avoids complex DataFrame conversion issues in the SAGE pipeline
 	sklearn_data <- task_to_sklearn(
-		task,  # Use the potentially encoded task
+		instance$task,
 		train_ids,
 		test_ids,
-		as_pandas = FALSE  # Always use numpy arrays since no categoricals
+		as_pandas = FALSE,  # Use numpy arrays for simplicity
+		pre_encode_factors = TRUE  # Pre-encode factors to integers (SAGE compatibility)
 	)
 
-	# Create and train sklearn learner (no encoding needed)
+	# Create and train sklearn learner (no encoding needed since factors pre-encoded)
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
-		encode = FALSE,  # No encoding needed since factors pre-encoded
+		encode = FALSE,  # Always FALSE since factors are pre-encoded above
 		random_state = job$seed
 	)
 
