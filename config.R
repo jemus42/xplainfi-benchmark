@@ -17,8 +17,9 @@ conf <- list(
 	# For SAGE permutations: large(ish) n_permutations with convergence detection
 	n_permutations = 50,
 	sage_early_stopping = TRUE,
-	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was often sufficient
-	sage_n_samples = 300L,
+	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was usually sufficient
+	# increases RAM usage a lot if set too high
+	sage_n_samples = 200L,
 	# Types of learners to use for each method, uses create_learner helper
 	learner_types = c("linear", "rf", "mlp", "boosting"),
 	# Conditional samplers for CFI, RFI, and ConditionalSAGE
