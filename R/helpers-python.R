@@ -30,7 +30,8 @@ PYTHON_PACKAGES <- c(
 #   - Sampler: via create_fippy_sampler() using SequentialSampler with RFSamplers
 # For classification tasks, encodes target labels as integers for fippy compatibility
 # If as_pandas=TRUE, returns pandas DataFrames (needed for fippy samplers)
-task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
+# If pre_encode_factors=TRUE, converts factor columns to integers (for MarginalSAGE_sage)
+task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE, pre_encode_factors = FALSE) {
 	# Get training data
 	train_data <- task$data(rows = train_ids)
 	X_train <- train_data[, task$feature_names, with = FALSE]
@@ -40,6 +41,17 @@ task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE) {
 	test_data <- task$data(rows = test_ids)
 	X_test <- test_data[, task$feature_names, with = FALSE]
 	y_test <- test_data[[task$target_names]]
+
+	# Pre-encode factors if requested (for MarginalSAGE_sage compatibility)
+	if (pre_encode_factors) {
+		factor_cols <- names(X_train)[sapply(X_train, is.factor)]
+		if (length(factor_cols) > 0) {
+			for (col in factor_cols) {
+				X_train[[col]] <- as.integer(X_train[[col]])
+				X_test[[col]] <- as.integer(X_test[[col]])
+			}
+		}
+	}
 
 	# For classification, encode target labels as integers
 	# This is needed for fippy to work properly (numeric predictions can be averaged)

@@ -58,34 +58,37 @@ create_learner <- function(
 			switch(task_type, regr = lrn("regr.lm"), classif = lrn("classif.log_reg"))
 		},
 		"mlp" = {
-			# require(mlr3torch)
-			# base_learner <- lrn(
-			# 	paste(task_type, "mlp", sep = "."),
-			# 	# architecture parameters
-			# 	neurons = n_units,
-			# 	n_layers = 1,
-			# 	# training arguments
-			# 	batch_size = 32,
-			# 	epochs = 200,
-			# 	patience = 10,
-			# 	measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
-			# 	min_delta = 0.01,
-			# 	shuffle = TRUE,
-			# 	device = "cpu"
-			# )
-			# # Add encoding, sadly makes predict_newdata_fast impossible
-			# if (needs_encoding) {
-			# 	po("encode", method = "one-hot") %>>%
-			# 		base_learner |>
-			# 		as_learner()
-			# } else {
-			# 	base_learner
-			# }
-			lrn(
-				paste(task_type, "nnet", sep = "."),
-				size = n_units,
-				trace = FALSE
+			require(mlr3torch)
+			base_learner <- lrn(
+				paste(task_type, "mlp", sep = "."),
+				# architecture parameters
+				neurons = n_units,
+				n_layers = 1,
+				# training arguments
+				batch_size = 18000, # as large as plausible to fit all datasets
+				epochs = 200,
+				opt.lr = 0.1,
+				patience = 10,
+				measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
+				min_delta = 0.01,
+				shuffle = TRUE,
+				tensor_dataset = TRUE, # for optimization when dataset fits in RAM
+				device = "cpu"
 			)
+			# Add encoding, sadly makes predict_newdata_fast impossible
+			if (needs_encoding) {
+				base_learner <- po("encode", method = "one-hot") %>>%
+					base_learner |>
+					as_learner()
+			}
+
+			base_learner
+
+			# lrn(
+			# 	paste(task_type, "nnet", sep = "."),
+			# 	size = n_units,
+			# 	trace = FALSE
+			# )
 		},
 		"boosting" = {
 			base_learner <- lrn(
