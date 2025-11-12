@@ -9,16 +9,16 @@ conf <- list(
 	seed = 2025,
 	repls = 50,
 	# Samples to generate
-	n_samples = c(5000),
+	n_samples = 5000,
 	# Affects correlation task
-	correlation = c(0.2, 0.5, 0.8),
+	correlation = c(0.25, 0.75),
 	# Affects PFI, CFI, RFI, and LOCO iterations
 	n_repeats = 50,
-	# For SAGE permutations: large(ish) n_permutations with convergence detection
-	n_permutations = 100,
+	# For SAGE permutations: large n_permutations with convergence detection (across all implementations)
+	n_permutations = 200,
 	sage_early_stopping = TRUE,
 	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was usually sufficient
-	# increases RAM usage a lot if set too high
+	# increases RAM usage a lot if set too high, and returns are diminishing somewhat quickly
 	sage_n_samples = 200L,
 	# Types of learners to use for each method, uses create_learner helper
 	learner_types = c("linear", "rf", "mlp", "boosting"),

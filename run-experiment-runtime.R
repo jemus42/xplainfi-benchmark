@@ -1,52 +1,41 @@
 # Script to run the experiment
 library(batchtools)
+source("setup-batchtools-runtime.R")
 
 # Load registry
 source("config-runtime.R")
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 tab = unwrap(getJobTable())
 runtime_est = readRDS("results/runtime-est.rds")
-tab = rjoin(tab, est$runtimes)
+tab = rjoin(tab, runtime_est)
 tab[, python := grepl("python", tags)]
 
 tab[, .N, by = c("n_samples", "n_features", "algorithm", "sampler")]
 
-# Submit all jobs
-submitJobs(findNotSubmitted())
+batch1 = tab[repl <= 10]
 
-ids = tab[repl <= 10, chunk := binpack(job.id, 30)]
-ids
+batch1_py = batch1[(python)]
+batch1_r = batch1[!(python)]
 
-ids = tab[
-	repl == 1,
-	.SD[sample(nrow(.SD), 1)],
-	by = c("n_samples", "n_features", "algorithm", "learner_type", "n_permutations", "sage_n_samples")
-]
-submitJobs(ids)
+batch1_py = batch1[, chunk := binpack(runtime, 12 * 3600)]
+batch1_r = batch1[, chunk := binpack(runtime, 12 * 3600)]
 
-ids[n_samples <= 1000][, chunk := chunk(job.id, 30)][] |>
-	ijoin(findNotSubmitted()) |>
-	submitJobs(
-		resources = list(
-			walltime = 2 * 3600L
-		)
-	)
+batch1_py[, list(runtime = sum(runtime)), by = chunk]
+batch1_r[, list(runtime = sum(runtime)), by = chunk]
 
-ids[n_samples > 1000][, chunk := chunk(job.id, chunk.size = 2)][] |>
-	ijoin(findNotSubmitted()) |>
-	submitJobs(
-		resources = list(
-			walltime = 6 * 3600L
-		)
-	)
+ijoin(batch1_r, findNotSubmitted()) |>
+	submitJobs(resources = list(walltime = 24 * 3600, memory = 3 * 1024))
+ijoin(batch1_py, findNotSubmitted()) |>
+	submitJobs(batch1_py, resources = list(walltime = 24 * 3600, memory = 3 * 1024))
 
+batch2 = tab[repl > 10 & repl <= 20]
+batch2_py = batch2[(python)]
+batch2_r = batch2[!(python)]
 
-# Load registry
-source("config-runtime.R")
-reg <- loadRegistry("registries/runtime/xplainfi-0.2.0/", writeable = TRUE)
-tab = unwrap(getJobTable())
-est = estimateRuntimes(tab)
-est$runtimes
-print(est, n = 20)
+batch2_py = batch2[, chunk := binpack(runtime, 12 * 3600)]
+batch2_r = batch2[, chunk := binpack(runtime, 12 * 3600)]
 
-tab = rjoin(tab, est$runtimes)
+ijoin(batch2_r, findNotSubmitted()) |>
+	submitJobs(resources = list(walltime = 24 * 3600, memory = 3 * 1024))
+ijoin(batch2_py, findNotSubmitted()) |>
+	submitJobs(batch1_py, resources = list(walltime = 24 * 3600, memory = 3 * 1024))

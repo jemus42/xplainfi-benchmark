@@ -15,8 +15,7 @@ tab[, .N, by = .(algorithm, n_repeats)]
 # Create random subset of jobs for testing
 
 ids1 = tab[
-	repl == 1 &
-		(n_samples == 100),
+	repl == 1 & problem == "independent",
 	.SD[sample(nrow(.SD), 1)],
 	by = c("algorithm", "problem", "learner_type", "sampler")
 ]

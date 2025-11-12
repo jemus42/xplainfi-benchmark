@@ -5,7 +5,7 @@ library(ggplot2)
 
 source("config.R")
 reg <- loadRegistry(
-	"registries/importance/xplainfi-0.1.0.9006/",
+	"registries/importance/xplainfi-xplainfi-0.2.1/",
 	writeable = FALSE,
 	work.dir = here::here()
 )
