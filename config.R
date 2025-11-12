@@ -9,7 +9,7 @@ conf <- list(
 	seed = 2025,
 	repls = 50,
 	# Samples to generate
-	n_samples = c(100, 5000),
+	n_samples = c(5000),
 	# Affects correlation task
 	correlation = c(0.2, 0.5, 0.8),
 	# Affects PFI, CFI, RFI, and LOCO iterations
