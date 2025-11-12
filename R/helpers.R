@@ -66,9 +66,9 @@ create_learner <- function(
 				n_layers = 1,
 				# training arguments
 				batch_size = 18000, # as large as plausible to fit all datasets
-				epochs = 200,
-				opt.lr = 0.1,
-				patience = 10,
+				epochs = 500,
+				opt.lr = 0.1, # initialize with larger learning rate
+				patience = 50,
 				measures_valid = switch(task_type, regr = msr("regr.rsq"), classif = msr("classif.acc")),
 				min_delta = 0.01,
 				shuffle = TRUE,
@@ -81,6 +81,8 @@ create_learner <- function(
 					base_learner |>
 					as_learner()
 			}
+
+			set_validate(base_learner, "test")
 
 			base_learner
 

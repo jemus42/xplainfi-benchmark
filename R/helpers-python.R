@@ -31,7 +31,13 @@ PYTHON_PACKAGES <- c(
 # For classification tasks, encodes target labels as integers for fippy compatibility
 # If as_pandas=TRUE, returns pandas DataFrames (needed for fippy samplers)
 # If pre_encode_factors=TRUE, converts factor columns to integers (for MarginalSAGE_sage)
-task_to_sklearn <- function(task, train_ids, test_ids, as_pandas = FALSE, pre_encode_factors = FALSE) {
+task_to_sklearn <- function(
+	task,
+	train_ids,
+	test_ids,
+	as_pandas = FALSE,
+	pre_encode_factors = FALSE
+) {
 	# Get training data
 	train_data <- task$data(rows = train_ids)
 	X_train <- train_data[, task$feature_names, with = FALSE]
@@ -110,7 +116,8 @@ create_sklearn_learner <- function(
 	learner_type,
 	task_type,
 	encode = FALSE,
-	n_trees = 500,
+	n_trees = 500L,
+	n_units = 20L,
 	random_state = NULL
 ) {
 	# Ensure random_state is integer
@@ -152,16 +159,24 @@ create_sklearn_learner <- function(
 	} else if (learner_type == "mlp") {
 		if (task_type == "regr") {
 			learner <- sklearn$neural_network$MLPRegressor(
-				hidden_layer_sizes = reticulate::tuple(20L),
-				max_iter = 200L,
+				hidden_layer_sizes = reticulate::tuple(n_units),
+				max_iter = 500L,
 				early_stopping = TRUE,
+				shuffle = TRUE,
+				batch_size = 18000,
+				n_iter_no_change = 50,
+				learning_rate_init = 0.1,
 				random_state = random_state
 			)
 		} else {
 			learner <- sklearn$neural_network$MLPClassifier(
-				hidden_layer_sizes = reticulate::tuple(20L),
-				max_iter = 200L,
+				hidden_layer_sizes = reticulate::tuple(n_units),
+				max_iter = 500L,
 				early_stopping = TRUE,
+				shuffle = TRUE,
+				batch_size = 18000,
+				n_iter_no_change = 50,
+				learning_rate_init = 0.1,
 				random_state = random_state
 			)
 		}
