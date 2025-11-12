@@ -783,6 +783,7 @@ algo_MarginalSAGE_fippy <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = learner_performance,
 		n_permutations_used = n_permutations_used,
+		converged = n_permutations_used < n_permutations,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -910,6 +911,7 @@ algo_ConditionalSAGE_fippy <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = learner_performance,
 		n_permutations_used = n_permutations_used,
+		converged = n_permutations_used < n_permutations,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
