@@ -8,6 +8,7 @@ PYTHON_PACKAGES <- c(
 	"pandas>=2.1.0", # Minimum version compatible with Python 3.12+
 	"scikit-learn>=1.3.0", # Stable version with good Python 3.12+ support
 	"xgboost>=2.0.0", # For boosting learner (matches R xgboost)
+	"torch >= 2.7.1",
 	"git+https://github.com/gcskoenig/fippy@a7a37aa5511f7074ead3289c89b1ae80036982cb",
 	"sage-importance>=0.0.4"
 )
@@ -17,21 +18,22 @@ PYTHON_PACKAGES <- c(
 # uv handles Python version selection and dependency resolution automatically
 .ensure_python_packages <- function() {
 	if (!reticulate::py_available()) {
-		# Set environment to prefer CPU-only torch if it gets installed as a dependency
-		# This helps avoid CUDA conflicts with R torch
-		old_pip_index <- Sys.getenv("PIP_INDEX_URL")
-		old_pip_extra <- Sys.getenv("PIP_EXTRA_INDEX_URL")
+		# Set environment variables for uv to use CPU-only torch index
+		# This ensures fippy's torch dependency is CPU-only
+		old_uv_extra_index <- Sys.getenv("UV_EXTRA_INDEX_URL")
 
-		# Set PyTorch CPU-only index
-		Sys.setenv(PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu")
+		# Set PyTorch CPU index for uv
+		Sys.setenv(UV_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu")
 
-		reticulate::py_require(
-			packages = PYTHON_PACKAGES
-		)
+		# Then install other packages
+		reticulate::py_require(packages = PYTHON_PACKAGES)
 
-		# Restore original settings
-		if (old_pip_index != "") Sys.setenv(PIP_INDEX_URL = old_pip_index)
-		if (old_pip_extra != "") Sys.setenv(PIP_EXTRA_INDEX_URL = old_pip_extra)
+		# Restore original environment
+		if (old_uv_extra_index != "") {
+			Sys.setenv(UV_EXTRA_INDEX_URL = old_uv_extra_index)
+		} else {
+			Sys.unsetenv("UV_EXTRA_INDEX_URL")
+		}
 	}
 }
 
