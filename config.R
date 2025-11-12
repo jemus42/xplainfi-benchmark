@@ -15,7 +15,7 @@ conf <- list(
 	# Affects PFI, CFI, RFI, and LOCO iterations
 	n_repeats = 50,
 	# For SAGE permutations: large(ish) n_permutations with convergence detection
-	n_permutations = 50,
+	n_permutations = 100,
 	sage_early_stopping = TRUE,
 	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was usually sufficient
 	# increases RAM usage a lot if set too high
