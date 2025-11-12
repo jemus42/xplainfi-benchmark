@@ -177,8 +177,8 @@ create_sklearn_learner <- function(
 				max_iter = 500L,
 				early_stopping = TRUE,
 				shuffle = TRUE,
-				batch_size = 18000,
-				n_iter_no_change = 50,
+				batch_size = 18000L,
+				n_iter_no_change = 50L,
 				learning_rate_init = 0.1,
 				random_state = random_state
 			)
@@ -188,8 +188,8 @@ create_sklearn_learner <- function(
 				max_iter = 500L,
 				early_stopping = TRUE,
 				shuffle = TRUE,
-				batch_size = 18000,
-				n_iter_no_change = 50,
+				batch_size = 18000L,
+				n_iter_no_change = 50L,
 				learning_rate_init = 0.1,
 				random_state = random_state
 			)
