@@ -1,3 +1,14 @@
+.ensure_torch <- function() {
+	if (requireNamespace("torch", quietly = TRUE)) {
+		if (!torch::torch_is_installed()) {
+			cli::cli_warn(c(
+				"!" = "torch is not installed yet",
+				i = "Run {.code library(mlr3torch)} and follow the instructions on screen"
+			))
+		}
+	}
+}
+
 # Helper function to create resampling strategy
 create_resampling <- function(
 	type = "holdout",
@@ -58,6 +69,7 @@ create_learner <- function(
 			switch(task_type, regr = lrn("regr.lm"), classif = lrn("classif.log_reg"))
 		},
 		"mlp" = {
+			.ensure_torch()
 			require(mlr3torch)
 			base_learner <- lrn(
 				paste(task_type, "mlp", sep = "."),

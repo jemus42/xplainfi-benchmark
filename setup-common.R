@@ -37,14 +37,6 @@ local({
 	}
 })
 
-if (requireNamespace("torch", quietly = TRUE)) {
-	if (!torch::torch_is_installed()) {
-		cli::cli_warn(c(
-			"!" = "torch is not installed yet",
-			i = "Run {.code library(mlr3torch)} and follow the instructions on screen"
-		))
-	}
-}
 
 fs::dir_create(here::here("registries", c("runtime", "importance")))
 
