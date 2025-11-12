@@ -9,3 +9,6 @@ try(data.table::setDTthreads(1))
 
 # Force torch to install cpu-only version
 Sys.setenv(CUDA = "cpu")
+# Force reticulate to use ephemeral enviornment
+# via uv, see also https://rstudio.github.io/reticulate/reference/py_require.html
+Sys.setenv(RETICULATE_PYTHON = "managed")

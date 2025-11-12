@@ -17,9 +17,21 @@ PYTHON_PACKAGES <- c(
 # uv handles Python version selection and dependency resolution automatically
 .ensure_python_packages <- function() {
 	if (!reticulate::py_available()) {
+		# Set environment to prefer CPU-only torch if it gets installed as a dependency
+		# This helps avoid CUDA conflicts with R torch
+		old_pip_index <- Sys.getenv("PIP_INDEX_URL")
+		old_pip_extra <- Sys.getenv("PIP_EXTRA_INDEX_URL")
+
+		# Set PyTorch CPU-only index
+		Sys.setenv(PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu")
+
 		reticulate::py_require(
 			packages = PYTHON_PACKAGES
 		)
+
+		# Restore original settings
+		if (old_pip_index != "") Sys.setenv(PIP_INDEX_URL = old_pip_index)
+		if (old_pip_extra != "") Sys.setenv(PIP_EXTRA_INDEX_URL = old_pip_extra)
 	}
 }
 

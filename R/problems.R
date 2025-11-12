@@ -61,6 +61,7 @@ prob_bike_sharing <- function(
 	# n_samples,
 	learner_type = "rf",
 	resampling_type = "holdout",
+	convert_to_numeric = TRUE, # Convert factors to numeric for algorithm comparability
 	...
 ) {
 	# Load bike sharing task (requires mlr3data)
@@ -74,17 +75,34 @@ prob_bike_sharing <- function(
 	xdat[, holiday := as.integer(holiday)] # Convert logical to integer
 	xdat[, working_day := as.integer(working_day)]
 
+	# Optionally convert factors to numeric for fair algorithm comparison
+	if (convert_to_numeric) {
+		factor_cols <- names(xdat)[sapply(xdat, is.factor)]
+		for (col in factor_cols) {
+			# Convert factors to integers (1-based like in official SAGE example)
+			xdat[[col]] <- as.integer(xdat[[col]])
+		}
+	}
+
 	task = as_task_regr(xdat, target = "count", id = "bike_share")
 
-	stopifnot(setequal(unique(task$feature_types$type), c("numeric", "integer", "factor")))
+	# Verify expected feature types based on conversion
+	if (convert_to_numeric) {
+		stopifnot(all(task$feature_types$type %in% c("numeric", "integer")))
+		has_cats <- FALSE
+	} else {
+		stopifnot(setequal(unique(task$feature_types$type), c("numeric", "integer", "factor")))
+		has_cats <- TRUE
+	}
 
 	create_problem_instance(
 		task = task,
 		job = job,
 		learner_type = learner_type,
 		resampling_type = resampling_type,
-		has_categoricals = TRUE,
+		has_categoricals = has_cats,
 		conditioning_set = NULL,
+		convert_to_numeric = convert_to_numeric, # Pass through for metadata
 		...
 	)
 }
@@ -189,6 +207,10 @@ prob_confounded <- function(
 ) {
 	task <- sim_dgp_confounded(n = n_samples, hidden = hidden)
 
+	if ("x2" %in% task$feature_names) {
+		task$set_col_roles("x2", remove_from = "feature")
+	}
+
 	create_problem_instance(
 		task = task,
 		job = job,
@@ -204,7 +226,6 @@ prob_mediated <- function(
 	data = NULL,
 	job = NULL,
 	n_samples = 100,
-	hidden = FALSE,
 	learner_type = "rf",
 	resampling_type = "holdout",
 	...

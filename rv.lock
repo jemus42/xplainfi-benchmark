@@ -139,7 +139,7 @@ dependencies = [
 
 [[packages]]
 name = "bbotk"
-version = "1.7.1"
+version = "1.8.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -279,7 +279,7 @@ dependencies = [
 
 [[packages]]
 name = "digest"
-version = "0.6.37"
+version = "0.6.38"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -664,11 +664,11 @@ dependencies = []
 
 [[packages]]
 name = "mirai"
-version = "2.5.1"
+version = "2.5.2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
-    { name = "nanonext", requirement = "(>= 1.7.1)" },
+    { name = "nanonext", requirement = "(>= 1.7.2)" },
 ]
 
 [[packages]]
@@ -769,12 +769,13 @@ dependencies = [
 
 [[packages]]
 name = "mlr3pipelines"
-version = "0.9.0"
+version = "0.10.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
     "backports",
     "checkmate",
+    "cli",
     "data.table",
     "digest",
     "lgr",
@@ -782,7 +783,6 @@ dependencies = [
     { name = "mlr3misc", requirement = "(>= 0.17.0)" },
     { name = "paradox", requirement = "(>= 1.0.0)" },
     "R6",
-    "withr",
 ]
 
 [[packages]]
@@ -1349,8 +1349,8 @@ dependencies = [
 
 [[packages]]
 name = "xplainfi"
-version = "0.2.0"
-source = { git = "https://github.com/mlr-org/xplainfi", sha = "f8c0b3d3bf98c37bac77467f5d0f4b2f808d0010", branch = "main" }
+version = "0.2.1"
+source = { git = "https://github.com/mlr-org/xplainfi", sha = "c4a84d86a35606591b93b19cbc4619a7226ad43c", branch = "main" }
 force_source = true
 dependencies = [
     "checkmate",

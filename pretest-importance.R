@@ -16,15 +16,29 @@ tab[, .N, by = .(algorithm, n_repeats)]
 
 ids1 = tab[
 	repl == 1 &
-		(problem == "independent" & n_samples == 100) |
-		problem == "bike_sharing",
+		(problem == "independent" & n_samples == 100),
 	.SD[sample(nrow(.SD), 1)],
 	by = c("algorithm", "problem", "learner_type", "sampler")
 ]
 
 ids1 |>
+	# dplyr::filter(!(algorithm %in% c("LOCO", "PFI", "CFI", "MarginalSAGE", "ConditionalSAGE"))) |>
 	findNotSubmitted() |>
 	submitJobs()
+
+
+ids2 = tab[
+	repl == 1 &
+		problem == "bike_sharing",
+	.SD[sample(nrow(.SD), 1)],
+	by = c("algorithm", "learner_type", "sampler")
+]
+
+ids2 |>
+	# dplyr::filter(!(algorithm %in% c("LOCO", "PFI", "CFI", "MarginalSAGE", "ConditionalSAGE"))) |>
+	findNotSubmitted() |>
+	submitJobs()
+
 # submitJobs(ids1)
 
 ids2 = tab[

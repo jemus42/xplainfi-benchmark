@@ -675,7 +675,7 @@ algo_MarginalSAGE_fippy <- function(
 	instance,
 	n_permutations = 10,
 	sage_n_samples = 10,
-	sampler = "gaussian",
+	sampler = "simple",
 	early_stopping = TRUE
 ) {
 	# Use first resampling iteration
@@ -931,21 +931,19 @@ algo_MarginalSAGE_sage <- function(
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
 
-	# Convert to sklearn format with factor pre-encoding for SAGE compatibility
-	# This avoids complex DataFrame conversion issues in the SAGE pipeline
+	# Convert to sklearn format (no special handling needed with numeric-only features)
 	sklearn_data <- task_to_sklearn(
 		instance$task,
 		train_ids,
 		test_ids,
-		as_pandas = FALSE,  # Use numpy arrays for simplicity
-		pre_encode_factors = TRUE  # Pre-encode factors to integers (SAGE compatibility)
+		as_pandas = FALSE  # Use numpy arrays for simplicity
 	)
 
-	# Create and train sklearn learner (no encoding needed since factors pre-encoded)
+	# Create and train sklearn learner
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
-		encode = FALSE,  # Always FALSE since factors are pre-encoded above
+		encode = instance$has_categoricals,  # Will be FALSE with convert_to_numeric = TRUE
 		random_state = job$seed
 	)
 

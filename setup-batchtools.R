@@ -81,7 +81,8 @@ prob_designs <- list(
 	# Bike sharing: real-world data, fixed dimensions
 	bike_sharing = CJ(
 		# n_samples = conf$n_samples,
-		learner_type = conf$learner_types
+		learner_type = conf$learner_types,
+		convert_to_numeric = TRUE  # Convert factors to numeric for fair algorithm comparison
 	),
 
 	# Correlated features DGP: varying correlation strength
@@ -172,30 +173,35 @@ algo_designs <- list(
 	),
 
 	# PFI_fippy: Reference implementation from fippy package (Python)
-	PFI_fippy = data.table(
-		n_repeats = conf$n_repeats
+	# Use simple sampler (most basic, works with any data type)
+	PFI_fippy = CJ(
+		n_repeats = conf$n_repeats,
+		sampler = "simple"
 	),
 
 	# CFI_fippy: Conditional FI from fippy package (Python)
+	# Use gaussian sampler (all tasks now have numeric features only)
 	CFI_fippy = CJ(
 		n_repeats = conf$n_repeats,
-		sampler = c("gaussian", "rf")
+		sampler = "gaussian"
 	),
 
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
+	# Use simple sampler for marginal (no conditioning needed)
 	MarginalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = "rf"  # Use RF sampler for compatibility with categorical features
+		sampler = "simple"
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
+	# Use gaussian sampler (all tasks now have numeric features only)
 	ConditionalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = c("gaussian", "rf")
+		sampler = "gaussian"
 	),
 
 	# Kernel SAGE: Official SAGE implementation with kernel estimator
@@ -221,18 +227,8 @@ addExperiments(
 # Remove incompatible sampler-task combinations
 # ============================================================================
 
-# Gaussian sampler doesn't support mixed feature types (bike_sharing)
-# RF and ARF samplers can handle mixed data, so only remove gaussian and ctree
-incompatible_jobs = unwrap(getJobTable())[!is.na(sampler)][
-	(sampler %in% c("gaussian", "ctree")) & problem == "bike_sharing",
-]
-
-if (nrow(incompatible_jobs) > 0) {
-	cli::cli_alert_warning(
-		"Removing {nrow(incompatible_jobs)} incompatible job(s): bike_sharing × gaussian/ctree samplers"
-	)
-	removeExperiments(incompatible_jobs)
-}
+# No sampler incompatibilities to handle anymore since all tasks have numeric features
+# (bike_sharing now converts factors to numeric with convert_to_numeric = TRUE)
 
 # Featureless learner is only used for xplainfi runtime benchmarking
 featureless_non_xplainfi_jobs = unwrap(getJobTable())[
