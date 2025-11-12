@@ -768,7 +768,7 @@ algo_MarginalSAGE_fippy <- function(
 	# Extract explanation object (first element of tuple) and orderings (second element)
 	explanation <- sage_result[[1]]
 	orderings <- sage_result[[2]]
-	n_permutations_used <- length(orderings)
+	n_permutations_used <- nrow(orderings)
 
 	fi_series <- explanation$fi_means_stds()
 	importance_dt <- data.table::data.table(
@@ -879,7 +879,8 @@ algo_ConditionalSAGE_fippy <- function(
 	# nr_runs: how often each value function is computed (no xplainfi equivalent, use default 1)
 	# nr_resample_marginalize: number of samples for Monte Carlo integration (like n_samples in xplainfi)
 	# detect_convergence: use convergence detection for optimal results (matches KernelSAGE approach)
-	# Returns tuple (explanation, orderings) - we only need explanation
+	# Returns tuple (explanation, orderings)
+	# orderings is a table
 	sage_result <- explainer$csage(
 		X_eval = sklearn_data$X_test,
 		y_eval = sklearn_data$y_test,
@@ -894,7 +895,7 @@ algo_ConditionalSAGE_fippy <- function(
 	# Extract explanation object (first element of tuple) and orderings (second element)
 	explanation <- sage_result[[1]]
 	orderings <- sage_result[[2]]
-	n_permutations_used <- length(orderings)
+	n_permutations_used <- nrow(orderings)
 
 	fi_series <- explanation$fi_means_stds()
 	importance_dt <- data.table::data.table(
@@ -936,14 +937,14 @@ algo_MarginalSAGE_sage <- function(
 		instance$task,
 		train_ids,
 		test_ids,
-		as_pandas = FALSE  # Use numpy arrays for simplicity
+		as_pandas = FALSE # Use numpy arrays for simplicity
 	)
 
 	# Create and train sklearn learner
 	sklearn_learner <- create_sklearn_learner(
 		learner_type = instance$learner_type,
 		task_type = instance$task_type,
-		encode = instance$has_categoricals,  # Will be FALSE with convert_to_numeric = TRUE
+		encode = instance$has_categoricals, # Will be FALSE with convert_to_numeric = TRUE
 		random_state = job$seed
 	)
 
