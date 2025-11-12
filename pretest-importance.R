@@ -13,9 +13,8 @@ tab[, .N, by = .(algorithm, n_permutations)]
 tab[, .N, by = .(algorithm, n_repeats)]
 
 # Create random subset of jobs for testing
-
 ids1 = tab[
-	repl == 1 & problem == "independent",
+	repl <= 10 & problem != "bike_sharing",
 	.SD[sample(nrow(.SD), 1)],
 	by = c("algorithm", "problem", "learner_type", "sampler")
 ]
