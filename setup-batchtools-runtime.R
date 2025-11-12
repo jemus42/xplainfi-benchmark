@@ -116,7 +116,8 @@ algo_designs <- list(
 
 	# PFI_fippy: Reference implementation from fippy package (Python)
 	PFI_fippy = data.table(
-		n_repeats = conf$n_repeats
+		n_repeats = conf$n_repeats,
+		sampler = "simple"
 	),
 
 	# CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
@@ -129,7 +130,8 @@ algo_designs <- list(
 	MarginalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
+		early_stopping = conf$sage_early_stopping,
+		sampler = "simple"
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
