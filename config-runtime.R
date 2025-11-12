@@ -17,7 +17,7 @@ conf <- list(
 	# Affects PFI, CFI, RFI, and LOCO iterations
 	n_repeats = c(1, 50, 100),
 	# For SAGE permutations
-	n_permutations = c(5, 20, 50),
+	n_permutations = c(5, 25, 50, 100),
 	sage_early_stopping = FALSE,
 	# Size of sampled data used for Monte Carlo integration in SAGE methods
 	sage_n_samples = c(10, 100, 200),

@@ -16,7 +16,7 @@ tab[, .N, by = .(algorithm, n_repeats)]
 
 ids1 = tab[
 	repl == 1 &
-		(problem == "independent" & n_samples == 100),
+		(n_samples == 100),
 	.SD[sample(nrow(.SD), 1)],
 	by = c("algorithm", "problem", "learner_type", "sampler")
 ]
