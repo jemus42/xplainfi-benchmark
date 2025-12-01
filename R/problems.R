@@ -58,7 +58,7 @@ prob_peak <- function(
 prob_bike_sharing <- function(
 	data = NULL,
 	job = NULL,
-	# n_samples,
+	n_samples = NULL,
 	learner_type = "rf",
 	resampling_type = "holdout",
 	convert_to_numeric = TRUE, # Convert factors to numeric for algorithm comparability
@@ -75,12 +75,21 @@ prob_bike_sharing <- function(
 	xdat[, holiday := as.integer(holiday)] # Convert logical to integer
 	xdat[, working_day := as.integer(working_day)]
 
+	if (!is.null(n_samples)) {
+		checkmate::assert_number(n_samples, lower = 10, upper = nrow(xdat))
+		cli::cli_warn("Subsampling {.val bike_sharing} is intended for debugging purposes only!")
+
+		xdat = xdat[,
+			.SD[sample(nrow(.SD), n_samples)]
+		]
+	}
+
 	# Optionally convert factors to numeric for fair algorithm comparison
 	if (convert_to_numeric) {
 		factor_cols <- names(xdat)[sapply(xdat, is.factor)]
 		for (col in factor_cols) {
 			# Convert factors to integers (1-based like in official SAGE example)
-			xdat[[col]] <- as.integer(xdat[[col]])
+			xdat[[col]] <- as.numeric(xdat[[col]])
 		}
 	}
 
