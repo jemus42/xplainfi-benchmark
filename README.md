@@ -123,17 +123,39 @@ The benchmark requires the following R packages:
 - Learners: `nnet` (neural networks), `ranger` (random forest)
 - Utilities: `checkmate`, `digest`, `here`, `cli`, `fs`
 
-Python dependencies (managed via `reticulate::py_require()` with `uv`):
+### Python Environment Setup
 
-**For reproducibility, Python packages use minimum version constraints** (see `requirements.txt`):
-- Python version: **3.11+ required** (uses system default, typically 3.12)
+Python dependencies are managed via `uv` with a local `.venv` for full reproducibility.
+
+**Requirements:**
+- `uv` (install via `brew install uv` or see [uv documentation](https://docs.astral.sh/uv/getting-started/installation/))
+- Python 3.11 or 3.12 (uv will manage this automatically)
+
+**Setup:**
+
+```bash
+# Create and sync the Python environment with all dependencies
+uv sync --extra cpu
+```
+
+This creates a `.venv` directory with exact package versions locked in `uv.lock`.
+
+**Python packages** (see `pyproject.toml` for specifications):
 - `numpy>=1.26.0` - Compatible with Python 3.12+
 - `pandas>=2.1.0` - Compatible with Python 3.12+
 - `scikit-learn>=1.3.0` - Machine learning models for Python implementations
+- `category-encoders>=2.6.0` - Categorical feature encoding for sklearn pipelines
+- `xgboost>=2.0.0` - Gradient boosting
+- `torch>=2.7.1` - CPU-only PyTorch (required by fippy)
 - `fippy` (commit `a7a37aa`) - Python reference implementation for PFI, CFI, Marginal SAGE, and Conditional SAGE
 - `sage-importance>=0.0.4` - Official SAGE implementation with KernelSAGE estimator
 
-Minimum versions are defined in `R/helpers-python.R` and documented in `requirements.txt`. uv resolves exact compatible versions automatically.
+The `uv.lock` file ensures exact reproducibility across machines. To update dependencies after modifying `pyproject.toml`:
+
+```bash
+uv lock
+uv sync --extra cpu
+```
 
 ## Notes
 

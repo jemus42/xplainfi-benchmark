@@ -1,39 +1,22 @@
 # Python/fippy integration helpers
 
-# Python and package versions for reproducibility
-# Using minimum versions (>=) to allow uv to resolve compatible versions
-# This ensures compatibility across Python 3.11+ while maintaining reproducibility
-PYTHON_PACKAGES <- c(
-	"numpy>=1.26.0", # Minimum version compatible with Python 3.12+
-	"pandas>=2.1.0", # Minimum version compatible with Python 3.12+
-	"scikit-learn>=1.3.0", # Stable version with good Python 3.12+ support
-	"xgboost>=2.0.0", # For boosting learner (matches R xgboost)
-	"torch >= 2.7.1",
-	"git+https://github.com/gcskoenig/fippy@a7a37aa5511f7074ead3289c89b1ae80036982cb",
-	"sage-importance>=0.0.4"
-)
+# Python environment is managed via uv with a local .venv
+# See pyproject.toml for dependency specification and uv.lock for exact versions
+# Setup instructions are in README.md
 
-# Declare Python requirements once
-# This creates an ephemeral environment with uv
-# uv handles Python version selection and dependency resolution automatically
+# Initialize Python environment from local .venv
+# The .venv must be created beforehand using: uv sync --extra cpu
 .ensure_python_packages <- function() {
 	if (!reticulate::py_available()) {
-		# Set environment variables for uv to use CPU-only torch index
-		# This ensures fippy's torch dependency is CPU-only
-		old_uv_extra_index <- Sys.getenv("UV_EXTRA_INDEX_URL")
-
-		# Set PyTorch CPU index for uv
-		Sys.setenv(UV_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu")
-
-		# Then install other packages
-		reticulate::py_require(packages = PYTHON_PACKAGES)
-
-		# Restore original environment
-		if (old_uv_extra_index != "") {
-			Sys.setenv(UV_EXTRA_INDEX_URL = old_uv_extra_index)
-		} else {
-			Sys.unsetenv("UV_EXTRA_INDEX_URL")
+		venv_path <- here::here(".venv")
+		if (!dir.exists(venv_path)) {
+			cli::cli_abort(c(
+				"x" = "Python virtual environment not found at {.path {venv_path}}",
+				"i" = "Run {.code uv sync --extra cpu} in the project directory to create it.",
+				"i" = "See README.md for detailed setup instructions."
+			))
 		}
+		reticulate::use_virtualenv(venv_path, required = TRUE)
 	}
 }
 

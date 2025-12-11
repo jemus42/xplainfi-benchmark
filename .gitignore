@@ -3,6 +3,9 @@ batchtools.conf.R
 attic
 overview.html
 
+# Python virtual environment (managed by uv)
+.venv/
+
 results/*/*rds
 
 # Created by https://www.toptal.com/developers/gitignore/api/R
