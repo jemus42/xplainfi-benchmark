@@ -9,6 +9,7 @@ try(data.table::setDTthreads(1))
 
 # Force torch to install cpu-only version
 Sys.setenv(CUDA = "cpu")
+Sys.setenv(CUDA_VISIBLE_DEVICES = "")
 # Avoid reticulate using uv for ephemeral environments
 # Causes issues when hundreds of jobs create independent ephemeral envs simultaneously
 # Better to use the One True Env in ./venv
