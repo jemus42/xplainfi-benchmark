@@ -135,7 +135,7 @@ Python dependencies are managed via `uv` with a local `.venv` for full reproduci
 
 ```bash
 # Create and sync the Python environment with all dependencies
-uv sync --extra cpu
+uv sync
 ```
 
 This creates a `.venv` directory with exact package versions locked in `uv.lock`.
@@ -154,7 +154,7 @@ The `uv.lock` file ensures exact reproducibility across machines. To update depe
 
 ```bash
 uv lock
-uv sync --extra cpu
+uv sync
 ```
 
 ## Notes

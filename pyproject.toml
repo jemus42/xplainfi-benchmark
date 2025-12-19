@@ -11,14 +11,9 @@ dependencies = [
     "scikit-learn>=1.3.0",
     "xgboost>=2.0.0",
     "category-encoders>=2.6.0",
+    "torch>=2.7.1",
     "sage-importance>=0.0.4",
     "fippy @ git+https://github.com/gcskoenig/fippy@a7a37aa5511f7074ead3289c89b1ae80036982cb",
-]
-
-[project.optional-dependencies]
-# CPU-only torch for fippy (smaller footprint)
-cpu = [
-    "torch>=2.7.1",
 ]
 
 [tool.uv]
