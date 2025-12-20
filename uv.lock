@@ -654,9 +654,8 @@ source = { registry = "https://download.pytorch.org/whl/cpu" }
 dependencies = [
     { name = "markupsafe" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67" },
+    { url = "https://download.pytorch.org/whl/jinja2-3.1.6-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -1963,13 +1962,9 @@ dependencies = [
     { name = "pandas" },
     { name = "sage-importance" },
     { name = "scikit-learn" },
-    { name = "xgboost" },
-]
-
-[package.optional-dependencies]
-cpu = [
     { name = "torch", version = "2.9.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.9.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "xgboost" },
 ]
 
 [package.metadata]
@@ -1980,10 +1975,9 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.1.0" },
     { name = "sage-importance", specifier = ">=0.0.4" },
     { name = "scikit-learn", specifier = ">=1.3.0" },
-    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.7.1" },
+    { name = "torch", specifier = ">=2.7.1" },
     { name = "xgboost", specifier = ">=2.0.0" },
 ]
-provides-extras = ["cpu"]
 
 [[package]]
 name = "zipp"
