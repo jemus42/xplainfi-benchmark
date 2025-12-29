@@ -1,7 +1,7 @@
 library(batchtools)
 library(dplyr, warn.conflicts = FALSE)
 
-source("config-runtime.R")
+source(here::here("config-runtime.R"))
 reg = loadRegistry(conf$reg_path, writeable = TRUE)
 
 tab = unwrap(getJobPars(findExperiments(repls = 1:25)))
@@ -15,7 +15,7 @@ subtab = tab[
  ]
 togo = ijoin(subtab, findNotDone()) |> ajoin(findRunning()) |> ajoin(findQueued())
 
-est = readRDS("runtime.rds")
+est = readRDS(here::here("runtime.rds"))
 togo = ijoin(togo, est$runtimes)
 
 res_short = list(walltime = 24 * 3600, memory = 4 * 1024, partition = "serial_std,serial_long", max.concurrent.jobs = 190)
