@@ -6,19 +6,23 @@ source(here::here("setup-common.R"))
 source(here::here("config-runtime.R"))
 
 # Create or load registry
-if (dir.exists(conf$reg_path)) {
-	cli::cli_alert_danger("Deleting existing registry at {.file {fs::path_rel(conf$reg_path)}}")
-	fs::dir_delete(conf$reg_path)
+# if (dir.exists(conf$reg_path)) {
+# 	cli::cli_alert_danger("Deleting existing registry at {.file {fs::path_rel(conf$reg_path)}}")
+# 	fs::dir_delete(conf$reg_path)
+# }
+
+if (!fs::dir_exists(conf$reg_path)) {
+	cli::cli_alert_info("Creating registry at {.file {fs::path_rel(conf$reg_path)}}")
+	reg <- makeExperimentRegistry(
+		file.dir = conf$reg_path,
+		packages = c("mlr3learners", "xplainfi"),
+		seed = conf$seed,
+		source = here::here(c("R/helpers.R", "R/helpers-python.R", "config-runtime.R"))
+	)
+} else {
+	cli::cli_alert_warning("Loading existing registry at {.file {fs::path_rel(conf$reg_path)}}")
+	reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 }
-
-cli::cli_alert_info("Creating registry at {.file {fs::path_rel(conf$reg_path)}}")
-reg <- makeExperimentRegistry(
-	file.dir = conf$reg_path,
-	packages = c("mlr3learners", "xplainfi"),
-	seed = conf$seed,
-	source = here::here(c("R/helpers.R", "R/helpers-python.R", "config-runtime.R"))
-)
-
 
 # Load problems and algorithms
 # mlr3misc::walk(
