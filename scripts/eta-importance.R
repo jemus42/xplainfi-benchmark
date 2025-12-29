@@ -5,6 +5,8 @@ library(batchtools)
 reg = suppressMessages(loadRegistry(conf$reg_path, writeable = FALSE))
 
 tab = unwrap(getJobPars(findExperiments(repls = 1:25)))
+tab = tab[(is.na(n_permutations) | n_permutations <= 100) & (is.na(sage_n_samples) | sage_n_samples <= 100), ]
+
 
 cli::cli_h1("Current status for 25 replications")
 getStatus(tab)
