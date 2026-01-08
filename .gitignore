@@ -68,3 +68,4 @@ rsconnect/
 
 # End of https://www.toptal.com/developers/gitignore/api/R
 scratch.R
+*registries
