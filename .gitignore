@@ -3,6 +3,8 @@ batchtools.conf.R
 attic
 overview.html
 
+plots/*
+
 # Python virtual environment (managed by uv)
 .venv/
 
