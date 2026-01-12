@@ -130,7 +130,15 @@ ui <- page_sidebar(
 			multiple = TRUE
 		),
 
-		checkboxInput("log_scale", "Log scale (x-axis)", value = TRUE),
+		radioButtons(
+			"scale_type",
+			"Scale",
+			choices = c("seconds", "log10 seconds", "relative"),
+			selected = "log10 seconds",
+			inline = TRUE
+		),
+
+		checkboxInput("hide_legend", "Hide legend", value = FALSE),
 
 		hr(),
 
@@ -144,7 +152,7 @@ ui <- page_sidebar(
 
 	card(
 		card_header("Runtime Plot"),
-		plotOutput("runtime_plot", height = "600px")
+		plotOutput("runtime_plot", height = "800px")
 	),
 
 	card(
@@ -258,8 +266,42 @@ server <- function(input, output, session) {
 					annotate("text", x = 0.5, y = 0.5, label = "No data for selection", size = 6) +
 					theme_void()
 			} else {
-				# Convert numeric columns to factors for proper faceting/coloring
 				data <- copy(data)
+
+				# Compute relative runtime if selected
+				plot_var <- "runtime"
+				x_lab <- "Runtime (seconds)"
+
+				if (input$scale_type == "relative") {
+					# Group by all relevant parameters to match xplainfi baseline
+					group_cols <- c(
+						"method",
+						"learner_type",
+						"n_samples",
+						"n_features",
+						"sampler",
+						"n_permutations",
+						"sage_n_samples"
+					)
+					# Only use columns that exist and have non-NA values
+					group_cols <- intersect(group_cols, names(data))
+
+					# Compute median runtime for xplainfi per group
+					baseline <- data[
+						package == "xplainfi",
+						.(baseline_runtime = median(runtime, na.rm = TRUE)),
+						by = group_cols
+					]
+
+					# Join baseline and compute relative runtime
+					data <- merge(data, baseline, by = group_cols, all.x = TRUE)
+					data[, runtime_relative := runtime / baseline_runtime]
+
+					plot_var <- "runtime_relative"
+					x_lab <- "Runtime (relative to xplainfi)"
+				}
+
+				# Convert numeric columns to factors for proper faceting/coloring
 				data[, n_samples := factor(n_samples)]
 				data[, n_features := factor(n_features)]
 				data[, n_permutations := factor(n_permutations)]
@@ -269,7 +311,7 @@ server <- function(input, output, session) {
 				data[, algo_label := sprintf("%s (%s)", method, package)]
 
 				# Order by median runtime
-				algo_order <- data[, .(med_rt = median(runtime)), by = algo_label]
+				algo_order <- data[, .(med_rt = median(get(plot_var), na.rm = TRUE)), by = algo_label]
 				algo_order <- algo_order[order(med_rt)]
 				data[, algo_label := factor(algo_label, levels = algo_order$algo_label)]
 
@@ -277,7 +319,7 @@ server <- function(input, output, session) {
 				p <- ggplot(
 					data,
 					aes(
-						x = runtime,
+						x = .data[[plot_var]],
 						y = algo_label,
 						fill = .data[[input$color_by]],
 						color = .data[[input$color_by]]
@@ -286,14 +328,14 @@ server <- function(input, output, session) {
 					geom_boxplot(alpha = 0.7, outlier.size = 0.8) +
 					labs(
 						title = "Runtime Comparison",
-						x = "Runtime (seconds)",
+						x = x_lab,
 						y = NULL,
 						fill = input$color_by,
 						color = input$color_by
 					) +
-					theme_minimal(base_size = 14) +
+					theme_minimal(base_size = 16) +
 					theme(
-						legend.position = "top",
+						legend.position = if (input$hide_legend) "none" else "top",
 						plot.title.position = "plot"
 					)
 
@@ -310,9 +352,16 @@ server <- function(input, output, session) {
 					p <- p + facet_wrap(facets = facet_vars, ncol = 2, labeller = label_both)
 				}
 
-				# Log scale
-				if (input$log_scale) {
-					p <- p + scale_x_log10()
+				# X-axis scaling with pretty labels
+				if (input$scale_type == "log10 seconds") {
+					p <- p + scale_x_log10(labels = scales::label_number())
+				} else if (input$scale_type == "relative") {
+					# Add reference line at 1 (xplainfi baseline)
+					p <- p +
+						geom_vline(xintercept = 1, linetype = "dashed", alpha = 0.5) +
+						scale_x_continuous(labels = scales::label_number(suffix = "x"))
+				} else {
+					p <- p + scale_x_continuous(labels = scales::label_number())
 				}
 
 				p
