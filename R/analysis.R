@@ -178,7 +178,8 @@ plot_importance <- function(
 	nrow = NULL,
 	subtitle = TRUE,
 	caption = TRUE,
-	feature_sort = c("importance", "name")
+	feature_sort = c("importance", "name"),
+	base_size = 14
 ) {
 	checkmate::assert_subset(problem, as.character(unique(importances$problem)))
 	checkmate::assert_subset(method, as.character(unique(importances$method)))
@@ -276,7 +277,7 @@ plot_importance <- function(
 			fill = NULL,
 			caption = caption_lab
 		) +
-		theme_minimal(base_size = 14) +
+		theme_minimal(base_size = base_size) +
 		theme(legend.position = "top", plot.title.position = "plot")
 
 	if (type == "scaled") {
@@ -304,108 +305,283 @@ plot_importance <- function(
 
 # Runtime ----------------------------------------------------------------
 
+#' Plot runtime as box plots with algorithm on the y-axis and runtime on the x-axis.
+#'
+#' @param runtimes data.table of runtime data, produced by `aggregate_results_runtime()`
+#' @param scale character(1) Scale type: "seconds", "log10 seconds", "relative", or "log10 relative".
+#'   Relative scales compute runtime relative to xplainfi within each replication.
+#' @param method,package,learner_type,sampler character() Filter by these variables. NULL uses all.
+#' @param n_samples,n_features,n_permutations,sage_n_samples Filter by these numeric variables. NULL uses all.
+#' @param color character(1) Variable name to color by.
+#' @param facets character() Variable names to facet by.
+#' @param ncol,nrow integer(1) Passed to `facet_wrap()`.
+#' @param show_legend logical(1) Whether to show the legend.
+#' @param base_size numeric(1) Base font size for theme.
+#' @return A ggplot2 object.
+plot_runtime <- function(
+	runtimes,
+	scale = c("seconds", "log10 seconds", "relative", "log10 relative"),
+	method = NULL,
+	package = NULL,
+	learner_type = NULL,
+	sampler = NULL,
+	n_samples = NULL,
+	n_features = NULL,
+	n_permutations = NULL,
+	sage_n_samples = NULL,
+	color = "package",
+	facets = c("n_samples", "n_features"),
+	ncol = 2,
+	nrow = NULL,
+	show_legend = TRUE,
+	base_size = 16
+) {
+	scale <- match.arg(scale)
+	data <- data.table::copy(runtimes)
+
+	# Apply filters
+	if (!is.null(method)) {
+		data <- data[method %in% .env$method]
+	}
+	if (!is.null(package)) {
+		data <- data[package %in% .env$package]
+	}
+	if (!is.null(learner_type)) {
+		data <- data[learner_type %in% .env$learner_type]
+	}
+	if (!is.null(sampler)) {
+		data <- data[is.na(sampler) | sampler %in% .env$sampler]
+	}
+	if (!is.null(n_samples)) {
+		data <- data[n_samples %in% .env$n_samples]
+	}
+	if (!is.null(n_features)) {
+		data <- data[n_features %in% .env$n_features]
+	}
+	if (!is.null(n_permutations)) {
+		data <- data[is.na(n_permutations) | n_permutations %in% .env$n_permutations]
+	}
+	if (!is.null(sage_n_samples)) {
+		data <- data[is.na(sage_n_samples) | sage_n_samples %in% .env$sage_n_samples]
+	}
+
+	if (nrow(data) == 0) {
+		cli::cli_warn("No data remaining after filtering")
+		return(
+			ggplot() +
+				annotate("text", x = 0.5, y = 0.5, label = "No data for selection", size = 6) +
+				theme_void()
+		)
+	}
+
+	# Log filter selections
+	cli::cli_alert_info("Methods: {.val {unique(data$method)}}")
+	cli::cli_alert_info("Packages: {.val {unique(data$package)}}")
+	cli::cli_alert_info("Learners: {.val {unique(data$learner_type)}}")
+	cli::cli_alert_info("n_samples: {.val {sort(unique(data$n_samples))}}")
+	cli::cli_alert_info("n_features: {.val {sort(unique(data$n_features))}}")
+
+	# Set plot variable and axis label based on scale type
+	plot_var <- "runtime"
+	x_lab <- switch(
+		scale,
+		"seconds" = "Runtime (seconds)",
+		"log10 seconds" = "Runtime (seconds, log scale)",
+		"relative" = "Runtime (relative to xplainfi)",
+		"log10 relative" = "Runtime (relative to xplainfi, log scale)"
+	)
+
+	# Compute relative runtime if needed
+	if (scale %in% c("relative", "log10 relative")) {
+		group_cols <- c(
+			"method",
+			"learner_type",
+			"n_samples",
+			"n_features",
+			"sampler",
+			"n_permutations",
+			"sage_n_samples",
+			"repl"
+		)
+		group_cols <- intersect(group_cols, names(data))
+
+		baseline <- data[
+			package == "xplainfi",
+			.(baseline_runtime = runtime[1]),
+			by = group_cols
+		]
+
+		data <- merge(data, baseline, by = group_cols, all.x = TRUE)
+		data[, runtime_relative := runtime / baseline_runtime]
+		plot_var <- "runtime_relative"
+	}
+
+	# Convert numeric columns to factors for proper faceting/coloring
+	data[, n_samples := factor(n_samples)]
+	data[, n_features := factor(n_features)]
+	data[, n_permutations := factor(n_permutations)]
+	data[, sage_n_samples := factor(sage_n_samples)]
+
+	# Create algorithm label for y-axis
+	data[, algo_label := sprintf("%s (%s)", method, package)]
+
+	# Order by median runtime
+	algo_order <- data[, .(med_rt = median(get(plot_var), na.rm = TRUE)), by = algo_label]
+	algo_order <- algo_order[order(med_rt)]
+	data[, algo_label := factor(algo_label, levels = algo_order$algo_label)]
+
+	# Build plot
+	p <- ggplot(
+		data,
+		aes(
+			x = .data[[plot_var]],
+			y = algo_label,
+			fill = .data[[color]],
+			color = .data[[color]]
+		)
+	) +
+		geom_boxplot(alpha = 0.7, outlier.size = 0.8) +
+		labs(
+			title = "Runtime Comparison",
+			x = x_lab,
+			y = NULL,
+			fill = color,
+			color = color
+		) +
+		theme_minimal(base_size = base_size) +
+		theme(
+			legend.position = if (show_legend) "top" else "none",
+			plot.title.position = "plot"
+		)
+
+	# Color palette
+	if (color == "package") {
+		p <- p + scale_fill_manual(values = pal_package, aesthetics = c("fill", "color"))
+	} else {
+		p <- p + scale_fill_brewer(palette = "Dark2", aesthetics = c("fill", "color"))
+	}
+
+	# Add faceting
+	if (length(facets) > 0) {
+		p <- p + facet_wrap(facets = facets, ncol = ncol, nrow = nrow, labeller = label_both)
+	}
+
+	# X-axis scaling with pretty labels
+	if (scale == "log10 seconds") {
+		p <- p + scale_x_log10(labels = scales::label_number())
+	} else if (scale == "relative") {
+		p <- p +
+			geom_vline(xintercept = 1, linetype = "dashed", alpha = 0.5) +
+			scale_x_continuous(labels = scales::label_number(suffix = "x"))
+	} else if (scale == "log10 relative") {
+		p <- p +
+			geom_vline(xintercept = 1, linetype = "dashed", alpha = 0.5) +
+			scale_x_log10(labels = scales::label_number(suffix = "x"))
+	} else {
+		p <- p + scale_x_continuous(labels = scales::label_number())
+	}
+
+	p
+}
+
 # =============================================================================
 # Paper-specific analysis helpers
 # =============================================================================
 
-#' Compute pairwise agreement metrics between packages
+#' Compute pairwise agreement metrics between xplainfi and reference packages
+#'
+#' Computes both value-based metrics (Pearson correlation, MAE, RMSE on scaled importance)
+#' and rank-based metrics (Spearman, Kendall correlations on feature rankings).
 #'
 #' @param importances data.table from clean_results_importance()
-#' @param method_filter character Method to filter (PFI, CFI, mSAGE, cSAGE, LOCO)
-#' @return data.table with correlation, MAE, RMSE between xplainfi and each reference
-compute_package_agreement <- function(importances, method_filter = NULL) {
+#' @param method character() Methods to include. NULL uses all.
+#' @param problem character() Problems to include. NULL uses all.
+#' @return data.table with agreement metrics between xplainfi and each reference package,
+#'   grouped by problem, method, and learner_type.
+compute_agreement <- function(importances, method = NULL, problem = NULL) {
 	data <- copy(importances)
 
-	if (!is.null(method_filter)) {
-		data <- data[method %in% method_filter]
+	if (!is.null(method)) {
+		data <- data[data$method %in% method]
+	}
+	if (!is.null(problem)) {
+		data <- data[data$problem %in% problem]
 	}
 
-	# Aggregate to mean importance per feature/problem/learner
+	if (nrow(data) == 0) {
+		cli::cli_warn("No data remaining after filtering")
+		return(data.table())
+	}
+
+	# Aggregate to mean importance per feature/problem/learner/method/package
 	agg <- data[,
-		.(mean_imp = mean(importance_scaled)),
+		.(
+			mean_scaled = mean(importance_scaled, na.rm = TRUE),
+			mean_rank = mean(importance_rank, na.rm = TRUE)
+		),
 		by = .(problem, feature, learner_type, method, package)
 	]
 
-	# Pivot to wide format
-	wide <- dcast(
+	# Pivot scaled importance to wide format
+	wide_scaled <- dcast(
 		agg,
 		problem + feature + learner_type + method ~ package,
-		value.var = "mean_imp"
+		value.var = "mean_scaled"
 	)
-
-	# Compute metrics against xplainfi
-	ref_packages <- setdiff(
-		names(wide),
-		c("problem", "feature", "learner_type", "method", "xplainfi")
-	)
-
-	metrics <- rbindlist(lapply(ref_packages, function(ref) {
-		valid <- wide[!is.na(xplainfi) & !is.na(get(ref))]
-		if (nrow(valid) == 0) {
-			return(NULL)
-		}
-
-		valid[,
-			.(
-				reference = ref,
-				correlation = cor(xplainfi, get(ref), use = "complete.obs"),
-				mae = mean(abs(xplainfi - get(ref)), na.rm = TRUE),
-				rmse = sqrt(mean((xplainfi - get(ref))^2, na.rm = TRUE)),
-				n_comparisons = .N
-			),
-			by = .(method, learner_type)
-		]
-	}))
-
-	metrics[]
-}
-
-#' Compute rank correlation (Spearman) for feature rankings
-#'
-#' @param importances data.table from clean_results_importance()
-#' @return data.table with Spearman correlations between packages
-compute_rank_agreement <- function(importances) {
-	# Aggregate to mean importance and compute ranks
-	agg <- importances[,
-		.(mean_imp = mean(importance_scaled)),
-		by = .(problem, feature, learner_type, method, package)
-	]
-
-	# Add rank within each problem/learner/method/package combination
-	agg[,
-		rank := rank(-mean_imp, ties.method = "average"),
-		by = .(problem, learner_type, method, package)
-	]
 
 	# Pivot ranks to wide format
-	wide <- dcast(
+	wide_rank <- dcast(
 		agg,
 		problem + feature + learner_type + method ~ package,
-		value.var = "rank"
+		value.var = "mean_rank"
 	)
 
-	ref_packages <- setdiff(
-		names(wide),
-		c("problem", "feature", "learner_type", "method", "xplainfi")
-	)
+	# Find reference packages (everything except xplainfi and grouping cols)
+	group_cols <- c("problem", "feature", "learner_type", "method")
+	ref_packages <- setdiff(names(wide_scaled), c(group_cols, "xplainfi"))
 
-	metrics <- rbindlist(lapply(ref_packages, function(ref) {
-		valid <- wide[!is.na(xplainfi) & !is.na(get(ref))]
-		if (nrow(valid) == 0) {
+	if (length(ref_packages) == 0) {
+		cli::cli_warn("No reference packages found for comparison")
+		return(data.table())
+	}
+
+	# Helper to compute metrics for a given reference package
+	compute_metrics_for_ref <- function(ref) {
+		valid_scaled <- wide_scaled[!is.na(xplainfi) & !is.na(get(ref))]
+		valid_rank <- wide_rank[!is.na(xplainfi) & !is.na(get(ref))]
+
+		if (nrow(valid_scaled) == 0) {
 			return(NULL)
 		}
 
-		valid[,
+		# Compute value-based metrics
+		value_metrics <- valid_scaled[,
 			.(
-				reference = ref,
-				spearman = cor(xplainfi, get(ref), method = "spearman", use = "complete.obs"),
-				kendall = cor(xplainfi, get(ref), method = "kendall", use = "complete.obs"),
+				pearson = cor(xplainfi, get(ref), method = "pearson", use = "complete.obs"),
+				mae = mean(abs(xplainfi - get(ref)), na.rm = TRUE),
+				rmse = sqrt(mean((xplainfi - get(ref))^2, na.rm = TRUE)),
 				n_features = .N
 			),
-			by = .(problem, learner_type, method)
+			by = .(problem, method, learner_type)
 		]
-	}))
 
+		# Compute rank-based metrics
+		rank_metrics <- valid_rank[,
+			.(
+				spearman = cor(xplainfi, get(ref), method = "spearman", use = "complete.obs"),
+				kendall = cor(xplainfi, get(ref), method = "kendall", use = "complete.obs")
+			),
+			by = .(problem, method, learner_type)
+		]
+
+		# Merge and add reference column
+		result <- merge(value_metrics, rank_metrics, by = c("problem", "method", "learner_type"))
+		result[, reference := ref]
+		result
+	}
+
+	metrics <- rbindlist(lapply(ref_packages, compute_metrics_for_ref))
+	setcolorder(metrics, c("problem", "method", "learner_type", "reference"))
 	metrics[]
 }
 
@@ -538,7 +714,8 @@ aggregate_results_runtime <- function(results, job_pars) {
 			n_repeats,
 			sampler,
 			n_permutations,
-			sage_n_samples
+			sage_n_samples,
+			repl
 		)],
 		by = "job.id"
 	)

@@ -10,6 +10,7 @@ library(bslib)
 source(here::here("R", "analysis.R"))
 
 file_runtime <- fs::path(here::here("results", "runtime"), "runtime", ext = "rds")
+
 if (!fs::file_exists(file_runtime)) {
 	stop("Run analysis-runtime.R first to generate runtime.rds")
 }
@@ -133,12 +134,21 @@ ui <- page_sidebar(
 		radioButtons(
 			"scale_type",
 			"Scale",
-			choices = c("seconds", "log10 seconds", "relative"),
+			choices = c("seconds", "log10 seconds", "relative", "log10 relative"),
 			selected = "log10 seconds",
-			inline = TRUE
+			inline = FALSE
 		),
 
 		checkboxInput("hide_legend", "Hide legend", value = FALSE),
+
+		sliderInput(
+			"base_size",
+			"Text size",
+			min = 10,
+			max = 24,
+			value = 16,
+			step = 1
+		),
 
 		hr(),
 
@@ -261,111 +271,21 @@ server <- function(input, output, session) {
 		isolate({
 			data <- filtered_data()
 
-			if (nrow(data) == 0) {
-				ggplot() +
-					annotate("text", x = 0.5, y = 0.5, label = "No data for selection", size = 6) +
-					theme_void()
-			} else {
-				data <- copy(data)
-
-				# Compute relative runtime if selected
-				plot_var <- "runtime"
-				x_lab <- "Runtime (seconds)"
-
-				if (input$scale_type == "relative") {
-					# Group by all relevant parameters to match xplainfi baseline
-					group_cols <- c(
-						"method",
-						"learner_type",
-						"n_samples",
-						"n_features",
-						"sampler",
-						"n_permutations",
-						"sage_n_samples"
-					)
-					# Only use columns that exist and have non-NA values
-					group_cols <- intersect(group_cols, names(data))
-
-					# Compute median runtime for xplainfi per group
-					baseline <- data[
-						package == "xplainfi",
-						.(baseline_runtime = median(runtime, na.rm = TRUE)),
-						by = group_cols
-					]
-
-					# Join baseline and compute relative runtime
-					data <- merge(data, baseline, by = group_cols, all.x = TRUE)
-					data[, runtime_relative := runtime / baseline_runtime]
-
-					plot_var <- "runtime_relative"
-					x_lab <- "Runtime (relative to xplainfi)"
-				}
-
-				# Convert numeric columns to factors for proper faceting/coloring
-				data[, n_samples := factor(n_samples)]
-				data[, n_features := factor(n_features)]
-				data[, n_permutations := factor(n_permutations)]
-				data[, sage_n_samples := factor(sage_n_samples)]
-
-				# Create algorithm label for y-axis
-				data[, algo_label := sprintf("%s (%s)", method, package)]
-
-				# Order by median runtime
-				algo_order <- data[, .(med_rt = median(get(plot_var), na.rm = TRUE)), by = algo_label]
-				algo_order <- algo_order[order(med_rt)]
-				data[, algo_label := factor(algo_label, levels = algo_order$algo_label)]
-
-				# Build plot
-				p <- ggplot(
-					data,
-					aes(
-						x = .data[[plot_var]],
-						y = algo_label,
-						fill = .data[[input$color_by]],
-						color = .data[[input$color_by]]
-					)
-				) +
-					geom_boxplot(alpha = 0.7, outlier.size = 0.8) +
-					labs(
-						title = "Runtime Comparison",
-						x = x_lab,
-						y = NULL,
-						fill = input$color_by,
-						color = input$color_by
-					) +
-					theme_minimal(base_size = 16) +
-					theme(
-						legend.position = if (input$hide_legend) "none" else "top",
-						plot.title.position = "plot"
-					)
-
-				# Color palette
-				if (input$color_by == "package") {
-					p <- p + scale_fill_manual(values = pal_package, aesthetics = c("fill", "color"))
-				} else {
-					p <- p + scale_fill_brewer(palette = "Dark2", aesthetics = c("fill", "color"))
-				}
-
-				# Add faceting
-				facet_vars <- input$facet_by
-				if (length(facet_vars) >= 1) {
-					p <- p + facet_wrap(facets = facet_vars, ncol = 2, labeller = label_both)
-				}
-
-				# X-axis scaling with pretty labels
-				if (input$scale_type == "log10 seconds") {
-					p <- p + scale_x_log10(labels = scales::label_number())
-				} else if (input$scale_type == "relative") {
-					# Add reference line at 1 (xplainfi baseline)
-					p <- p +
-						geom_vline(xintercept = 1, linetype = "dashed", alpha = 0.5) +
-						scale_x_continuous(labels = scales::label_number(suffix = "x"))
-				} else {
-					p <- p + scale_x_continuous(labels = scales::label_number())
-				}
-
-				p
-			}
+			# Use plot_runtime() - data is already filtered by method/package/learner_type/etc.
+			# To recreate this plot outside Shiny:
+			# plot_runtime(
+			#   runtimes,
+			#   scale = "...", method = c(...), package = c(...),
+			#   color = "...", facets = c(...)
+			# )
+			plot_runtime(
+				data,
+				scale = input$scale_type,
+				color = input$color_by,
+				facets = input$facet_by,
+				show_legend = !input$hide_legend,
+				base_size = input$base_size
+			)
 		})
 	})
 }

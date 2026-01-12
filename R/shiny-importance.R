@@ -98,6 +98,15 @@ ui <- page_sidebar(
 			inline = TRUE
 		),
 
+		sliderInput(
+			"base_size",
+			"Text size",
+			min = 10,
+			max = 24,
+			value = 14,
+			step = 1
+		),
+
 		hr(),
 
 		actionButton("update_plot", "Update Plot", class = "btn-primary"),
@@ -256,7 +265,8 @@ server <- function(input, output, session) {
 					facets = input$facet_by,
 					subtitle = FALSE,
 					caption = FALSE,
-					feature_sort = input$feature_sort
+					feature_sort = input$feature_sort,
+					base_size = input$base_size
 				)
 			}
 		})

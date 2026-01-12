@@ -43,4 +43,5 @@ dependencies = [
     "kableExtra",
     "mlr3torch",
     "xgboost",
+    "shiny",
 ]
