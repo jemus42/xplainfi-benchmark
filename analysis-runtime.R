@@ -24,6 +24,7 @@ if (!fs::file_exists(file_results)) {
 		repl <= 10 &
 			n_samples < 10000 &
 			(sage_n_samples < 200 | n_repeats < 100) &
+			(is.na(sampler) | sampler %in% c("gaussian", "knn", "simple")) &
 			n_features < 50
 	]
 	results <- reduceResultsDataTable(ids = findDone(tab))
@@ -45,6 +46,7 @@ runtimes <- readRDS(file_runtime)
 
 
 table(runtimes$algorithm)
+table(runtimes$sampler)
 table(runtimes$n_samples)
 table(runtimes$n_features)
 table(runtimes$n_repeats)

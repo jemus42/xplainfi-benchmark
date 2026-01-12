@@ -920,7 +920,7 @@ algo_ConditionalSAGE_fippy <- function(
 
 
 # ============================================================================
-# MarginalSAGE_sage - Official SAGE implementation with kernel estimator
+# MarginalSAGE_sage - Official SAGE implementation with kernel estimator -> KernelSAGE
 # ============================================================================
 
 algo_MarginalSAGE_sage <- function(

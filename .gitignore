@@ -2,13 +2,13 @@ registries
 batchtools.conf.R
 attic
 overview.html
-
 plots/*
+# Selectively commit final results later
+results/*
 
 # Python virtual environment (managed by uv)
 .venv/
 
-results/*/*rds
 
 # Created by https://www.toptal.com/developers/gitignore/api/R
 # Edit at https://www.toptal.com/developers/gitignore?templates=R

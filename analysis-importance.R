@@ -2,6 +2,7 @@ library(data.table)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(batchtools)
 source(here::here("R", "analysis.R"))
 
 file_results <- fs::path(here::here("results", "importance"), "results", ext = "rds")
@@ -10,7 +11,6 @@ file_job_pars <- fs::path(here::here("results", "importance"), "jobs", ext = "rd
 
 # Aggregate and store results file if not available
 if (!fs::file_exists(file_results)) {
-	library(batchtools)
 	# Loading registry with warnings suppressed which are due to file paths changing between cluster/workstation/etc
 	reg <- suppressWarnings(loadRegistry(
 		"registries/importance/xplainfi-0.2.1/",
@@ -34,7 +34,7 @@ if (!fs::file_exists(file_results)) {
 
 # I should have used targets.
 if (!fs::file_exists(file_importance)) {
-	importances <- aggregate_results_importance(
+	importances <- clean_results_importance(
 		results = readRDS(file_results),
 		job_pars = readRDS(file_job_pars)
 	)
@@ -43,22 +43,42 @@ if (!fs::file_exists(file_importance)) {
 
 importances <- readRDS(file_importance)
 
-# https://coolors.co/1e3888-47a8bd-f5e663-ffad69-9c3848
+# https://coolors.co/1e3888-ef476f-f5e663-ffad69-9c3848
 pal_package = c(
 	xplainfi = "#1e3888",
 	fippy = "#8CD867",
 	vip = "#A31621",
 	iml = "#ffad69",
-	sage = "#4E878C"
+	sage = "#EF476F"
 )
 
 # Plots --------------------------------------------------------------
+plot_importance(importances[correlation == 0.25], problem = "correlated", method = "PFI")
+plot_importance(importances[correlation == 0.75], problem = "correlated", method = "PFI")
 
-# plot_importance(importances, problem = "independent", method = "mSAGE")
-# plot_importance(importances, problem = "independent", method = "cSAGE")
-# plot_importance(importances, problem = "independent", method = "mSAGE")
-# plot_importance(importances, problem = "independent", method = "mSAGE", learner_type = "boosting")
-# plot_importance(importances, problem = "independent", learner_type = "boosting", facets = "method")
+plot_importance(importances[correlation == 0.25], problem = "correlated", method = "CFI")
+plot_importance(importances[correlation == 0.75], problem = "correlated", method = "CFI")
+
+plot_importance(importances, type = "raw", problem = "correlated", method = "PFI")
+plot_importance(importances, type = "scaled", problem = "correlated", method = "PFI")
+plot_importance(importances, type = "rank", problem = "correlated", method = "PFI")
+
+plot_importance(importances, problem = "correlated", method = "CFI")
+plot_importance(importances, type = "rank", problem = "correlated", method = "CFI")
+
+
+plot_importance(importances, problem = "independent", method = "mSAGE")
+plot_importance(importances, problem = "independent", method = "cSAGE")
+plot_importance(importances, problem = "independent", method = "mSAGE")
+plot_importance(importances, problem = "independent", method = "mSAGE", learner_type = "boosting")
+plot_importance(importances, problem = "independent", learner_type = "boosting", facets = "method")
+
+plot_importance(importances, type = "rank", problem = "confounded", method = "mSAGE")
+plot_importance(importances, type = "rank", problem = "confounded", method = "cSAGE")
+
+plot_importance(importances, type = "rank", problem = "independent", method = "mSAGE")
+plot_importance(importances, type = "rank", problem = "independent", method = "cSAGE")
+
 
 for (problem in unique(importances$problem)) {
 	for (method in unique(importances$method)) {
@@ -178,13 +198,13 @@ for (problem in unique(importances$problem)) {
 # Tables -----------------------------------------------------------------
 
 table_base <- importances |>
-	mutate(
-		problem = ifelse(
-			problem == "correlated",
-			glue::glue("correlated (r={correlation})"),
-			problem
-		)
-	) |>
+	# mutate(
+	# 	problem = ifelse(
+	# 		problem == "correlated",
+	# 		glue::glue("correlated (r={correlation})"),
+	# 		problem
+	# 	)
+	# ) |>
 	# filter(problem == "independent", learner_type == "boosting") |>
 	summarize(
 		min = min(importance_scaled),
