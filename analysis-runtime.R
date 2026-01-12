@@ -21,7 +21,7 @@ if (!fs::file_exists(file_results)) {
 	saveRDS(tab, file_job_pars)
 	# Subset to configurations for paper
 	tab <- tab[
-		repl <= 10 &
+		repl <= 25 &
 			n_samples < 10000 &
 			(sage_n_samples < 200 | n_repeats < 100) &
 			(is.na(sampler) | sampler %in% c("gaussian", "knn", "simple")) &
