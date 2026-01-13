@@ -45,6 +45,7 @@ clean_results_importance <- function(results, job_pars) {
 		tmpres,
 		job_pars[, .(
 			job.id,
+			repl,
 			problem,
 			algorithm,
 			learner_type,
@@ -58,6 +59,18 @@ clean_results_importance <- function(results, job_pars) {
 		)],
 		by = "job.id"
 	)
+
+	# Minor issue where learner_performance var was incorrectly labelled in vip and iml
+	if ("learner_performance.regr.rsq" %in% names(res)) {
+		res[,
+			learner_performance := fifelse(
+				is.na(learner_performance),
+				learner_performance.regr.rsq, # in vip, iml
+				learner_performance # Regular variable name otherwise
+			)
+		]
+		res[, learner_performance.regr.rsq := NULL]
+	}
 
 	# Metadata for grouping
 	res[, let(
