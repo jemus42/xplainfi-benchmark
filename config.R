@@ -16,6 +16,7 @@ conf <- list(
 	n_repeats = 50,
 	# For SAGE permutations: large n_permutations with convergence detection (across all implementations)
 	n_permutations = c(100, 200),
+	min_permutations = 20,
 	sage_early_stopping = TRUE,
 	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was usually sufficient
 	# increases RAM usage a lot if set too high, and returns are diminishing somewhat quickly

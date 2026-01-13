@@ -155,7 +155,8 @@ algo_designs <- list(
 	MarginalSAGE = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
+		early_stopping = conf$sage_early_stopping,
+		min_permutations = conf$min_permutations
 	),
 
 	# ConditionalSAGE (with samplers)
@@ -163,7 +164,8 @@ algo_designs <- list(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = conf$samplers
+		sampler = conf$samplers,
+		min_permutations = conf$min_permutations
 	),
 
 	# PFI_iml: Reference implementation from iml package
@@ -196,7 +198,8 @@ algo_designs <- list(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = "simple"
+		sampler = "simple",
+		min_permutations = conf$min_permutations
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
@@ -205,7 +208,8 @@ algo_designs <- list(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = "gaussian"
+		sampler = "gaussian",
+		min_permutations = conf$min_permutations
 	),
 
 	# Kernel SAGE: Official SAGE implementation with kernel estimator

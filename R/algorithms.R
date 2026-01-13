@@ -168,7 +168,8 @@ algo_MarginalSAGE <- function(
 	n_permutations = 10,
 	sage_n_samples = 200,
 	batch_size = 10000,
-	early_stopping = TRUE
+	early_stopping = TRUE,
+	min_permutations = 20
 ) {
 	# Create learner for this algorithm
 	learner <- create_learner(
@@ -185,7 +186,8 @@ algo_MarginalSAGE <- function(
 		n_permutations = n_permutations,
 		n_samples = sage_n_samples,
 		batch_size = batch_size,
-		early_stopping = early_stopping
+		early_stopping = early_stopping,
+		min_permutations = min_permutations
 	)
 
 	start_time <- Sys.time()
@@ -218,7 +220,8 @@ algo_ConditionalSAGE <- function(
 	sage_n_samples = 200,
 	sampler = "arf",
 	batch_size = 10000,
-	early_stopping = TRUE
+	early_stopping = TRUE,
+	min_permutations = 20
 ) {
 	# Create learner for this algorithm
 	learner <- create_learner(
@@ -239,7 +242,8 @@ algo_ConditionalSAGE <- function(
 		n_permutations = n_permutations,
 		n_samples = sage_n_samples,
 		batch_size = batch_size,
-		early_stopping = early_stopping
+		early_stopping = early_stopping,
+		min_permutations = min_permutations
 	)
 
 	start_time <- Sys.time()
@@ -676,7 +680,8 @@ algo_MarginalSAGE_fippy <- function(
 	n_permutations = 10,
 	sage_n_samples = 10,
 	sampler = "simple",
-	early_stopping = TRUE
+	early_stopping = TRUE,
+	min_permutations = 20
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -760,7 +765,10 @@ algo_MarginalSAGE_fippy <- function(
 		nr_orderings = as.integer(n_permutations),
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
-		detect_convergence = early_stopping
+		detect_convergence = early_stopping,
+		# For consistency with xplainfi: Ensure at least this number of permutations (orderings) is evaluated
+		# fippy adds `extra_orderings` after convergence detection, xplainfi explicitly checks if min_permutations are checked before convergence is declared
+		extra_orderings = min_permutations
 	)
 
 	end_time <- Sys.time()
@@ -802,7 +810,8 @@ algo_ConditionalSAGE_fippy <- function(
 	n_permutations = 10,
 	sage_n_samples = 10,
 	sampler = "gaussian",
-	early_stopping = TRUE
+	early_stopping = TRUE,
+	min_permutations = 20
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -888,7 +897,10 @@ algo_ConditionalSAGE_fippy <- function(
 		nr_orderings = as.integer(n_permutations),
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
-		detect_convergence = early_stopping
+		detect_convergence = early_stopping,
+		# For consistency with xplainfi: Ensure at least this number of permutations (orderings) is evaluated
+		# fippy adds `extra_orderings` after convergence detection, xplainfi explicitly checks if min_permutations are checked before convergence is declared
+		extra_orderings = min_permutations
 	)
 
 	end_time <- Sys.time()
@@ -928,7 +940,8 @@ algo_MarginalSAGE_sage <- function(
 	job = NULL,
 	instance,
 	sage_n_samples = 200, # Background data size for marginalization
-	early_stopping = TRUE
+	early_stopping = TRUE,
+	min_permutations = 20
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
