@@ -353,7 +353,7 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-		learner_performance = perf,
+		learner_performance = perf[[1]],
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -455,7 +455,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		# if n_repeats > 1, there's a StDev column we don't keep
 		importance = list(importance_dt[, .(feature, importance)]),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-		learner_performance = perf,
+		learner_performance = perf[[1]],
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
