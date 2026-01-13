@@ -342,6 +342,20 @@ dependencies = [
 ]
 
 [[packages]]
+name = "forcats"
+version = "1.0.1"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = [
+    { name = "cli", requirement = "(>= 3.4.0)" },
+    "glue",
+    "lifecycle",
+    "magrittr",
+    { name = "rlang", requirement = "(>= 1.0.0)" },
+    "tibble",
+]
+
+[[packages]]
 name = "foreach"
 version = "1.5.2"
 source = { repository = "https://cloud.r-project.org/" }

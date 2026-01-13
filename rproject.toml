@@ -44,4 +44,5 @@ dependencies = [
     "mlr3torch",
     "xgboost",
     "shiny",
+    "forcats",
 ]
