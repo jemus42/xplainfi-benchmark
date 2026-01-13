@@ -35,7 +35,7 @@ if (!fs::file_exists(file_results)) {
 
 # I should have used targets.
 if (!fs::file_exists(file_runtime)) {
-	runtimes <- aggregate_results_runtime(
+	runtimes <- clean_results_runtime(
 		results = readRDS(file_results),
 		job_pars = readRDS(file_job_pars)
 	)

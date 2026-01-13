@@ -133,6 +133,7 @@ clean_results_importance <- function(results, job_pars) {
 	# Add job parameters (algorithm, problem parameters, ...)
 	importances = merge(res[, -"importance"], importances, by = "job.id")
 
+	importances[, language := fifelse(package %in% c("fippy", "sage"), "Python", "R")]
 	importances[,
 		# Scaled to unit interval, within each job
 		importance_scaled := (importance - min(importance)) / (max(importance) - min(importance)),
@@ -320,7 +321,7 @@ plot_importance <- function(
 
 #' Plot runtime as box plots with algorithm on the y-axis and runtime on the x-axis.
 #'
-#' @param runtimes data.table of runtime data, produced by `aggregate_results_runtime()`
+#' @param runtimes data.table of runtime data, produced by `clean_results_runtime()`
 #' @param scale character(1) Scale type: "seconds", "log10 seconds", "relative", or "log10 relative".
 #'   Relative scales compute runtime relative to xplainfi within each replication.
 #' @param method,package,learner_type,sampler character() Filter by these variables. NULL uses all.
@@ -713,7 +714,7 @@ summarize_learner_performance <- function(results, job_pars) {
 
 # Runtime ----------------------------------------------------------------
 
-aggregate_results_runtime <- function(results, job_pars) {
+clean_results_runtime <- function(results, job_pars) {
 	tmpres <- data.table::rbindlist(results$result, fill = TRUE)
 	tmpres <- cbind(results[, .(job.id)], tmpres)
 	tmpres[, scores := NULL]
@@ -754,6 +755,7 @@ aggregate_results_runtime <- function(results, job_pars) {
 	res[, method := factor(method, levels = c("PFI", "CFI", "mSAGE", "cSAGE", "LOCO"))]
 	res[, learner_type := factor(learner_type, levels = c("linear", "featureless"))]
 	res[, algorithm_lab := sprintf("%s (%s)", method, package)]
+	res[, language := fifelse(package %in% c("fippy", "sage"), "Python", "R")]
 	res[,
 		algorithm_lab := factor(
 			algorithm_lab,

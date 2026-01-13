@@ -52,15 +52,20 @@ pal_package = c(
 	sage = "#EF476F"
 )
 
+
+# SAGE convergence check -------------------------------------------------
+
 importances[
 	!is.na(n_permutations_used),
 	list(
 		min_perms = min(n_permutations_used),
 		max_perms = max(n_permutations_used),
-		median_perms = median(n_permutations_used)
+		median_perms = median(n_permutations_used),
+		mean_perms = mean(n_permutations_used)
 	),
 	by = .(method, problem_clean, package)
-]
+][, fmt := sprintf("%.01f (<= %.01f)", mean_perms, max_perms)][] |>
+	dcast(problem_clean + method ~ package)
 
 importances[!is.na(n_permutations_used)] |>
 	ggplot(
@@ -84,6 +89,39 @@ importances[!is.na(n_permutations_used)] |>
 	theme_minimal(base_size = 16) +
 	theme(legend.position = "top")
 
+
+# Learner performance ----------------------------------------------------
+
+importances[,
+	# We have 1 row per feature and performance is duplicated, so we unique() it here
+	.(learner_performance = round(100 * mean(learner_performance), 2)),
+	by = .(repl, method, language, problem_clean, learner_type)
+][] |>
+	# dplyr::select(-package) |>
+	dcast(
+		repl + method + problem_clean + learner_type ~ language,
+		# fun.aggregate = \(x) {
+		# 	list(unique(x))
+		# },
+		value.var = "learner_performance"
+	) |>
+	ggplot(aes(x = R, y = Python, color = learner_type, fill = learner_type)) +
+	# facet_wrap(vars(problem)) +
+	geom_point(size = 3, shape = 21, stroke = .1, color = "black") +
+	geom_abline() +
+	scale_color_brewer(palette = "Dark2", aesthetics = c("color", "fill")) +
+	theme_minimal(base_size = 16) +
+	theme(legend.position = "top")
+
+
+importances |>
+	ggplot(aes(x = learner_type, y = learner_performance, color = language, fill = language)) +
+	coord_flip() +
+	facet_wrap(vars(problem_clean)) +
+	geom_boxplot() +
+	scale_color_brewer(palette = "Dark2", aesthetics = c("color", "fill")) +
+	theme_minimal(base_size = 16) +
+	theme(legend.position = "top")
 
 # Plots --------------------------------------------------------------
 plot_importance(importances[correlation == 0.25], problem = "correlated", method = "PFI")
