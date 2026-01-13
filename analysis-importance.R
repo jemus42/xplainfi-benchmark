@@ -52,6 +52,39 @@ pal_package = c(
 	sage = "#EF476F"
 )
 
+importances[
+	!is.na(n_permutations_used),
+	list(
+		min_perms = min(n_permutations_used),
+		max_perms = max(n_permutations_used),
+		median_perms = median(n_permutations_used)
+	),
+	by = .(method, problem_clean, package)
+]
+
+importances[!is.na(n_permutations_used)] |>
+	ggplot(
+		aes(x = n_permutations_used, y = problem_clean, color = algorithm_lab, fill = algorithm_lab)
+	) +
+	geom_boxplot() +
+	scale_fill_brewer(palette = "Dark2", aesthetics = c("color", "fill")) +
+	theme_minimal(base_size = 16) +
+	theme(legend.position = "top")
+
+importances[!is.na(n_permutations_used)] |>
+	ggplot(
+		aes(x = n_permutations_used, y = runtime / 60, color = algorithm_lab, fill = algorithm_lab)
+	) +
+	facet_wrap(vars(problem_clean)) +
+	geom_point(size = 2, shape = 21) +
+	geom_smooth() +
+	scale_y_log10() +
+	scale_fill_brewer(palette = "Dark2", aesthetics = c("color", "fill")) +
+	labs(y = "runtime (minutes)", x = "permutations used") +
+	theme_minimal(base_size = 16) +
+	theme(legend.position = "top")
+
+
 # Plots --------------------------------------------------------------
 plot_importance(importances[correlation == 0.25], problem = "correlated", method = "PFI")
 plot_importance(importances[correlation == 0.75], problem = "correlated", method = "PFI")

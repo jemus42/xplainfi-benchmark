@@ -66,6 +66,21 @@ ui <- page_sidebar(
 			multiple = TRUE
 		),
 
+		conditionalPanel(
+			condition = "input.method.includes('mSAGE') || input.method.includes('cSAGE')",
+			sliderInput(
+				"n_permutations_used_range",
+				"n_permutations_used (SAGE)",
+				min = min(importances$n_permutations_used, na.rm = TRUE),
+				max = max(importances$n_permutations_used, na.rm = TRUE),
+				value = c(
+					min(importances$n_permutations_used, na.rm = TRUE),
+					max(importances$n_permutations_used, na.rm = TRUE)
+				),
+				step = 1
+			)
+		),
+
 		hr(),
 
 		selectInput(
@@ -186,6 +201,16 @@ server <- function(input, output, session) {
 			data <- data[correlation == as.numeric(input$correlation)]
 		}
 
+		# Filter by n_permutations_used range for SAGE methods
+		if (any(input$method %in% c("mSAGE", "cSAGE")) && !is.null(input$n_permutations_used_range)) {
+			perm_min <- input$n_permutations_used_range[1]
+			perm_max <- input$n_permutations_used_range[2]
+			data <- data[
+				is.na(n_permutations_used) |
+					(n_permutations_used >= perm_min & n_permutations_used <= perm_max)
+			]
+		}
+
 		data
 	})
 
@@ -197,6 +222,11 @@ server <- function(input, output, session) {
 		cat(sprintf("Features: %d\n", uniqueN(data$feature)))
 		cat(sprintf("Methods: %s\n", paste(unique(data$method), collapse = ", ")))
 		cat(sprintf("Packages: %s\n", paste(unique(data$package), collapse = ", ")))
+		# Show n_permutations_used if SAGE methods present
+		if (any(data$method %in% c("mSAGE", "cSAGE"))) {
+			perms <- sort(unique(na.omit(data$n_permutations_used)))
+			cat(sprintf("n_permutations_used: %d - %d\n", min(perms), max(perms)))
+		}
 	})
 
 	# Quality info
