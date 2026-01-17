@@ -1450,7 +1450,7 @@ dependencies = [
 [[packages]]
 name = "xplainfi"
 version = "0.2.1"
-source = { git = "https://github.com/mlr-org/xplainfi", sha = "a9795e69b69bcf97f2f15164ee205b6eeb66356d", branch = "main" }
+source = { git = "https://github.com/mlr-org/xplainfi", sha = "f21dbe44965d4eb76794ab2f717f24f3eb3b640d", branch = "main" }
 force_source = true
 dependencies = [
     "checkmate",
