@@ -186,6 +186,7 @@ plot_importance <- function(
 	method = NULL,
 	learner_type = NULL,
 	feature = NULL,
+	y_var = "feature",
 	color = "package",
 	facets = "learner_type",
 	ncol = NULL,
@@ -200,6 +201,7 @@ plot_importance <- function(
 	checkmate::assert_subset(learner_type, as.character(unique(importances$learner_type)))
 	checkmate::assert_subset(color, names(importances))
 	checkmate::assert_subset(facets, names(importances))
+	checkmate::assert_choice(y_var, names(importances))
 	type <- match.arg(type)
 	feature_sort <- match.arg(feature_sort)
 
@@ -266,18 +268,23 @@ plot_importance <- function(
 		x_lab
 	)
 
-	if (feature_sort == "importance") {
-		importance_subset <- importance_subset |>
-			dplyr::mutate(feature = forcats::fct_reorder(feature, importance))
-	} else if (feature_sort == "name") {
-		importance_subset <- importance_subset |>
-			dplyr::mutate(feature = forcats::fct_rev(feature))
+	# Only apply feature sorting when y_var is "feature"
+	if (y_var == "feature") {
+		if (feature_sort == "importance") {
+			importance_subset <- importance_subset |>
+				dplyr::mutate(feature = forcats::fct_reorder(feature, importance))
+		} else if (feature_sort == "name") {
+			importance_subset <- importance_subset |>
+				dplyr::mutate(feature = forcats::fct_rev(feature))
+		}
 	}
+
+	y_lab <- tools::toTitleCase(gsub("_", " ", y_var))
 
 	p <- importance_subset |>
 		ggplot(aes(
 			x = .data[[target_var]],
-			y = feature,
+			y = .data[[y_var]],
 			color = .data[[color]],
 			fill = .data[[color]]
 		)) +
@@ -286,7 +293,7 @@ plot_importance <- function(
 			title = glue::glue("Problem: {problem_lab}"),
 			subtitle = subtitle_lab,
 			x = x_lab,
-			y = "Feature",
+			y = y_lab,
 			color = NULL,
 			fill = NULL,
 			caption = caption_lab
