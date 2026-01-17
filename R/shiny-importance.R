@@ -66,20 +66,27 @@ ui <- page_sidebar(
 			multiple = TRUE
 		),
 
-		conditionalPanel(
-			condition = "input.method.includes('mSAGE') || input.method.includes('cSAGE')",
+		selectInput(
+			"feature",
+			"Features",
+			choices = unique(importances$feature),
+			selected = unique(importances$feature),
+			multiple = TRUE
+		),
+
+		conditionalPanel(condition = "input.method.includes('mSAGE') || input.method.includes('cSAGE')", {
+			perm_vals <- na.omit(importances$n_permutations_used)
+			perm_min <- if (length(perm_vals) > 0) min(perm_vals) else 1
+			perm_max <- if (length(perm_vals) > 0) max(perm_vals) else 100
 			sliderInput(
 				"n_permutations_used_range",
 				"n_permutations_used (SAGE)",
-				min = min(importances$n_permutations_used, na.rm = TRUE),
-				max = max(importances$n_permutations_used, na.rm = TRUE),
-				value = c(
-					min(importances$n_permutations_used, na.rm = TRUE),
-					max(importances$n_permutations_used, na.rm = TRUE)
-				),
+				min = perm_min,
+				max = perm_max,
+				value = c(perm_min, perm_max),
 				step = 1
 			)
-		),
+		}),
 
 		hr(),
 
@@ -93,9 +100,16 @@ ui <- page_sidebar(
 		selectInput(
 			"facet_by",
 			"Facet by",
-			choices = c("learner_type", "method", "package"),
+			choices = c("learner_type", "method", "package", "feature"),
 			selected = "learner_type",
 			multiple = TRUE
+		),
+
+		selectInput(
+			"y_var",
+			"Y axis",
+			choices = c("feature", "package", "method", "learner_type", "algorithm_lab"),
+			selected = "feature"
 		),
 
 		selectInput(
@@ -157,9 +171,9 @@ server <- function(input, output, session) {
 		)
 	})
 
-	# Update facet/color options based on problem (add correlation for correlated problem)
+	# Update facet/color options and features based on problem
 	observeEvent(input$problem, {
-		base_choices <- c("learner_type", "method", "package")
+		base_choices <- c("learner_type", "method", "package", "feature")
 		color_choices <- c("package", "method", "learner_type")
 
 		if (input$problem == "correlated") {
@@ -175,6 +189,15 @@ server <- function(input, output, session) {
 			choices = facet_choices,
 			selected = intersect(input$facet_by, facet_choices)
 		)
+
+		# Update available features based on selected problem
+		available_features <- unique(as.character(importances[problem == input$problem, feature]))
+		updateSelectInput(
+			session,
+			"feature",
+			choices = available_features,
+			selected = available_features
+		)
 		updateSelectInput(
 			session,
 			"color_by",
@@ -185,13 +208,14 @@ server <- function(input, output, session) {
 
 	# Reactive filtered data
 	filtered_data <- reactive({
-		req(input$problem, input$method, input$package, input$learner_type)
+		req(input$problem, input$method, input$package, input$learner_type, input$feature)
 
 		data <- importances[
 			problem == input$problem &
 				method %in% input$method &
 				package %in% input$package &
-				learner_type %in% input$learner_type
+				learner_type %in% input$learner_type &
+				feature %in% input$feature
 		]
 
 		# Filter by correlation for correlated problem
@@ -225,7 +249,9 @@ server <- function(input, output, session) {
 		# Show n_permutations_used if SAGE methods present
 		if (any(data$method %in% c("mSAGE", "cSAGE"))) {
 			perms <- sort(unique(na.omit(data$n_permutations_used)))
-			cat(sprintf("n_permutations_used: %d - %d\n", min(perms), max(perms)))
+			if (length(perms) > 0) {
+				cat(sprintf("n_permutations_used: %d - %d\n", min(perms), max(perms)))
+			}
 		}
 	})
 
@@ -233,12 +259,22 @@ server <- function(input, output, session) {
 	output$quality_info <- renderPrint({
 		data <- filtered_data()
 
-		# Learner performance
-		perf <- data[, .(mean_perf = mean(learner_performance, na.rm = TRUE)), by = learner_type]
+		# Learner performance by package (R vs Python learners differ)
+		perf <- data[,
+			.(mean_perf = mean(learner_performance, na.rm = TRUE)),
+			by = .(learner_type, package)
+		]
+		setorder(perf, learner_type, package)
 		cat("Learner Performance (R²):\n")
 		for (i in seq_len(nrow(perf))) {
-			status <- if (perf$mean_perf[i] < 0.5) " ⚠ LOW" else ""
-			cat(sprintf("  %s: %.3f%s\n", perf$learner_type[i], perf$mean_perf[i], status))
+			status <- if (!is.na(perf$mean_perf[i]) && perf$mean_perf[i] < 0.5) " ⚠ LOW" else ""
+			cat(sprintf(
+				"  %s/%s: %.3f%s\n",
+				perf$learner_type[i],
+				perf$package[i],
+				perf$mean_perf[i],
+				status
+			))
 		}
 
 		# SAGE convergence
@@ -291,6 +327,7 @@ server <- function(input, output, session) {
 					problem = NULL,
 					method = NULL,
 					learner_type = NULL,
+					y_var = input$y_var,
 					color = input$color_by,
 					facets = input$facet_by,
 					subtitle = FALSE,

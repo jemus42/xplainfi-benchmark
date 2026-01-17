@@ -285,23 +285,27 @@ table_base <- importances |>
 		sd = sd(importance_scaled),
 		q25 = quantile(importance_scaled, prob = 0.25),
 		q75 = quantile(importance_scaled, prob = 0.75),
-		.by = c("problem", "method", "package", "learner_type", "feature")
+		.by = c("problem_clean", "method", "package", "learner_type", "feature")
 	) |>
 	mutate(across(where(is.numeric), \(x) round(x * 100, 2))) |>
 	mutate(
 		meansd = glue::glue("{mean} ({sd})"),
 		medianq = glue::glue("{median} ({q25}, {q75})")
 	) |>
-	select(problem, method, package, learner_type, feature, meansd, medianq) |>
+	select(problem_clean, method, package, learner_type, feature, meansd, medianq) |>
 	arrange(feature)
 
 
 table_base |>
-	filter(problem == "correlated (r=0.25)", learner_type == "boosting", method == "PFI") |>
+	filter(
+		problem_clean == "correlated (r=0.75)",
+		# learner_type == "boosting",
+		method == "PFI"
+	) |>
 	tidyr::pivot_wider(
-		id_cols = c("problem", "feature", "method"),
+		id_cols = c("problem_clean", "feature", "method", "learner_type"),
 		names_from = package,
-		values_from = "meansd"
+		values_from = "medianq"
 	)
 
 table_base |>
