@@ -38,7 +38,9 @@ if (!fs::file_exists(file_importance)) {
 		results = readRDS(file_results),
 		job_pars = readRDS(file_job_pars)
 	)
-	saveRDS(importances, file_importance)
+	# saveRDS(importances, file_importance)
+	# Don't store the individual scores, not very useful after all and bloat file size (relevant for RJournal submission)
+	saveRDS(copy(importances)[, scores := NULL], file_importance)
 }
 
 importances <- readRDS(file_importance)

@@ -45,7 +45,7 @@ ui <- page_sidebar(
 			"learner_type",
 			"Learner Type",
 			choices = levels(runtimes$learner_type),
-			selected = "linear",
+			selected = levels(runtimes$learner_type),
 			multiple = TRUE
 		),
 

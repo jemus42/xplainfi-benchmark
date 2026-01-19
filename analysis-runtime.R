@@ -23,8 +23,9 @@ if (!fs::file_exists(file_results)) {
 	tab <- tab[
 		repl <= 25 &
 			n_samples < 10000 &
-			(sage_n_samples < 200 | n_repeats < 100) &
-			(is.na(sampler) | sampler %in% c("gaussian", "knn", "simple")) &
+			learner == "lienar",
+		(sage_n_samples < 200 | n_repeats < 100) &
+			(is.na(sampler) | sampler %in% c("gaussian", "simple")) &
 			n_features < 50
 	]
 	results <- reduceResultsDataTable(ids = findDone(tab))
