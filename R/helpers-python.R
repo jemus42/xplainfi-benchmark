@@ -5,14 +5,14 @@
 # Setup instructions are in README.md
 
 # Initialize Python environment from local .venv
-# The .venv must be created beforehand using: uv sync --extra cpu
+# The .venv must be created beforehand using: uv sync
 .ensure_python_packages <- function() {
 	if (!reticulate::py_available()) {
 		venv_path <- here::here(".venv")
 		if (!dir.exists(venv_path)) {
 			cli::cli_abort(c(
 				"x" = "Python virtual environment not found at {.path {venv_path}}",
-				"i" = "Run {.code uv sync --extra cpu} in the project directory to create it.",
+				"i" = "Run {.code uv sync} in the project directory to create it.",
 				"i" = "See README.md for detailed setup instructions."
 			))
 		}

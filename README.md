@@ -157,6 +157,22 @@ uv lock
 uv sync
 ```
 
+**Troubleshooting: External Python Environments**
+
+For reproducibility, this project forces R/reticulate to use the local `.venv` Python environment (configured in `.Rprofile`). However, external tools like **spack** (common on HPC systems) can interfere by setting environment variables like `PYTHONPATH` that point to incompatible Python packages.
+
+The `.Rprofile` includes safeguards to prevent this:
+- `RETICULATE_PYTHON` is set to explicitly use `.venv/bin/python`
+- `PYTHONPATH` is unset to prevent external packages from being found
+
+If you encounter numpy import errors like "you should not try to import numpy from its source directory", check for conflicting environment variables:
+
+```bash
+env | grep -i python
+```
+
+If `PYTHONPATH` points to packages for a different Python version (e.g., spack's Python 3.14 while the venv uses Python 3.11), that's the cause. The `.Rprofile` should handle this automatically, but you may need to restart R after making changes.
+
 ## Notes
 
 - Uses interactive cluster functions for local execution
