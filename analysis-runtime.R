@@ -23,9 +23,9 @@ if (!fs::file_exists(file_results)) {
 	tab <- tab[
 		repl <= 25 &
 			n_samples < 10000 &
-			learner == "lienar",
-		(sage_n_samples < 200 | n_repeats < 100) &
-			(is.na(sampler) | sampler %in% c("gaussian", "simple")) &
+			learner_type == "linear" &
+			(sage_n_samples < 200 | n_repeats < 100) &
+			# (is.na(sampler) | sampler %in% c("gaussian", "simple")) &
 			n_features < 50
 	]
 	results <- reduceResultsDataTable(ids = findDone(tab))
@@ -33,6 +33,9 @@ if (!fs::file_exists(file_results)) {
 	saveRDS(results, file_results)
 }
 
+
+tab[, .N, by = learner_type]
+tab[, .N, by = sampler]
 
 # I should have used targets.
 if (!fs::file_exists(file_runtime)) {
