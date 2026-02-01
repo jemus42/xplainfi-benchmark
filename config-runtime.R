@@ -3,8 +3,7 @@
 conf <- list(
 	# General batchtools settings
 	reg_path = fs::path(
-		here::here("registries", "runtime"),
-		paste0("xplainfi-", packageVersion("xplainfi"))
+		here::here("registries", "runtime", "xplainfi-1.0.0")
 	),
 	seed = 2025,
 	repls = 50,

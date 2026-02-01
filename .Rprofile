@@ -1,3 +1,4 @@
+#source("renv/activate.R")
 source("rv/scripts/rvr.R")
 source("rv/scripts/activate.R")
 # Ensure ranger behaves, particularly important for nested parallelization here with conditional sampling depending on ranger as well
@@ -21,5 +22,5 @@ Sys.setenv(RETICULATE_PYTHON = file.path(getwd(), ".venv", "bin", "python"))
 Sys.unsetenv("PYTHONPATH")
 
 if (requireNamespace("mlr3")) {
-  lgr::get_logger("mlr3")$set_threshold("warn")
+	lgr::get_logger("mlr3")$set_threshold("warn")
 }
