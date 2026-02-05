@@ -1,6 +1,6 @@
-# Feature Importance Methods Benchmark
+# `xplainfi` Feature Importance Methods Benchmark
 
-This directory contains a comprehensive benchmark setup using `batchtools` to compare all feature importance methods in the `xplainfi` package.
+This directory contains a benchmark setup using `batchtools` to compare all feature importance methods in the `xplainfi` package.
 
 ## Structure
 
@@ -27,15 +27,14 @@ This directory contains a comprehensive benchmark setup using `batchtools` to co
 ### xplainfi Methods
 1. **PFI** - Permutation Feature Importance (marginal sampling)
 2. **CFI** - Conditional Feature Importance (supports arf, gaussian, knn, ctree samplers)
-<!-- 3. **RFI** - Relative Feature Importance (conditional sampling with conditioning set) -->
-4. **LOCO** - Leave-One-Covariate-Out
-5. **MarginalSAGE** - SAGE with marginal sampling
-6. **ConditionalSAGE** - SAGE with conditional sampling (supports arf, gaussian, knn, ctree samplers)
+3. **LOCO** - Leave-One-Covariate-Out
+4. **MarginalSAGE** - SAGE with marginal sampling
+5. **ConditionalSAGE** - SAGE with conditional sampling (supports arf, gaussian, knn, ctree samplers)
 
 ### Reference Implementations
 7. **PFI_iml** - PFI from iml package (using `compare = "difference"`)
 8. **PFI_vip** - PFI from vip package
-<!-- 9. **PFI_fippy** - PFI from fippy Python package (SimpleSampler) -->
+9. **PFI_fippy** - PFI from fippy Python package (SimpleSampler)
 10. **CFI_fippy** - CFI from fippy Python package (Gaussian sampler)
 11. **MarginalSAGE_fippy** - Marginal SAGE from fippy Python package
 12. **ConditionalSAGE_fippy** - Conditional SAGE from fippy Python package (Gaussian sampler)
@@ -129,7 +128,7 @@ Python dependencies are managed via `uv` with a local `.venv` for full reproduci
 
 **Requirements:**
 - `uv` (install via `brew install uv` or see [uv documentation](https://docs.astral.sh/uv/getting-started/installation/))
-- Python 3.11 or 3.12 (uv will manage this automatically)
+- Python 3.12 (uv should manage this automatically, see also `.Rprofile` to nudge reticulate in the right direction)
 
 **Setup:**
 
