@@ -13,7 +13,7 @@ repositories = [{ alias = "CRAN", url = "https://cloud.r-project.org/" }]
 # {name = "dplyr", repository = "CRAN"},
 # {name = "dplyr", git = "https://github.com/tidyverse/dplyr.git", tag = "v1.1.4"},
 dependencies = [
-  { name = "xplainfi", git = "https://github.com/mlr-org/xplainfi", tag = "v1.0.0" },
+  { name = "xplainfi", git = "https://github.com/mlr-org/xplainfi", tag = "v1.1.0" },
   { name = "arf", git = "https://github.com/bips-hb/arf", branch = "main" },
   "mlbench",
   "partykit",

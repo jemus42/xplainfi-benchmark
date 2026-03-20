@@ -3,17 +3,15 @@
 conf <- list(
 	# General batchtools settings
 	reg_path = fs::path(
-		here::here("registries", "runtime", "xplainfi-1.0.0")
+		here::here("registries", "runtime", "xplainfi-1.1.0")
 	),
 	seed = 2025,
 	repls = 50,
 	# Samples to generate
 	n_samples = c(100, 250, 1000, 5000, 10000),
 	# Only one task with variable number of features
-	n_features = c(5, 10, 20, 50),
-	# Affects correlation task, does not affect runtime
-	correlation = 0.5,
-	# Affects PFI, CFI, RFI, and LOCO iterations
+	n_features = c(5, 10, 25, 50),
+	# Affects PFI, CFI, and LOCO iterations
 	n_repeats = c(1, 50, 100),
 	# For SAGE permutations
 	n_permutations = c(10, 20, 50, 100),
