@@ -1,9 +1,13 @@
 # Main experiment setup and execution script
 # Problem definitions for batchtools experiment
+library(batchtools)
+library(mlr3)
+library(data.table)
 
 # Load configuration
 source(here::here("setup-common.R"))
-source(here::here("config-runtime.R"))
+source(here::here("importance", "config.R"))
+
 
 # Create or load registry
 # if (dir.exists(conf$reg_path)) {
@@ -17,7 +21,7 @@ if (!fs::dir_exists(conf$reg_path)) {
 		file.dir = conf$reg_path,
 		packages = c("mlr3learners", "xplainfi"),
 		seed = conf$seed,
-		source = here::here(c("R/helpers.R", "R/helpers-python.R", "config-runtime.R"))
+		source = here::here(c("R/helpers.R", "R/helpers-python.R", "importance/config.R"))
 	)
 } else {
 	cli::cli_alert_warning("Loading existing registry at {.file {fs::path_rel(conf$reg_path)}}")
@@ -40,7 +44,14 @@ source(here::here("R/algorithms.R"))
 # Register Problems with batchtools
 # ============================================================================
 
-addProblem(name = "peak", data = NULL, fun = prob_peak, seed = conf$seed)
+addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
+addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
+addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
+addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = conf$seed)
+addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
+addProblem(name = "independent", data = NULL, fun = prob_independent, seed = conf$seed)
+addProblem(name = "confounded", data = NULL, fun = prob_confounded, seed = conf$seed)
+addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed)
 
 # ============================================================================
 # Register Algorithms with batchtools
@@ -48,6 +59,7 @@ addProblem(name = "peak", data = NULL, fun = prob_peak, seed = conf$seed)
 
 addAlgorithm(name = "PFI", fun = algo_PFI)
 addAlgorithm(name = "CFI", fun = algo_CFI)
+# addAlgorithm(name = "RFI", fun = algo_RFI)
 addAlgorithm(name = "LOCO", fun = algo_LOCO)
 addAlgorithm(name = "MarginalSAGE", fun = algo_MarginalSAGE)
 addAlgorithm(name = "ConditionalSAGE", fun = algo_ConditionalSAGE)
@@ -64,10 +76,50 @@ addAlgorithm(name = "MarginalSAGE_sage", fun = algo_MarginalSAGE_sage)
 # ============================================================================
 
 prob_designs <- list(
-	# Peak: varying dimensions and sample sizes
-	peak = CJ(
+	# Friedman1: fixed 10 features, varying sample sizes
+	friedman1 = CJ(
 		n_samples = conf$n_samples,
-		n_features = conf$n_features,
+		learner_type = conf$learner_types
+	),
+
+	# Bike sharing: real-world data, fixed dimensions
+	bike_sharing = CJ(
+		# n_samples = conf$n_samples,
+		learner_type = conf$learner_types,
+		convert_to_numeric = TRUE # Convert factors to numeric for fair algorithm comparison
+	),
+
+	# Correlated features DGP: varying correlation strength
+	correlated = CJ(
+		n_samples = conf$n_samples,
+		correlation = conf$correlation,
+		learner_type = conf$learner_types
+	),
+
+	# Ewald DGP: fixed structure
+	ewald = CJ(
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
+	),
+
+	# Interactions DGP: fixed structure
+	interactions = CJ(
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
+	),
+
+	independent = CJ(
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
+	),
+
+	confounded = CJ(
+		n_samples = conf$n_samples,
+		learner_type = conf$learner_types
+	),
+
+	mediated = CJ(
+		n_samples = conf$n_samples,
 		learner_type = conf$learner_types
 	)
 )
@@ -88,6 +140,12 @@ algo_designs <- list(
 		sampler = conf$samplers
 	),
 
+	# RFI: Relative Feature Importance (with samplers)
+	# RFI = CJ(
+	# 	n_repeats = conf$n_repeats,
+	# 	sampler = conf$samplers
+	# ),
+
 	# LOCO: Leave-One-Covariate-Out
 	LOCO = data.table(
 		n_repeats = conf$n_repeats
@@ -97,15 +155,17 @@ algo_designs <- list(
 	MarginalSAGE = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
+		early_stopping = conf$sage_early_stopping,
+		min_permutations = conf$min_permutations
 	),
 
 	# ConditionalSAGE (with samplers)
 	ConditionalSAGE = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
+		early_stopping = conf$sage_early_stopping,
 		sampler = conf$samplers,
-		early_stopping = conf$sage_early_stopping
+		min_permutations = conf$min_permutations
 	),
 
 	# PFI_iml: Reference implementation from iml package
@@ -119,35 +179,41 @@ algo_designs <- list(
 	),
 
 	# PFI_fippy: Reference implementation from fippy package (Python)
-	PFI_fippy = data.table(
+	# Use simple sampler (most basic, works with any data type)
+	PFI_fippy = CJ(
 		n_repeats = conf$n_repeats,
 		sampler = "simple"
 	),
 
-	# CFI_fippy: Conditional FI from fippy package (Python, Gaussian sampler)
+	# CFI_fippy: Conditional FI from fippy package (Python)
+	# Use gaussian sampler (all tasks now have numeric features only)
 	CFI_fippy = CJ(
 		n_repeats = conf$n_repeats,
 		sampler = "gaussian"
 	),
 
 	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
+	# Use simple sampler for marginal (no conditioning needed)
 	MarginalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = "simple"
+		sampler = "simple",
+		min_permutations = conf$min_permutations
 	),
 
 	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
+	# Use gaussian sampler (all tasks now have numeric features only)
 	ConditionalSAGE_fippy = CJ(
 		n_permutations = conf$n_permutations,
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping,
-		sampler = "gaussian"
+		sampler = "gaussian",
+		min_permutations = conf$min_permutations
 	),
 
 	# Kernel SAGE: Official SAGE implementation with kernel estimator
-	MarginalSAGE_sage = CJ(
+	MarginalSAGE_sage = data.table(
 		sage_n_samples = conf$sage_n_samples,
 		early_stopping = conf$sage_early_stopping
 	)
@@ -169,10 +235,13 @@ addExperiments(
 # Remove incompatible sampler-task combinations
 # ============================================================================
 
+# No sampler incompatibilities to handle anymore since all tasks have numeric features
+# (bike_sharing now converts factors to numeric with convert_to_numeric = TRUE)
+
 # Featureless learner is only used for xplainfi runtime benchmarking
 featureless_non_xplainfi_jobs = unwrap(getJobTable())[
 	learner_type == "featureless" &
-		!(algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")),
+		algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO"),
 ]
 
 if (nrow(featureless_non_xplainfi_jobs) > 0) {
@@ -182,23 +251,15 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 	removeExperiments(featureless_non_xplainfi_jobs)
 }
 
-# for SAGE with early stopping we only keep maximum n_permutations
-sage_early_stopping = unwrap(getJobTable())[
-	early_stopping & n_permutations < max(n_permutations, na.rm = TRUE),
-]
-# sage_early_stopping[, .N, by = c("early_stopping", "n_permutations", "algorithm")]
-
-if (nrow(sage_early_stopping) > 0) {
-	cli::cli_alert_warning(
-		"Removing {nrow(sage_early_stopping)} job(s) for other SAGE with early stopping and lower n_permutations"
-	)
-	removeExperiments(sage_early_stopping)
-}
-
-
 # ============================================================================
 # Optional: Tag specific job combinations for analysis
 # ============================================================================
+
+# Tag real data comparison experiments
+findExperiments(
+	prob.name = c("bike_sharing")
+) |>
+	addJobTags(tags = "real_data")
 
 findExperiments(algo.pattern = "_fippy") |>
 	addJobTags(tags = "python")

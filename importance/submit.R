@@ -1,4 +1,4 @@
-source(here::here("config.R"))
+source(here::here("importance", "config.R"))
 library(batchtools)
 library(dplyr, warn.conflicts = FALSE)
 reg = loadRegistry(conf$reg_path, writeable = TRUE)

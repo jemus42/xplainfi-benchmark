@@ -1,7 +1,7 @@
 library(batchtools)
 library(dplyr, warn.conflicts = FALSE)
 
-source(here::here("config-runtime.R"))
+source(here::here("runtime", "config.R"))
 reg = loadRegistry(conf$reg_path, writeable = TRUE)
 
 tab = unwrap(getJobPars(findExperiments(repls = 1:10)))

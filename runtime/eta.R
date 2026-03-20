@@ -1,6 +1,6 @@
 #! /usr/bin/env Rscript
 
-source(here::here("config-runtime.R"))
+source(here::here("runtime", "config.R"))
 library(batchtools)
 reg = suppressMessages(loadRegistry(conf$reg_path, writeable = FALSE))
 

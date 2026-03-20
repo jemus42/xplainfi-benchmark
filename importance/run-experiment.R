@@ -2,7 +2,7 @@
 library(batchtools)
 
 # Load registry
-source("config.R")
+source(here::here("importance", "config.R"))
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 tab = unwrap(getJobTable())
 tab[, chunk := sample(job.id)]

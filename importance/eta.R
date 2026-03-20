@@ -1,7 +1,7 @@
 #! /usr/bin/env Rscript
 
-source(here::here("config.R"))
-source(here::here("R/estimateMemory.R"))
+source(here::here("importance", "config.R"))
+# source(here::here("R/estimateMemory.R")) # removed, did not work as intended
 library(batchtools)
 reg = suppressMessages(loadRegistry(conf$reg_path, writeable = FALSE))
 

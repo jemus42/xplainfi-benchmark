@@ -3,7 +3,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(batchtools)
-source(here::here("R", "analysis.R"))
+source(here::here("R", "plotting.R"))
 
 file_results <- fs::path(here::here("results", "runtime"), "results", ext = "rds")
 file_runtime <- fs::path(here::here("results", "runtime"), "runtime", ext = "rds")

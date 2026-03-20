@@ -6,7 +6,7 @@ library(dplyr)
 library(kableExtra)
 
 # Load registry
-source("config.R")
+source(here::here("importance", "config.R"))
 reg <- loadRegistry(conf$reg_path, writeable = FALSE, work.dir = here::here())
 tab <- unwrap(getJobTable())
 

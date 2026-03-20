@@ -1,9 +1,9 @@
 # Script to run the experiment
 library(batchtools)
-source("setup-batchtools-runtime.R")
+source(here::here("runtime", "setup-batchtools.R"))
 
 # Load registry
-source("config-runtime.R")
+source(here::here("runtime", "config.R"))
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 tab = unwrap(getJobTable())
 runtime_est = readRDS("results/runtime-est.rds")
