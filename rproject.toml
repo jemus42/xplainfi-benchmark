@@ -1,6 +1,6 @@
 [project]
 name = "xplainfi-benchmark"
-r_version = "4.5"
+r_version = "4.6"
 
 # A list of repositories to fetch packages from. Order matters: we will try to get a package from each repository in order.
 # The alias is only used in this file if you want to specifically require a dependency to come from a certain repository.
@@ -13,7 +13,7 @@ repositories = [{ alias = "CRAN", url = "https://cloud.r-project.org/" }]
 # {name = "dplyr", repository = "CRAN"},
 # {name = "dplyr", git = "https://github.com/tidyverse/dplyr.git", tag = "v1.1.4"},
 dependencies = [
-  { name = "xplainfi", git = "https://github.com/mlr-org/xplainfi", tag = "v1.1.0" },
+  { name = "xplainfi", git = "https://github.com/mlr-org/xplainfi", branch = "main" },
   { name = "arf", git = "https://github.com/bips-hb/arf", branch = "main" },
   "mlbench",
   "partykit",
