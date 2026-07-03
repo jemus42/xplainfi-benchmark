@@ -43,4 +43,5 @@ dependencies = [
   "xgboost",
   "shiny",
   "forcats",
+    "bibtex",
 ]
