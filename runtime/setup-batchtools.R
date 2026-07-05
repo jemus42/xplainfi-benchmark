@@ -35,6 +35,7 @@ source(here::here("R/helpers.R"))
 source(here::here("R/helpers-python.R"))
 source(here::here("R/problems.R"))
 source(here::here("R/algorithms.R"))
+source(here::here("R/provenance.R"))
 
 # ============================================================================
 # Register Problems with batchtools
@@ -46,18 +47,33 @@ addProblem(name = "peak", data = NULL, fun = prob_peak, seed = conf$seed)
 # Register Algorithms with batchtools
 # ============================================================================
 
-addAlgorithm(name = "PFI", fun = algo_PFI)
-addAlgorithm(name = "CFI", fun = algo_CFI)
-addAlgorithm(name = "LOCO", fun = algo_LOCO)
-addAlgorithm(name = "MarginalSAGE", fun = algo_MarginalSAGE)
-addAlgorithm(name = "ConditionalSAGE", fun = algo_ConditionalSAGE)
-addAlgorithm(name = "PFI_iml", fun = algo_PFI_iml)
-addAlgorithm(name = "PFI_vip", fun = algo_PFI_vip)
-addAlgorithm(name = "PFI_fippy", fun = algo_PFI_fippy)
-addAlgorithm(name = "CFI_fippy", fun = algo_CFI_fippy)
-addAlgorithm(name = "MarginalSAGE_fippy", fun = algo_MarginalSAGE_fippy)
-addAlgorithm(name = "ConditionalSAGE_fippy", fun = algo_ConditionalSAGE_fippy)
-addAlgorithm(name = "MarginalSAGE_sage", fun = algo_MarginalSAGE_sage)
+# All available algorithms. Provider (xplainfi vs reference) is derived from the
+# name by convention (see R/provenance.R), so adding e.g. a kernel SAGE method is
+# a single entry here plus a matching algo_designs entry below.
+algo_funs <- list(
+	PFI = algo_PFI,
+	CFI = algo_CFI,
+	LOCO = algo_LOCO,
+	MarginalSAGE = algo_MarginalSAGE,
+	ConditionalSAGE = algo_ConditionalSAGE,
+	PFI_iml = algo_PFI_iml,
+	PFI_vip = algo_PFI_vip,
+	PFI_fippy = algo_PFI_fippy,
+	CFI_fippy = algo_CFI_fippy,
+	MarginalSAGE_fippy = algo_MarginalSAGE_fippy,
+	ConditionalSAGE_fippy = algo_ConditionalSAGE_fippy,
+	MarginalSAGE_sage = algo_MarginalSAGE_sage
+)
+
+# Restrict to the requested providers (conf$providers, default "all").
+active_algos <- select_algorithms(names(algo_funs), conf$providers)
+cli::cli_alert_info(
+	"Providers: {.val {conf$providers}} -> {length(active_algos)} algorithm(s): {.val {active_algos}}"
+)
+
+for (nm in active_algos) {
+	addAlgorithm(name = nm, fun = algo_funs[[nm]])
+}
 
 # ============================================================================
 # Problem Designs
@@ -159,6 +175,9 @@ algo_designs <- list(
 
 cli::cli_h1("Adding Experiments to Registry")
 
+# Only add designs for the algorithms that were registered for these providers.
+algo_designs <- algo_designs[active_algos]
+
 addExperiments(
 	prob.designs = prob_designs,
 	algo.designs = algo_designs,
@@ -170,7 +189,7 @@ addExperiments(
 # ============================================================================
 
 # Featureless learner is only used for xplainfi runtime benchmarking
-featureless_non_xplainfi_jobs = unwrap(getJobTable())[
+featureless_non_xplainfi_jobs <- unwrap(getJobTable())[
 	learner_type == "featureless" &
 		!(algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")),
 ]
@@ -183,7 +202,7 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 }
 
 # for SAGE with early stopping we only keep maximum n_permutations
-sage_early_stopping = unwrap(getJobTable())[
+sage_early_stopping <- unwrap(getJobTable())[
 	early_stopping & n_permutations < max(n_permutations, na.rm = TRUE),
 ]
 # sage_early_stopping[, .N, by = c("early_stopping", "n_permutations", "algorithm")]
@@ -200,17 +219,26 @@ if (nrow(sage_early_stopping) > 0) {
 # Optional: Tag specific job combinations for analysis
 # ============================================================================
 
-findExperiments(algo.pattern = "_fippy") |>
-	addJobTags(tags = "python")
-
-findExperiments(algo.pattern = "_sage") |>
-	addJobTags(tags = "python")
-
-# Explictly tag xplainfi jobs
-for (algo in c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")) {
-	findExperiments(algo.name = algo) |>
-		addJobTags(tags = "xplainfi")
+# Provider tags are derived from the algorithm name by convention, so new
+# algorithms are tagged automatically (xplainfi / reference, plus python for
+# reticulate-backed reference implementations).
+for (nm in active_algos) {
+	tags <- algo_provider(nm)
+	if (algo_is_python(nm)) {
+		tags <- c(tags, "python")
+	}
+	findExperiments(algo.name = nm) |>
+		addJobTags(tags = tags)
 }
+
+# ============================================================================
+# Record provenance (xplainfi version + git SHA) for this registry
+# ============================================================================
+
+prov <- write_provenance(conf$reg_path, providers = conf$providers)
+cli::cli_alert_info(
+	"Provenance: xplainfi {.val {prov$xplainfi_version}} @ {.val {substr(prov$xplainfi_sha, 1, 10)}}"
+)
 
 # ============================================================================
 # Experiment Summary

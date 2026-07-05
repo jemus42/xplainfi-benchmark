@@ -1,10 +1,28 @@
 # Configuration file for batchtools experiment
 # Experiment settings
+
+# Registry directory is namespaced by the xplainfi version actually installed,
+# so results for different versions are retained side by side. Override with
+# XPLAINFI_BENCH_VERSION to point at a historical registry (e.g. for collection).
+xplainfi_version <- Sys.getenv(
+	"XPLAINFI_BENCH_VERSION",
+	unset = as.character(utils::packageVersion("xplainfi"))
+)
+
+# Which implementations to include: "xplainfi", "reference", or "all".
+# Comma-separated. Use "xplainfi" to re-run only the package under test after a
+# version bump without re-running the (frozen) reference implementations.
+providers <- trimws(strsplit(
+	Sys.getenv("XPLAINFI_BENCH_PROVIDERS", unset = "all"),
+	","
+)[[1]])
+
 conf <- list(
 	# General batchtools settings
 	reg_path = fs::path(
-		here::here("registries", "importance", "xplainfi-1.1.0")
+		here::here("registries", "importance", paste0("xplainfi-", xplainfi_version))
 	),
+	providers = providers,
 	seed = 2025,
 	repls = 50,
 	# Samples to generate

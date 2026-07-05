@@ -3,8 +3,7 @@ batchtools.conf.R
 attic
 overview.html
 plots/*
-# Selectively commit final results later
-results/*
+# results/ is tracked for now (versioned reduced tables); tighten later if needed
 
 # Python virtual environment (managed by uv)
 .venv/
