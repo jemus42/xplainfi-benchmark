@@ -10,8 +10,14 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
   `analysis.R`, `eta.R`, `shiny.R`.
 - `R/` shared: `helpers.R`, `helpers-python.R` (fippy/reticulate), `problems.R`
   (DGP generators `prob_*`), `algorithms.R` (`algo_*` fns), `submit-helpers.R`
-  (job grouping/chunking, sourced only by `run-experiment.R`), `plotting.R`,
-  `provenance.R` (provider + versioning plumbing).
+  (job grouping/chunking, sourced by `run-experiment.R`), `estimate.R`
+  (runtime estimation `write_estimates()` + `read_estimates()`, sourced by
+  `eta.R` and `run-experiment.R`), `plotting.R`, `provenance.R` (provider +
+  versioning plumbing).
+- `setup-common.R` is the bootstrap: pkg checks + `source_r()`, which sources every
+  `.R` in `R/` into the global env (like `targets::tar_source()`). Scripts source
+  `setup-common.R` instead of listing individual `R/` files; a new helper in `R/` is
+  picked up automatically. (Registry workers still get an explicit `source=` list.)
 - `registries/<lane>/xplainfi-<version>/` — batchtools registries (gitignored, scratch).
 - `results/<lane>/` — durable reduced tables (tracked).
 - Deps: R via `rv` (`rproject.toml` + `rv.lock`, `rv sync`); Python via one shared
@@ -74,9 +80,13 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
   in one R session, so R torch (mlr3torch/libtorch) and Python torch (reticulate)
   must never share a chunk. Chunk ids are offset per group; a collision aborts.
 - **QoS is not set** — the Slurm template derives it from `walltime`. Resources
-  carry only `walltime` (per tier) + `memory` (from `mem-*.rds` pretest, else default).
-- Estimates are optional: no `eta-*.rds` → chunk by job count; no `mem-*.rds` →
-  `mem_default`. LOCO is pinned to `n_repeats = 1L` (refits, repeats are wasted work).
+  carry only `walltime` (per tier) + `memory`.
+- **Estimates** (`R/estimate.R`): `eta.R` runs `write_estimates()` → `eta-<lane>.rds`
+  (runtime only; batchtools memory estimation was dropped — memory comes from the
+  external `slurm-memcheck` utility, materialised as `mem-<lane>.rds` if used).
+  `run-experiment.R` reads both via `read_estimates()`. Both files are gitignored
+  scratch. Missing runtime → chunk by job count; missing memory → `mem_default`.
+- LOCO is pinned to `n_repeats = 1L` (refits, repeats are wasted work).
 - Cluster functions come from `batchtools.conf.R` only — never set
   `reg$cluster.functions` in `run-experiment.R`.
 

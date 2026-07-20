@@ -10,35 +10,36 @@
 # Typical staged workflow (resource estimates come from *completed* jobs):
 #   1. Pilot one replication to measure real runtime:
 #        ids <- ijoin(findExperiments(repls = 1), todo())
-#   2. When it finishes, run runtime/eta.R to refresh results/runtime-est.rds.
+#   2. When it finishes, run runtime/eta.R to write eta-runtime.rds.
 #   3. Submit the rest, now with estimates (the default `ids` below).
 library(batchtools)
 source(here::here("runtime", "config.R"))
-source(here::here("R/submit-helpers.R"))
+source(here::here("setup-common.R")) # pkg check + all R/ helpers via source_r()
 
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 getStatus()
 
 # Everything outstanding and not already in flight (picks up failed/expired too).
-todo <- function() {
-	findNotDone() |> ajoin(findRunning()) |> ajoin(findQueued())
-}
+# todo() is defined in R/submit-helpers.R.
 ids <- todo()
 # Pilot first pass instead:  ids <- ijoin(findExperiments(repls = 1), todo())
 
-# Runtime estimates from completed jobs (written by eta.R); absent on the pilot
-# pass, in which case chunking falls back to job count.
-est_file <- here::here("results", "runtime-est.rds")
-runtimes <- if (fs::file_exists(est_file)) {
-	data.table::as.data.table(readRDS(est_file))
-} else {
-	NULL
-}
+# Runtime estimates from completed jobs (eta-runtime.rds from eta.R). Falls back
+# to the legacy tracked snapshot results/runtime-est.rds, then to job-count
+# chunking if neither exists.
+est <- read_estimates(
+	"runtime",
+	runtime_path = if (fs::file_exists(here::here("eta-runtime.rds"))) {
+		here::here("eta-runtime.rds")
+	} else {
+		here::here("results", "runtime-est.rds")
+	}
+)
 
 groups <- plan_submission(
 	ids = ids,
 	python = findTagged("python"),
-	runtimes = runtimes
+	runtimes = est$runtimes
 )
 report_groups(groups)
 

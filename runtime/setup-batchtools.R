@@ -24,18 +24,8 @@ if (!fs::dir_exists(conf$reg_path)) {
 	reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 }
 
-# Load problems and algorithms
-# mlr3misc::walk(
-#   list.files(here::here("R"), pattern = "*.R", full.names = TRUE),
-#   source,
-#   echo = FALSE,
-#   verbose = FALSE
-# )
-source(here::here("R/helpers.R"))
-source(here::here("R/helpers-python.R"))
-source(here::here("R/problems.R"))
-source(here::here("R/algorithms.R"))
-source(here::here("R/provenance.R"))
+# All R/ helpers (problems, algorithms, provenance, ...) are loaded by
+# setup-common.R via source_r() above.
 
 # ============================================================================
 # Register Problems with batchtools
@@ -192,7 +182,7 @@ addExperiments(
 # Featureless learner is only used for xplainfi runtime benchmarking
 featureless_non_xplainfi_jobs <- unwrap(getJobTable())[
 	learner_type == "featureless" &
-		!(algorithm %in% c("PFI", "CFI", "RFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")),
+		!(algorithm %in% c("PFI", "CFI", "MarginalSAGE", "ConditionalSAGE", "LOCO")),
 ]
 
 if (nrow(featureless_non_xplainfi_jobs) > 0) {
@@ -267,7 +257,7 @@ cli::cli_ul(c(
 	"Learner types: {paste(conf$learner_types, collapse = ', ')}",
 	"n_repeats: {paste(conf$n_repeats, collapse = ', ')}",
 	"n_permutations (SAGE): {paste(conf$n_permutations, collapse = ', ')}",
-	"Samplers (CFI/RFI/ConditionalSAGE): {length(conf$samplers)}"
+	"Samplers (CFI/ConditionalSAGE): {length(conf$samplers)}"
 ))
 
 cli::cli_alert_success("Experiment registry created at: {.path {fs::path_rel(conf$reg_path)}}")

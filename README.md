@@ -48,8 +48,9 @@ packages).
 │   ├── problems.R       # Problem definitions (task generators)
 │   ├── algorithms.R     # Algorithm definitions (FI methods)
 │   ├── submit-helpers.R # Job grouping/chunking for submission
+│   ├── estimate.R       # Runtime estimation + estimate readers
 │   └── plotting.R       # Plot saving utilities
-├── setup-common.R       # Shared package dependency checks
+├── setup-common.R       # Bootstrap: pkg checks + source_r() loads all of R/
 ├── batchtools.conf.R    # Cluster configuration (gitignored)
 ├── rproject.toml / rv.lock   # R dependencies (managed by `rv`)
 ├── pyproject.toml / uv.lock  # Python dependencies (managed by `uv`)
@@ -81,7 +82,6 @@ count and sample size to profile how methods scale.
 - **CFI** — Conditional FI (samplers: arf, gaussian, knn, ctree)
 - **LOCO** — Leave-One-Covariate-Out
 - **MarginalSAGE** / **ConditionalSAGE** — SAGE with marginal / conditional sampling
-- **RFI** — Relative FI (implemented but currently disabled in the design)
 
 ### Reference implementations (validation)
 - **PFI_iml** — PFI from the `iml` package (`compare = "difference"`)

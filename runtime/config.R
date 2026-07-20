@@ -38,7 +38,7 @@ conf <- list(
 	sage_n_samples = c(10, 50, 100, 200),
 	# Types of learners to use for each method, uses create_learner helper
 	learner_types = c("featureless", "linear"),
-	# Conditional samplers for CFI, RFI, and ConditionalSAGE
+	# Conditional samplers for CFI and ConditionalSAGE
 	samplers = c(
 		"arf",
 		"gaussian",

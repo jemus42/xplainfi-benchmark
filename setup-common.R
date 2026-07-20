@@ -43,3 +43,12 @@ fs::dir_create(here::here("registries", c("runtime", "importance")))
 library(batchtools)
 library(mlr3)
 library(data.table)
+
+# Source every .R file in R/ into the global environment, like targets::tar_source().
+# All R/ files are pure definitions (functions + a couple of constants) with no
+# load-order dependencies, so a blanket source is safe. Call standalone to reload.
+source_r <- function(dir = here::here("R")) {
+	files <- list.files(dir, pattern = "\\.R$", full.names = TRUE)
+	invisible(lapply(files, source))
+}
+source_r()

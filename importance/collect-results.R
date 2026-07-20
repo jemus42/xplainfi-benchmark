@@ -7,7 +7,7 @@ library(kableExtra)
 
 # Load registry
 source(here::here("importance", "config.R"))
-source(here::here("R/provenance.R"))
+source(here::here("setup-common.R")) # pkg check + all R/ helpers via source_r()
 reg <- loadRegistry(conf$reg_path, writeable = FALSE, work.dir = here::here())
 tab <- unwrap(getJobTable())
 
@@ -157,7 +157,6 @@ res_fless |>
 	# 		levels = c(
 	# 			"PFI",
 	# 			"CFI",
-	# 			"RFI",
 	# 			"MarginalSAGE",
 	# 			"ConditionalSAGE",
 	# 			"LOCO"
@@ -343,7 +342,7 @@ res |>
 				"{algorithm} ({sampler}, {n_permutations} perms)",
 				.na = ""
 			),
-			stringr::str_detect(algorithm, "^(PFI|CFI|RFI|LOCO)") ~ glue::glue(
+			stringr::str_detect(algorithm, "^(PFI|CFI|LOCO)") ~ glue::glue(
 				"{algorithm} ({n_repeats} iter)",
 				.na = ""
 			)

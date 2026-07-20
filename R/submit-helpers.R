@@ -17,6 +17,17 @@
 #
 # The output is a flat list of submission groups; each is one submitJobs() call.
 
+# Jobs outstanding and not already in flight: not-done minus running/queued.
+# Re-runnable -- picks up failed/expired jobs without touching in-flight ones.
+# Requires a loaded registry (call after loadRegistry / setup-batchtools.R).
+# Intersect with a scope for a pilot pass, e.g.
+#   ids <- ijoin(findExperiments(repls = 1), todo())
+todo <- function(reg = batchtools::getDefaultRegistry()) {
+	batchtools::findNotDone(reg = reg) |>
+		batchtools::ajoin(batchtools::findRunning(reg = reg)) |>
+		batchtools::ajoin(batchtools::findQueued(reg = reg))
+}
+
 # Ordered runtime ceilings -> requested walltime. A job lands in the first tier
 # whose max_runtime it fits under. Edit here to add tiers (e.g. an "xlong").
 default_tiers <- list(

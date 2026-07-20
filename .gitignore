@@ -70,3 +70,7 @@ rsconnect/
 # End of https://www.toptal.com/developers/gitignore/api/R
 scratch.R
 .envrc
+
+# Regenerable estimate snapshots written by eta.R (registries are scratch too)
+eta-*.rds
+mem-*.rds

@@ -1,26 +1,17 @@
 #! /usr/bin/env Rscript
-
-source(here::here("importance", "config.R"))
-# source(here::here("R/estimateMemory.R")) # removed, did not work as intended
+# Estimate runtimes from completed jobs -> eta-importance.rds, which
+# run-experiment.R uses to chunk the next submission. See R/estimate.R.
+#
+# Memory is not modelled here (that batchtools experiment was dropped); on the
+# BIPS cluster it comes from the external `slurm-memcheck` utility. Materialise its
+# output as mem-importance.rds to have plan_submission size memory requests --
+# otherwise it uses a default.
 library(batchtools)
-reg = suppressMessages(loadRegistry(conf$reg_path, writeable = FALSE))
+source(here::here("importance", "config.R"))
+source(here::here("setup-common.R")) # pkg check + all R/ helpers via source_r()
 
-tab = unwrap(getJobPars())
-
-cli::cli_h1("Current status for all replications")
-getStatus(tab)
-
-est = estimateRuntimes(tab, num.trees = 1000, min.node.size = 10, mtry = 10, max.depth = 9)
-
-cli::cli_h1("Current ETA assuming 1000 parallel jobs")
-print(est, n = 1000)
-cli::cli_inform("Model R^2: {round(est$model$r.squared, 2)}")
-
-saveRDS(est, here::here("eta-importance.rds"))
-
-cli::cli_h1("Memory estimation")
-mem_est = estimateMemory(tab, num.trees = 1000, min.node.size = 10, mtry = 10, max.depth = 9)
-print(mem_est)
-cli::cli_inform("Model R^2: {round(mem_est$model$r.squared, 2)}")
-
-saveRDS(mem_est, here::here("mem-importance.rds"))
+write_estimates(
+	conf$reg_path,
+	prefix = "importance",
+	rf = list(num.trees = 1000, min.node.size = 10, mtry = 10, max.depth = 9)
+)
