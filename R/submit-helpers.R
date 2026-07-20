@@ -20,12 +20,18 @@
 # Jobs outstanding and not already in flight: not-done minus running/queued.
 # Re-runnable -- picks up failed/expired jobs without touching in-flight ones.
 # Requires a loaded registry (call after loadRegistry / setup-batchtools.R).
-# Intersect with a scope for a pilot pass, e.g.
-#   ids <- ijoin(findExperiments(repls = 1), todo())
-todo <- function(reg = batchtools::getDefaultRegistry()) {
-	batchtools::findNotDone(reg = reg) |>
+# `...` is forwarded to findExperiments() and intersected, to scope the result:
+#   todo()                          # everything outstanding
+#   todo(repls = 1)                 # pilot: only replication 1
+#   todo(prob.name = "friedman1")   # one problem
+todo <- function(..., reg = batchtools::getDefaultRegistry()) {
+	out <- batchtools::findNotDone(reg = reg) |>
 		batchtools::ajoin(batchtools::findRunning(reg = reg)) |>
 		batchtools::ajoin(batchtools::findQueued(reg = reg))
+	if (...length() > 0L) {
+		out <- batchtools::ijoin(out, batchtools::findExperiments(..., reg = reg))
+	}
+	out
 }
 
 # Bump memory for jobs that expired (OOM / walltime kill) so a resubmit does not

@@ -9,7 +9,7 @@
 #
 # Typical staged workflow (resource estimates come from *completed* jobs):
 #   1. Pilot one replication to measure real runtime:
-#        ids <- ijoin(findExperiments(repls = 1), todo())
+#        ids <- todo(repls = 1)
 #   2. When it finishes, run runtime/eta.R to write eta-runtime.rds.
 #   3. Submit the rest, now with estimates (the default `ids` below).
 library(batchtools)
@@ -22,7 +22,7 @@ getStatus()
 # Everything outstanding and not already in flight (picks up failed/expired too).
 # todo() is defined in R/submit-helpers.R.
 ids <- todo()
-# Pilot first pass instead:  ids <- ijoin(findExperiments(repls = 1), todo())
+# Pilot first pass instead:  ids <- todo(repls = 1)
 
 # Runtime estimates from completed jobs (eta-runtime.rds from eta.R). Falls back
 # to the legacy tracked snapshot results/runtime-est.rds, then to job-count

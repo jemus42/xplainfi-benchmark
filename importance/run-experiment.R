@@ -8,7 +8,7 @@
 #
 # Typical staged workflow (resource estimates come from *completed* jobs):
 #   1. Pilot one replication to measure real runtime/memory:
-#        ids <- ijoin(findExperiments(repls = 1), todo())
+#        ids <- todo(repls = 1)
 #   2. When it finishes, run importance/eta.R to write eta-importance.rds.
 #   3. Submit the rest, now with estimates (the default `ids` below).
 library(batchtools)
@@ -21,7 +21,7 @@ getStatus()
 # Everything outstanding and not already in flight (picks up failed/expired too).
 # todo() is defined in R/submit-helpers.R.
 ids <- todo()
-# Pilot first pass instead:  ids <- ijoin(findExperiments(repls = 1), todo())
+# Pilot first pass instead:  ids <- todo(repls = 1)
 
 # Estimates from completed jobs (eta-importance.rds from eta.R; mem-importance.rds
 # from the external slurm-memcheck utility, if materialised). Absent on the pilot
