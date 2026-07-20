@@ -38,7 +38,8 @@ default_tiers <- list(
 # Build submission groups from a set of job ids.
 #
 # ids            data.table with a `job.id` column (e.g. findNotSubmitted())
-# python         job ids using a Python backend (e.g. findTagged("python"))
+# python         job ids using a Python backend; defaults to findTagged("python"),
+#                which is always the right set in this benchmark
 # runtimes       optional data.table(job.id, runtime[seconds]) from eta.R. Drives
 #                both tiering and bin-packing. Jobs with no estimate go to the
 #                last (safest) tier and chunk alone.
@@ -55,7 +56,7 @@ default_tiers <- list(
 # jobs are omitted.
 plan_submission <- function(
 	ids,
-	python,
+	python = batchtools::findTagged("python"),
 	runtimes = NULL,
 	memory = NULL,
 	tiers = default_tiers,

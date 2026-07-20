@@ -38,7 +38,6 @@ est <- read_estimates(
 
 groups <- plan_submission(
 	ids = ids,
-	python = findTagged("python"),
 	runtimes = est$runtimes
 )
 report_groups(groups)

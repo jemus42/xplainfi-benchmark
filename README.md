@@ -50,6 +50,7 @@ packages).
 │   ├── submit-helpers.R # Job grouping/chunking for submission
 │   ├── estimate.R       # Runtime estimation + estimate readers
 │   └── plotting.R       # Plot saving utilities
+├── Makefile             # setup / check targets for R + Python + libtorch
 ├── setup-common.R       # Bootstrap: pkg checks + source_r() loads all of R/
 ├── batchtools.conf.R    # Cluster configuration (gitignored)
 ├── rproject.toml / rv.lock   # R dependencies (managed by `rv`)
@@ -227,8 +228,20 @@ This is achieved by:
 
 ## Package Dependencies
 
+The three backends (R packages, the Python venv, and libtorch for `mlr3torch`) are
+installed via the `Makefile`:
+
+```bash
+make setup   # rv sync + uv sync + torch::install_torch()
+make check   # report what's missing/out of sync, without installing
+```
+
+Individual targets: `make r-deps`, `make py-deps`, `make torch`. Run `make check`
+before submitting a batch — a missing libtorch or unsynced `.venv` only surfaces
+mid-job otherwise.
+
 R dependencies are managed with [`rv`](https://github.com/A2-ai/rv) (`rproject.toml` +
-`rv.lock`); run `rv sync` to install. Key packages:
+`rv.lock`); `make r-deps` runs `rv sync`. Key packages:
 - Core: `xplainfi`, `mlr3`, `mlr3learners`, `mlr3pipelines`, `mlr3fselect`, `batchtools`, `reticulate`
 - Data: `data.table`, `mlbench`, `mlr3data`
 - Samplers: `arf`, `partykit`, `mvtnorm`

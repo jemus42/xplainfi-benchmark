@@ -30,7 +30,6 @@ est <- read_estimates("importance")
 
 groups <- plan_submission(
 	ids = ids,
-	python = findTagged("python"),
 	runtimes = est$runtimes,
 	memory = est$memory
 )

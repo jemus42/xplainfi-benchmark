@@ -20,9 +20,11 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
   picked up automatically. (Registry workers still get an explicit `source=` list.)
 - `registries/<lane>/xplainfi-<version>/` — batchtools registries (gitignored, scratch).
 - `results/<lane>/` — durable reduced tables (tracked).
-- Deps: R via `rv` (`rproject.toml` + `rv.lock`, `rv sync`); Python via one shared
-  `.venv` (uv) — deliberately not per-job ephemeral envs. Format R with `air format`
-  (tabs, width 100). Files end with a newline.
+- Deps via `Makefile`: `make setup` = `rv sync` (R) + `uv sync --frozen` (Python
+  `.venv`, one shared env, not per-job) + `torch::install_torch()` (libtorch for
+  mlr3torch). `make check` reports sync status of all three without installing —
+  run before submitting. Individual targets: `r-deps`, `py-deps`, `torch`.
+- Format R with `air format` (tabs, width 100). Files end with a newline.
 
 ## Providers and versioning
 
