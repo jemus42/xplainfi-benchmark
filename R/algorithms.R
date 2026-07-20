@@ -125,6 +125,9 @@ algo_CFI <- function(
 # LOCO - Leave-One-Covariate-Out
 # ============================================================================
 
+# n_repeats is accepted (batchtools passes the design column) but deliberately not
+# forwarded: LOCO refits rather than resamples, so repeats only duplicate work.
+# xplainfi's default is 1L and the argument may be dropped for LOCO entirely.
 algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Create learner for this algorithm
 	learner <- create_learner(
@@ -137,8 +140,7 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		task = instance$task,
 		learner = learner,
 		measure = instance$measure,
-		resampling = instance$resampling,
-		n_repeats = n_repeats
+		resampling = instance$resampling
 	)
 
 	start_time <- Sys.time()

@@ -105,8 +105,9 @@ algo_designs <- list(
 	),
 
 	# LOCO: Leave-One-Covariate-Out
+	# Fixed at 1: LOCO refits per feature, repeats would only duplicate work
 	LOCO = data.table(
-		n_repeats = conf$n_repeats
+		n_repeats = 1L
 	),
 
 	# MarginalSAGE
