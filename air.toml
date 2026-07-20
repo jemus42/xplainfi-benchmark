@@ -4,5 +4,5 @@ indent-width = 2
 indent-style = "tab"
 line-ending = "auto"
 persistent-line-breaks = true
-exclude = []
+exclude = ["rv/"]
 default-exclude = true

@@ -29,18 +29,18 @@ dependencies = [
   "here",
   "fs",
   { name = "vip", repository = "bgreenwell" },
-  "yardstick", # only a Suggests of vip >= 0.5.0, but needed for its built-in metrics
+  "yardstick",                                                                         # only a Suggests of vip >= 0.5.0, but needed for its built-in metrics
   "iml",
   "mlr3pipelines",
   "checkmate",
   "digest",
   "mvtnorm",
-  "bibtex", # transient build-time dep: libcoin, and mvtnorm's Rd \Sexpr (via Rdpack)
+  "bibtex",                                                                            # transient build-time dep: libcoin, and mvtnorm's Rd \Sexpr (via Rdpack)
   "mlr3learners",
   "reticulate",
   "mlr3fselect",
   "gower",
-  "parallelly", # availableCores() for thread parity across implementations
+  "parallelly",                                                                        # availableCores() for thread parity across implementations
   "rmarkdown",
   "ggplot2",
   "tidyr",

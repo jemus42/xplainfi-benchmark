@@ -113,11 +113,13 @@ plan_submission <- function(
 	chunk_size = 20L
 ) {
 	ids <- data.table::as.data.table(ids)[, .(job.id)]
-	ids[, backend := data.table::fifelse(
-		job.id %in% data.table::as.data.table(python)$job.id,
-		"python",
-		"r"
-	)]
+	ids[,
+		backend := data.table::fifelse(
+			job.id %in% data.table::as.data.table(python)$job.id,
+			"python",
+			"r"
+		)
+	]
 	if (!is.null(runtimes)) {
 		ids <- merge(ids, runtimes[, .(job.id, runtime)], by = "job.id", all.x = TRUE)
 	} else {

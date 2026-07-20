@@ -69,7 +69,7 @@ prob_bike_sharing <- function(
 		stop("mlr3data package required for bike_sharing task")
 	}
 
-	xdat = mlr3misc::load_dataset("bike_sharing", package = "mlr3data")
+	xdat <- mlr3misc::load_dataset("bike_sharing", package = "mlr3data")
 	# Remove problematic features and convert logical to integer
 	xdat[, date := NULL] # Remove character feature
 	xdat[, holiday := as.integer(holiday)] # Convert logical to integer
@@ -79,7 +79,7 @@ prob_bike_sharing <- function(
 		checkmate::assert_number(n_samples, lower = 10, upper = nrow(xdat))
 		cli::cli_warn("Subsampling {.val bike_sharing} is intended for debugging purposes only!")
 
-		xdat = xdat[,
+		xdat <- xdat[,
 			.SD[sample(nrow(.SD), n_samples)]
 		]
 	}
@@ -93,7 +93,7 @@ prob_bike_sharing <- function(
 		}
 	}
 
-	task = as_task_regr(xdat, target = "count", id = "bike_share")
+	task <- as_task_regr(xdat, target = "count", id = "bike_share")
 
 	# Verify expected feature types based on conversion
 	if (convert_to_numeric) {

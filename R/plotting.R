@@ -5,7 +5,7 @@
 #' @param height,width numeric(1) Plot dimensions in inches.
 #' @param formats character() One or more formats to store plot as, defaulting to `"png"`.
 #' @param dpi integer(1) Image DPI
-save_plot = function(
+save_plot <- function(
 	p,
 	name,
 	plot_path = here::here("plots"),
@@ -19,7 +19,7 @@ save_plot = function(
 	# }
 
 	for (format in formats) {
-		filename = fs::path(plot_path, name, ext = format)
+		filename <- fs::path(plot_path, name, ext = format)
 		cli::cli_alert_info("Saving {.file {fs::path_rel(filename)}} / {.val {format}}")
 
 		ggsave(
@@ -39,9 +39,9 @@ save_plot = function(
 #' Aggregate results from batchtools registry
 #' @param results Result table as returned by reduceResultsDataTable(). Read from `here::here("results", "importance", "results.rds")` if NULL.
 clean_results_importance <- function(results, job_pars) {
-	tmpres = data.table::rbindlist(results$result, fill = TRUE)
-	tmpres = cbind(results[, .(job.id)], tmpres)
-	res = ijoin(
+	tmpres <- data.table::rbindlist(results$result, fill = TRUE)
+	tmpres <- cbind(results[, .(job.id)], tmpres)
+	res <- ijoin(
 		tmpres,
 		job_pars[, .(
 			job.id,
@@ -123,15 +123,15 @@ clean_results_importance <- function(results, job_pars) {
 	# res |> dplyr::count(algorithm, method, package, sampler)
 
 	# Extract importances
-	importances = rbindlist(
+	importances <- rbindlist(
 		lapply(results$job.id, \(x) {
-			importances = results[job.id == x, result[[1]]$importance]
+			importances <- results[job.id == x, result[[1]]$importance]
 			importances[, job.id := x]
 		}),
 		fill = TRUE
 	)
 	# Add job parameters (algorithm, problem parameters, ...)
-	importances = merge(res[, -"importance"], importances, by = "job.id")
+	importances <- merge(res[, -"importance"], importances, by = "job.id")
 
 	importances[, language := fifelse(package %in% c("fippy", "sage"), "Python", "R")]
 	importances[,

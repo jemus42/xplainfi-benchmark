@@ -65,7 +65,13 @@ read_estimates <- function(prefix, runtime_path = NULL, memory_path = NULL) {
 		# class, so check its $runtimes/$memory element before the bare-dt case
 		# (a legacy flat snapshot like results/runtime-est.rds).
 		inner <- tryCatch(x[[field]], error = function(e) NULL)
-		dt <- if (is.data.frame(inner)) inner else if (is.data.frame(x)) x else NULL
+		dt <- if (is.data.frame(inner)) {
+			inner
+		} else if (is.data.frame(x)) {
+			x
+		} else {
+			NULL
+		}
 		if (is.null(dt)) NULL else data.table::as.data.table(dt)
 	}
 	list(

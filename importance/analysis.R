@@ -46,7 +46,7 @@ if (!fs::file_exists(file_importance)) {
 importances <- readRDS(file_importance)
 
 # https://coolors.co/1e3888-ef476f-f5e663-ffad69-9c3848
-pal_package = c(
+pal_package <- c(
 	xplainfi = "#1e3888",
 	fippy = "#8CD867",
 	vip = "#A31621",

@@ -288,7 +288,7 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		}
 	)
 
-	perf = resample_result$score(instance$measure_eval)[,
+	perf <- resample_result$score(instance$measure_eval)[,
 		.SD,
 		.SDcols = mlr3misc::ids(c(instance$measure_eval))
 	]
@@ -390,7 +390,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		preds$response
 	}
 
-	perf = resample_result$score(instance$measure_eval)[,
+	perf <- resample_result$score(instance$measure_eval)[,
 		.SD,
 		.SDcols = mlr3misc::ids(c(instance$measure_eval))
 	]
