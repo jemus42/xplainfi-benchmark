@@ -36,9 +36,11 @@ est <- read_estimates(
 	}
 )
 
+# Double the memory of any expired (OOM/walltime-killed) job being resubmitted.
 groups <- plan_submission(
 	ids = ids,
-	runtimes = est$runtimes
+	runtimes = est$runtimes,
+	memory = escalate_memory()
 )
 report_groups(groups)
 

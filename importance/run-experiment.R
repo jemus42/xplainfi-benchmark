@@ -28,10 +28,13 @@ ids <- todo()
 # pass -> chunk by job count / default memory.
 est <- read_estimates("importance")
 
+# Double the memory of any expired (OOM/walltime-killed) job being resubmitted, so
+# it does not just fail the same way. A group requests the max of its members, so a
+# bumped job lifts its whole chunk (safe over-provisioning).
 groups <- plan_submission(
 	ids = ids,
 	runtimes = est$runtimes,
-	memory = est$memory
+	memory = escalate_memory(base = est$memory)
 )
 report_groups(groups)
 

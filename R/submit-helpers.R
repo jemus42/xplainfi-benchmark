@@ -28,6 +28,47 @@ todo <- function(reg = batchtools::getDefaultRegistry()) {
 		batchtools::ajoin(batchtools::findQueued(reg = reg))
 }
 
+# Bump memory for jobs that expired (OOM / walltime kill) so a resubmit does not
+# just fail the same way. Reads each expired job's last-REQUESTED memory from the
+# registry and multiplies by `factor` (default 2, conservative). The new request
+# is recorded on resubmit, so repeated expiries compound automatically -- no
+# separate attempt counter needed.
+#
+# base      optional data.table(job.id, memory[MB]) of estimates for non-expired
+#           jobs (e.g. slurm-memcheck output); expired jobs override these.
+# factor    memory multiplier for expired jobs
+# expired   job ids to bump; defaults to findExpired() (injectable for testing)
+#
+# Returns data.table(job.id, memory) to pass as plan_submission(memory = ). A job
+# whose group in plan_submission contains it will request at least this much
+# (groups request the max of their members).
+escalate_memory <- function(
+	base = NULL,
+	factor = 2,
+	reg = batchtools::getDefaultRegistry(),
+	expired = batchtools::findExpired(reg = reg)
+) {
+	out <- if (is.null(base)) {
+		data.table::data.table(job.id = integer(), memory = numeric())
+	} else {
+		data.table::as.data.table(base)[, .(job.id, memory)]
+	}
+	expired <- data.table::as.data.table(expired)
+	if (nrow(expired) == 0L) {
+		return(out)
+	}
+	res <- batchtools::getJobResources(expired, reg = reg)
+	req <- res[, .(
+		job.id,
+		memory = factor * vapply(resources, function(r) as.numeric(r$memory %||% NA), numeric(1))
+	)]
+	# Expired jobs override any base estimate; keep base rows for the rest.
+	data.table::rbindlist(
+		list(out[!job.id %in% req$job.id], req),
+		use.names = TRUE
+	)
+}
+
 # Ordered runtime ceilings -> requested walltime. A job lands in the first tier
 # whose max_runtime it fits under. Edit here to add tiers (e.g. an "xlong").
 default_tiers <- list(
@@ -174,6 +215,43 @@ submit_groups <- function(groups, ...) {
 	for (g in groups) {
 		res <- utils::modifyList(g$resources, extra)
 		batchtools::submitJobs(g$jobs, resources = res)
+	}
+	invisible(groups)
+}
+
+# One-shot resubmit of expired (OOM/walltime-killed) jobs with bumped memory,
+# grouped by backend + resource tier like any other submission. For interactive
+# use after an OOM wave:
+#   resubmit_expired()                       # all expired, 2x memory, submit
+#   resubmit_expired(factor = 4)             # 4x instead
+#   resubmit_expired(submit = FALSE)         # build + print the plan, don't submit
+#   resubmit_expired(runtimes = est$runtimes, base = est$memory)  # use estimates too
+# `...` is forwarded to plan_submission() (e.g. target_seconds, chunk_size).
+# Returns the plan invisibly.
+resubmit_expired <- function(
+	runtimes = NULL,
+	base = NULL,
+	factor = 2,
+	submit = TRUE,
+	...,
+	reg = batchtools::getDefaultRegistry(),
+	expired = batchtools::findExpired(reg = reg)
+) {
+	expired <- data.table::as.data.table(expired)
+	if (nrow(expired) == 0L) {
+		cli::cli_alert_success("No expired jobs to resubmit")
+		return(invisible(NULL))
+	}
+	cli::cli_alert_info("Resubmitting {nrow(expired)} expired job{?s} at {factor}x memory")
+	groups <- plan_submission(
+		ids = expired,
+		runtimes = runtimes,
+		memory = escalate_memory(base = base, factor = factor, reg = reg, expired = expired),
+		...
+	)
+	report_groups(groups)
+	if (submit) {
+		submit_groups(groups)
 	}
 	invisible(groups)
 }

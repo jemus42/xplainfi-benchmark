@@ -88,6 +88,13 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
   external `slurm-memcheck` utility, materialised as `mem-<lane>.rds` if used).
   `run-experiment.R` reads both via `read_estimates()`. Both files are gitignored
   scratch. Missing runtime → chunk by job count; missing memory → `mem_default`.
+- **OOM recovery**: sourcing `run-experiment.R` resubmits *everything* outstanding
+  (`todo()` = expired + never-run) with expired jobs' memory doubled via
+  `escalate_memory()` (reads the last request from the registry, so repeated
+  expiries compound — no counter). For an interactive "just retry the OOM'd ones"
+  pass, `resubmit_expired()` scopes to expired only, still grouped by backend +
+  tier (`resubmit_expired(factor = 4)`, `submit = FALSE` to inspect first). A group
+  requests the max memory of its members, so a bumped job lifts its chunk.
 - LOCO is pinned to `n_repeats = 1L` (refits, repeats are wasted work).
 - Cluster functions come from `batchtools.conf.R` only — never set
   `reg$cluster.functions` in `run-experiment.R`.
