@@ -51,7 +51,7 @@ dependencies = []
 
 [[packages]]
 name = "Rcpp"
-version = "1.1.1-1.1"
+version = "1.1.2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -92,13 +92,13 @@ dependencies = []
 
 [[packages]]
 name = "arf"
-version = "0.2.4"
-source = { git = "https://github.com/bips-hb/arf", sha = "a01049f7b1e1326906521c4dc2a7340dc683a17a", branch = "main" }
+version = "0.2.5"
+source = { git = "https://github.com/bips-hb/arf", sha = "f08c562b76144f652db8b3dbcdd156cced0c1291", branch = "main" }
 force_source = true
 dependencies = [
     "data.table",
-    "ranger",
     "foreach",
+    "ranger",
     "stringr",
     "truncnorm",
 ]
@@ -148,7 +148,7 @@ dependencies = [
 
 [[packages]]
 name = "bbotk"
-version = "1.11.0"
+version = "1.12.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -394,7 +394,7 @@ dependencies = []
 
 [[packages]]
 name = "future"
-version = "1.70.0"
+version = "1.75.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -616,7 +616,7 @@ dependencies = []
 
 [[packages]]
 name = "kableExtra"
-version = "1.4.0"
+version = "1.4.1"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -737,16 +737,16 @@ dependencies = []
 
 [[packages]]
 name = "mirai"
-version = "2.7.1"
+version = "2.7.2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
-    { name = "nanonext", requirement = "(>= 1.9.0)" },
+    { name = "nanonext", requirement = "(>= 1.10.1)" },
 ]
 
 [[packages]]
 name = "mlbench"
-version = "2.1-8"
+version = "2.1-9"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -880,7 +880,7 @@ dependencies = [
 
 [[packages]]
 name = "moocore"
-version = "0.3.1"
+version = "0.3.2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -890,14 +890,14 @@ dependencies = [
 
 [[packages]]
 name = "mvtnorm"
-version = "1.4-1"
+version = "1.4-2"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
 
 [[packages]]
 name = "nanonext"
-version = "1.10.0"
+version = "1.10.1"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -945,7 +945,7 @@ dependencies = []
 
 [[packages]]
 name = "partykit"
-version = "1.2-27"
+version = "1.2-29"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = [
@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[packages]]
 name = "rlang"
-version = "1.2.0"
+version = "1.3.0"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -1377,6 +1377,13 @@ dependencies = [
 ]
 
 [[packages]]
+name = "tinyplot"
+version = "0.7.0"
+source = { repository = "https://cloud.r-project.org/" }
+force_source = false
+dependencies = []
+
+[[packages]]
 name = "tinytex"
 version = "0.60"
 source = { repository = "https://cloud.r-project.org/" }
@@ -1442,14 +1449,11 @@ dependencies = [
 
 [[packages]]
 name = "vip"
-version = "0.4.6"
-source = { repository = "https://cloud.r-project.org/" }
+version = "0.5.0"
+source = { repository = "https://bgreenwell.r-universe.dev/", git = "https://github.com/bgreenwell/vip", sha = "4722bbe2b9aef245ecb1ea3ff30b46ff21f86ed8" }
 force_source = false
 dependencies = [
-    "foreach",
-    { name = "ggplot2", requirement = "(>= 0.9.0)" },
-    "tibble",
-    "yardstick",
+    { name = "tinyplot", requirement = "(>= 0.3.0)" },
 ]
 
 [[packages]]
@@ -1468,7 +1472,7 @@ dependencies = []
 
 [[packages]]
 name = "xfun"
-version = "0.59"
+version = "0.60"
 source = { repository = "https://cloud.r-project.org/" }
 force_source = false
 dependencies = []
@@ -1497,7 +1501,7 @@ dependencies = [
 [[packages]]
 name = "xplainfi"
 version = "1.1.0.9000"
-source = { git = "https://github.com/mlr-org/xplainfi", sha = "05a992094190ae19e981a5946205755b5cbc9346", branch = "main" }
+source = { git = "https://github.com/mlr-org/xplainfi", sha = "833730be4ae898ab097b602c5cf0a481217456fa", branch = "main" }
 force_source = true
 dependencies = [
     "checkmate",

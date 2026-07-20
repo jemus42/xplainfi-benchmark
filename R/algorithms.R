@@ -399,9 +399,15 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	test_data <- instance$task$data(rows = test_ids)
 	target_name <- instance$task$target_names
 
-	# Determine metric based on task type
-	# Doesn't support MSE accoridng to vip::list_metrics()
-	metric <- if (instance$task_type == "regr") "rmse" else "accuracy"
+	# Mirror instance$measure (regr.mse / classif.ce) so importances are on the same
+	# scale as the other methods: vip::list_metrics() has neither, but `metric` also
+	# accepts a function(truth, estimate)
+	metric <- switch(
+		instance$measure$id,
+		"regr.mse" = function(truth, estimate) mean((truth - estimate)^2),
+		"classif.ce" = function(truth, estimate) mean(truth != estimate),
+		cli::cli_abort("No vip metric matching measure {.val {instance$measure$id}}")
+	)
 
 	# Create wrapper predict function for vip
 	# vip expects a function(object, newdata) that returns predictions
@@ -436,6 +442,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		train = test_data,
 		target = target_name,
 		metric = metric,
+		smaller_is_better = TRUE,
 		nsim = n_repeats,
 		pred_wrapper = pred_wrapper
 	)

@@ -233,7 +233,7 @@ R dependencies are managed with [`rv`](https://github.com/A2-ai/rv) (`rproject.t
 - Core: `xplainfi`, `mlr3`, `mlr3learners`, `mlr3pipelines`, `mlr3fselect`, `batchtools`, `reticulate`
 - Data: `data.table`, `mlbench`, `mlr3data`
 - Samplers: `arf`, `partykit`, `mvtnorm`
-- Reference implementations: `iml`, `vip`
+- Reference implementations: `iml`, `vip` (archived on CRAN, installed from [r-universe](https://bgreenwell.r-universe.dev) — see [bgreenwell/vip](https://github.com/bgreenwell/vip); needs rv >= 0.22.2, older rv panics on r-universe repos)
 - Learners: `ranger` (rf), `mlr3torch` (mlp), `xgboost` (boosting), base `stats::lm` (linear)
 - Utilities: `checkmate`, `digest`, `here`, `cli`, `fs`
 
