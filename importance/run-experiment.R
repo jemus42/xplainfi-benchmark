@@ -1,24 +1,45 @@
-# Script to run the experiment
+# Prepare and submit the importance experiment.
+#
+# Designed to be run interactively: source down to `report_groups()`, eyeball
+# the plan, then run `submit_groups()`. Sourcing the whole file submits.
+#
+# Cluster configuration comes from batchtools.conf.R -- do not override
+# reg$cluster.functions here. QoS is derived from walltime by the Slurm template.
+#
+# Typical staged workflow (resource estimates come from *completed* jobs):
+#   1. Pilot one replication to measure real runtime/memory:
+#        ids <- ijoin(findExperiments(repls = 1), todo())
+#   2. When it finishes, run importance/eta.R to write eta-/mem-importance.rds.
+#   3. Submit the rest, now with estimates (the default `ids` below).
 library(batchtools)
-
-# Load registry
 source(here::here("importance", "config.R"))
+source(here::here("R/submit-helpers.R"))
+
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
-tab = unwrap(getJobTable())
-tab[, chunk := sample(job.id)]
 getStatus()
 
-reg$cluster.functions = makeClusterFunctionsSSH(
-	list(Worker$new("localhost", ncpus = 10, max.load = 40)),
-	fs.latency = 0
+# Everything outstanding and not already in flight (picks up failed/expired too).
+todo <- function() {
+	findNotDone() |> ajoin(findRunning()) |> ajoin(findQueued())
+}
+ids <- todo()
+# Pilot first pass instead:  ids <- ijoin(findExperiments(repls = 1), todo())
+
+# Estimates from completed jobs (written by eta.R); absent on the pilot pass, in
+# which case chunking falls back to job count / default memory.
+read_est <- function(path, field) {
+	if (fs::file_exists(path)) data.table::as.data.table(readRDS(path)[[field]]) else NULL
+}
+runtimes <- read_est(here::here("eta-importance.rds"), "runtimes")
+memory <- read_est(here::here("mem-importance.rds"), "memory")
+
+groups <- plan_submission(
+	ids = ids,
+	python = findTagged("python"),
+	runtimes = runtimes,
+	memory = memory
 )
+report_groups(groups)
 
-ids = tab[repl <= 10, .SD[sample(nrow(.SD), 1)], by = c("algorithm", "problem")]
-ids = tab[repl <= 20, .SD[sample(nrow(.SD), 1)], by = c("algorithm", "problem")]
-
-bikesh = tab[problem == "bike_sharing"]
-
-
-ijoin(ids, findNotSubmitted()) |>
-	ajoin(bikesh) |>
-	submitJobs()
+# Inspect `groups` above, then submit (comment out to prepare-only):
+submit_groups(groups)

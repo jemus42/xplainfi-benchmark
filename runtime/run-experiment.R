@@ -1,41 +1,46 @@
-# Script to run the experiment
+# Prepare and submit the runtime experiment.
+#
+# Designed to be run interactively: source down to `report_groups()`, eyeball
+# the plan, then run `submit_groups()`. Sourcing the whole file submits.
+#
+# Cluster configuration comes from batchtools.conf.R. QoS is derived from
+# walltime by the Slurm template. Backend isolation matters more here than in
+# the importance lane: a session shared between backends would bias the timings.
+#
+# Typical staged workflow (resource estimates come from *completed* jobs):
+#   1. Pilot one replication to measure real runtime:
+#        ids <- ijoin(findExperiments(repls = 1), todo())
+#   2. When it finishes, run runtime/eta.R to refresh results/runtime-est.rds.
+#   3. Submit the rest, now with estimates (the default `ids` below).
 library(batchtools)
-source(here::here("runtime", "setup-batchtools.R"))
-
-# Load registry
 source(here::here("runtime", "config.R"))
+source(here::here("R/submit-helpers.R"))
+
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
-tab = unwrap(getJobTable())
-runtime_est = readRDS("results/runtime-est.rds")
-tab = rjoin(tab, runtime_est)
-tab[, python := grepl("python", tags)]
+getStatus()
 
-tab[, .N, by = c("n_samples", "n_features", "algorithm", "sampler")]
+# Everything outstanding and not already in flight (picks up failed/expired too).
+todo <- function() {
+	findNotDone() |> ajoin(findRunning()) |> ajoin(findQueued())
+}
+ids <- todo()
+# Pilot first pass instead:  ids <- ijoin(findExperiments(repls = 1), todo())
 
-batch1 = tab[repl <= 10]
+# Runtime estimates from completed jobs (written by eta.R); absent on the pilot
+# pass, in which case chunking falls back to job count.
+est_file <- here::here("results", "runtime-est.rds")
+runtimes <- if (fs::file_exists(est_file)) {
+	data.table::as.data.table(readRDS(est_file))
+} else {
+	NULL
+}
 
-batch1_py = batch1[(python)]
-batch1_r = batch1[!(python)]
+groups <- plan_submission(
+	ids = ids,
+	python = findTagged("python"),
+	runtimes = runtimes
+)
+report_groups(groups)
 
-batch1_py = batch1[, chunk := binpack(runtime, 12 * 3600)]
-batch1_r = batch1[, chunk := binpack(runtime, 12 * 3600)]
-
-batch1_py[, list(runtime = sum(runtime)), by = chunk]
-batch1_r[, list(runtime = sum(runtime)), by = chunk]
-
-ijoin(batch1_r, findNotSubmitted()) |>
-	submitJobs(resources = list(walltime = 24 * 3600, memory = 3 * 1024))
-ijoin(batch1_py, findNotSubmitted()) |>
-	submitJobs(batch1_py, resources = list(walltime = 24 * 3600, memory = 3 * 1024))
-
-batch2 = tab[repl > 10 & repl <= 20]
-batch2_py = batch2[(python)]
-batch2_r = batch2[!(python)]
-
-batch2_py = batch2[, chunk := binpack(runtime, 12 * 3600)]
-batch2_r = batch2[, chunk := binpack(runtime, 12 * 3600)]
-
-ijoin(batch2_r, findNotSubmitted()) |>
-	submitJobs(resources = list(walltime = 24 * 3600, memory = 3 * 1024))
-ijoin(batch2_py, findNotSubmitted()) |>
-	submitJobs(batch1_py, resources = list(walltime = 24 * 3600, memory = 3 * 1024))
+# Inspect `groups` above, then submit (comment out to prepare-only):
+submit_groups(groups)

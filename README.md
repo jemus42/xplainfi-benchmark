@@ -30,10 +30,9 @@ packages).
 ├── importance/          # Importance benchmark lane
 │   ├── config.R         # Experiment parameters
 │   ├── setup-batchtools.R
-│   ├── run-experiment.R
+│   ├── run-experiment.R # Group jobs by backend + resource tier, submit
 │   ├── collect-results.R
 │   ├── analysis.R       # Post-processing and figures
-│   ├── submit.R         # Cluster job submission
 │   ├── eta.R            # Runtime/ETA estimation
 │   └── shiny.R          # Interactive results explorer
 ├── runtime/             # Runtime benchmark lane
@@ -41,7 +40,6 @@ packages).
 │   ├── setup-batchtools.R
 │   ├── run-experiment.R
 │   ├── analysis.R
-│   ├── submit.R
 │   ├── eta.R
 │   └── shiny.R
 ├── R/                   # Shared functions
@@ -49,6 +47,7 @@ packages).
 │   ├── helpers-python.R # Python/fippy integration helpers
 │   ├── problems.R       # Problem definitions (task generators)
 │   ├── algorithms.R     # Algorithm definitions (FI methods)
+│   ├── submit-helpers.R # Job grouping/chunking for submission
 │   └── plotting.R       # Plot saving utilities
 ├── setup-common.R       # Shared package dependency checks
 ├── batchtools.conf.R    # Cluster configuration (gitignored)

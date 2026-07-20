@@ -7,9 +7,10 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
 
 - Two parallel lanes, `importance/` and `runtime/`, each with the same scripts:
   `config.R`, `setup-batchtools.R`, `run-experiment.R`, `collect-results.R`,
-  `analysis.R`, `submit.R`, `eta.R`, `shiny.R`.
+  `analysis.R`, `eta.R`, `shiny.R`.
 - `R/` shared: `helpers.R`, `helpers-python.R` (fippy/reticulate), `problems.R`
-  (DGP generators `prob_*`), `algorithms.R` (`algo_*` fns), `plotting.R`,
+  (DGP generators `prob_*`), `algorithms.R` (`algo_*` fns), `submit-helpers.R`
+  (job grouping/chunking, sourced only by `run-experiment.R`), `plotting.R`,
   `provenance.R` (provider + versioning plumbing).
 - `registries/<lane>/xplainfi-<version>/` — batchtools registries (gitignored, scratch).
 - `results/<lane>/` — durable reduced tables (tracked).
@@ -48,7 +49,7 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
 1. Point `rproject.toml` xplainfi at the dev branch/SHA, `rv sync`, confirm
    `packageVersion("xplainfi")`. Leave reference deps untouched.
 2. Re-run xplainfi only — `XPLAINFI_BENCH_PROVIDERS=xplainfi` → `setup-batchtools.R`
-   → `run-experiment.R` (or `submit.R`), for the `importance` (correctness) and
+   → `run-experiment.R`, for the `importance` (correctness) and
    `runtime` (speed) lanes. Reference impls are not recomputed.
 3. `collect-results.R` → writes `xplainfi-v<newversion>.rds`, auto-combines with the
    frozen `reference-v<oldversion>.rds` via `latest_reduced()`.
@@ -63,6 +64,21 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
   registry (provenance is read per-registry, so version is correct regardless of what
   is installed):
   `XPLAINFI_BENCH_VERSION=<old> Rscript -e 'source("importance/config.R"); source("R/provenance.R"); reg <- batchtools::loadRegistry(conf$reg_path, work.dir=here::here()); save_reduced(reduce_importances(reg, conf$reg_path), "importance", "xplainfi", "<old>")'`
+
+## Submission (`run-experiment.R` + `R/submit-helpers.R`)
+
+- `plan_submission()` groups pending jobs on two axes: **backend** (R vs Python,
+  from the `python` tag) then **resource tier** (runtime buckets → walltime). Each
+  group is one `submitJobs()` call.
+- **Backend isolation is the point of the split**: batchtools runs a `chunk`'s jobs
+  in one R session, so R torch (mlr3torch/libtorch) and Python torch (reticulate)
+  must never share a chunk. Chunk ids are offset per group; a collision aborts.
+- **QoS is not set** — the Slurm template derives it from `walltime`. Resources
+  carry only `walltime` (per tier) + `memory` (from `mem-*.rds` pretest, else default).
+- Estimates are optional: no `eta-*.rds` → chunk by job count; no `mem-*.rds` →
+  `mem_default`. LOCO is pinned to `n_repeats = 1L` (refits, repeats are wasted work).
+- Cluster functions come from `batchtools.conf.R` only — never set
+  `reg$cluster.functions` in `run-experiment.R`.
 
 ## Gotchas
 
