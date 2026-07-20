@@ -130,6 +130,11 @@ create_sklearn_learner <- function(
 	xgb <- reticulate::import("xgboost")
 	ce <- reticulate::import("category_encoders")
 
+	# Threading parity with the R learners: RF and XGBoost take n_jobs = n_threads()
+	# (matching ranger num.threads / xgboost nthread). Linear and MLP are BLAS-bound
+	# and have no thread arg -- they follow OMP_NUM_THREADS, which the BIPS Slurm job
+	# prolog sets cluster-wide, so R and Python BLAS already use the same count.
+
 	if (learner_type == "linear") {
 		if (task_type == "regr") {
 			learner <- sklearn$linear_model$LinearRegression()
@@ -144,13 +149,13 @@ create_sklearn_learner <- function(
 			learner <- sklearn$ensemble$RandomForestRegressor(
 				n_estimators = as.integer(n_trees),
 				random_state = random_state,
-				n_jobs = 1L
+				n_jobs = n_threads()
 			)
 		} else {
 			learner <- sklearn$ensemble$RandomForestClassifier(
 				n_estimators = as.integer(n_trees),
 				random_state = random_state,
-				n_jobs = 1L
+				n_jobs = n_threads()
 			)
 		}
 	} else if (learner_type == "mlp") {
@@ -187,7 +192,7 @@ create_sklearn_learner <- function(
 				tree_method = "hist",
 				early_stopping_rounds = 50L,
 				random_state = random_state,
-				n_jobs = 1L
+				n_jobs = n_threads()
 			)
 		} else {
 			learner <- xgb$XGBClassifier(
@@ -197,7 +202,7 @@ create_sklearn_learner <- function(
 				tree_method = "hist",
 				early_stopping_rounds = 50L,
 				random_state = random_state,
-				n_jobs = 1L
+				n_jobs = n_threads()
 			)
 		}
 	} else {

@@ -23,6 +23,7 @@ local({
 		"arf",
 		"partykit",
 		"mvtnorm",
+		"parallelly",
 		"fs"
 	)
 

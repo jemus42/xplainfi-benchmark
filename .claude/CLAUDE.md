@@ -99,6 +99,19 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
 - Cluster functions come from `batchtools.conf.R` only — never set
   `reg$cluster.functions` in `run-experiment.R`.
 
+## Threading parity
+
+- `default.resources$ncpus = 2` (batchtools.conf.R). `n_threads()` (R/helpers.R)
+  wraps `parallelly::availableCores()` — honors the Slurm allocation, cgroup quotas,
+  etc. (all node cores off-cluster) — applied uniformly so every implementation gets
+  the same CPU budget. Bias the thread count and the runtime comparison is meaningless.
+- Explicit thread args set to `n_threads()`: R ranger `num.threads`, xgboost
+  `nthread`, torch `torch_set_num_threads` (was uncapped → grabbed the whole node);
+  Python sklearn RF / XGBoost `n_jobs`.
+- BLAS-bound learners (R `lm`, sklearn linear/MLP, numpy) have no thread arg — they
+  follow `OMP_NUM_THREADS`, which the BIPS Slurm job prolog sets cluster-wide, so R
+  and Python BLAS already match (nothing to configure here).
+
 ## Gotchas
 
 - `docs/` is gitignored (pkgdown default) but `docs/overview.qmd` is tracked (moved

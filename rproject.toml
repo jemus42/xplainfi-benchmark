@@ -40,6 +40,7 @@ dependencies = [
   "reticulate",
   "mlr3fselect",
   "gower",
+  "parallelly", # availableCores() for thread parity across implementations
   "rmarkdown",
   "ggplot2",
   "tidyr",

@@ -1,3 +1,11 @@
+# CPUs this job may use. parallelly::availableCores() honors the Slurm allocation
+# (SLURM_CPUS_PER_TASK, ncpus=2 by default), cgroup quotas, PBS/SGE, etc., falling
+# back to all cores off-cluster. Applied uniformly to every learner/model thread
+# count so runtime comparisons stay fair (parity).
+n_threads <- function() {
+	as.integer(parallelly::availableCores())
+}
+
 .ensure_torch <- function() {
 	if (requireNamespace("torch", quietly = TRUE)) {
 		if (!torch::torch_is_installed()) {
@@ -63,7 +71,7 @@ create_learner <- function(
 			lrn(paste(task_type, "featureless", sep = "."))
 		},
 		"rf" = {
-			lrn(paste(task_type, "ranger", sep = "."), num.trees = n_trees, num.threads = 1)
+			lrn(paste(task_type, "ranger", sep = "."), num.trees = n_trees, num.threads = n_threads())
 		},
 		"linear" = {
 			switch(task_type, regr = lrn("regr.lm"), classif = lrn("classif.log_reg"))
@@ -71,6 +79,9 @@ create_learner <- function(
 		"mlp" = {
 			.ensure_torch()
 			require(mlr3torch)
+			# Cap torch to the allotted CPUs -- uncapped it grabs the whole node,
+			# breaking parity with the single/2-threaded ranger & xgboost learners.
+			torch::torch_set_num_threads(n_threads())
 			base_learner <- lrn(
 				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
@@ -112,7 +123,7 @@ create_learner <- function(
 				eta = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",
-				nthread = 1
+				nthread = n_threads()
 			)
 
 			# Add encoding, sadly makes predict_newdata_fast impossible
