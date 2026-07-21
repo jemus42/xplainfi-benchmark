@@ -21,6 +21,13 @@ for (est in c("permutation", "kernel", "exact")) {
 	stopifnot(inherits(new_sage(estimator = est), "MarginalSAGE"))
 }
 
+# n_permutations must be positively valid somewhere, or the exclusivity
+# assertions below would also pass if the argument had simply been removed.
+stopifnot(inherits(
+	new_sage(estimator = "permutation", n_permutations = 10L),
+	"MarginalSAGE"
+))
+
 # 2. Budget arguments are mutually exclusive -- a hard error, not a no-op.
 #    This is what forces the rbind design instead of a CJ.
 stopifnot(inherits(
