@@ -243,12 +243,27 @@ sage_algo_design <- function(
 	estimators = conf$sage_estimators,
 	kernel_variants = conf$kernel_variants
 ) {
+	# conf carries unsuffixed numeric literals, so coerce once here: otherwise a
+	# column's type depends on which estimators were requested (rbindlist upcasts
+	# NA_integer_ to double only when a real double chunk is present).
+	n_permutations <- as.integer(conf$n_permutations)
+	n_coalitions <- as.integer(conf$n_coalitions)
+
+	# A typo here would otherwise return an empty design and silently register
+	# zero jobs, which reads as "covered" in every downstream summary.
+	valid <- c("permutation", "kernel", "exact")
+	if (!all(estimators %in% valid)) {
+		cli::cli_abort(
+			"Unknown {.arg estimators}: {.val {setdiff(estimators, valid)}}. Must be one of {.val {valid}}."
+		)
+	}
+
 	parts <- list()
 
 	if ("permutation" %in% estimators) {
 		parts$permutation <- data.table::CJ(
 			estimator = "permutation",
-			n_permutations = conf$n_permutations,
+			n_permutations = n_permutations,
 			n_coalitions = NA_integer_,
 			kernel_variant = NA_character_,
 			sage_n_samples = conf$sage_n_samples,
@@ -261,7 +276,7 @@ sage_algo_design <- function(
 		parts$kernel <- data.table::CJ(
 			estimator = "kernel",
 			n_permutations = NA_integer_,
-			n_coalitions = conf$n_coalitions,
+			n_coalitions = n_coalitions,
 			kernel_variant = kernel_variants,
 			sage_n_samples = conf$sage_n_samples
 		)

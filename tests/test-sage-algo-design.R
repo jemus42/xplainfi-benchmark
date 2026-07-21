@@ -36,6 +36,14 @@ stopifnot(all(is.na(d[estimator != "permutation", min_permutations])))
 # sage_n_samples applies to every estimator.
 stopifnot(all(!is.na(d$sage_n_samples)))
 
+# Column types must not depend on which estimators were requested. Before this
+# was pinned down, n_coalitions came out double when the kernel arm was present
+# and integer when it was not.
+stopifnot(is.integer(d$n_permutations))
+stopifnot(is.integer(d$n_coalitions))
+stopifnot(is.character(d$estimator))
+stopifnot(is.character(d$kernel_variant))
+
 # Sampler cross-join multiplies rows and adds the column.
 ds <- sage_algo_design(conf, sampler = c("gaussian", "knn"))
 stopifnot(nrow(ds) == 20L)
@@ -51,10 +59,15 @@ dsage <- sage_algo_design(
 stopifnot(nrow(dsage) == 6L)
 stopifnot(!("exact" %in% dsage$estimator))
 stopifnot(all(is.na(dsage$kernel_variant)))
+stopifnot(is.integer(dsage$n_permutations), is.integer(dsage$n_coalitions))
 
 # fippy: permutation only.
 dfippy <- sage_algo_design(conf, sampler = "simple", estimators = "permutation")
 stopifnot(nrow(dfippy) == 3L)
 stopifnot(all(dfippy$estimator == "permutation"))
+stopifnot(is.integer(dfippy$n_permutations), is.integer(dfippy$n_coalitions))
+
+# A typo must fail loudly, not return an empty design.
+stopifnot(inherits(try(sage_algo_design(conf, estimators = "nope"), silent = TRUE), "try-error"))
 
 cat("OK: sage_algo_design\n")
