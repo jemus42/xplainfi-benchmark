@@ -68,6 +68,12 @@ algo_funs <- list(
 
 # Restrict to the requested providers (conf$providers, default "all").
 active_algos <- select_algorithms(names(algo_funs), conf$providers)
+
+# Second, independent filter: which methods this run is about at all. Composes
+# with the provider filter above -- providers select implementations, methods
+# select the importance measures.
+active_algos <- intersect(active_algos, conf$methods)
+
 cli::cli_alert_info(
 	"Providers: {.val {conf$providers}} -> {length(active_algos)} algorithm(s): {.val {active_algos}}"
 )
@@ -151,21 +157,34 @@ algo_designs <- list(
 		n_repeats = 1L
 	),
 
-	# MarginalSAGE
-	MarginalSAGE = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping,
-		min_permutations = conf$min_permutations
+	# SAGE estimator axis. The three estimators take mutually exclusive budget
+	# arguments, so these designs are an rbind of per-estimator sub-designs with
+	# NA in the inapplicable columns -- see sage_algo_design() in R/helpers.R.
+	MarginalSAGE = sage_algo_design(conf),
+
+	ConditionalSAGE = sage_algo_design(conf, sampler = conf$samplers),
+
+	# Python sage: kernel + permutation. Its kernel estimator is always the
+	# unbiased variant, so it has no variant choice, and it has no exact arm.
+	MarginalSAGE_sage = sage_algo_design(
+		conf,
+		estimators = c("permutation", "kernel"),
+		kernel_variants = NA_character_
 	),
 
-	# ConditionalSAGE (with samplers)
-	ConditionalSAGE = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping,
-		sampler = conf$samplers,
-		min_permutations = conf$min_permutations
+	# fippy implements the permutation estimator only. `estimator` is set
+	# explicitly so the column is present on every SAGE row and the analysis
+	# join stays uniform across arms.
+	MarginalSAGE_fippy = sage_algo_design(
+		conf,
+		sampler = "simple",
+		estimators = "permutation"
+	),
+
+	ConditionalSAGE_fippy = sage_algo_design(
+		conf,
+		sampler = "gaussian",
+		estimators = "permutation"
 	),
 
 	# PFI_iml: Reference implementation from iml package
@@ -190,32 +209,6 @@ algo_designs <- list(
 	CFI_fippy = CJ(
 		n_repeats = conf$n_repeats,
 		sampler = "gaussian"
-	),
-
-	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
-	# Use simple sampler for marginal (no conditioning needed)
-	MarginalSAGE_fippy = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping,
-		sampler = "simple",
-		min_permutations = conf$min_permutations
-	),
-
-	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
-	# Use gaussian sampler (all tasks now have numeric features only)
-	ConditionalSAGE_fippy = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping,
-		sampler = "gaussian",
-		min_permutations = conf$min_permutations
-	),
-
-	# Kernel SAGE: Official SAGE implementation with kernel estimator
-	MarginalSAGE_sage = data.table(
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
 	)
 )
 
@@ -252,6 +245,26 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 		"Removing {nrow(featureless_non_xplainfi_jobs)} job(s) for other methods with featureless learner"
 	)
 	removeExperiments(featureless_non_xplainfi_jobs)
+}
+
+# ============================================================================
+# Remove infeasible exact-estimator jobs
+# ============================================================================
+
+# estimator = "exact" enumerates 2^n_features coalitions and aborts above
+# max_features (12L). bike_sharing has 13 features. friedman1 (10 features,
+# 1024 coalitions) is kept: that is essentially the cost of the largest kernel
+# budget (2 + 2 * 512 = 1026), so it is a fair ground truth rather than an
+# outlier expense.
+exact_infeasible <- unwrap(getJobTable())[
+	estimator == "exact" & problem == "bike_sharing",
+]
+
+if (nrow(exact_infeasible) > 0) {
+	cli::cli_alert_warning(
+		"Removing {nrow(exact_infeasible)} exact-estimator job(s) on tasks above max_features"
+	)
+	removeExperiments(exact_infeasible)
 }
 
 # ============================================================================

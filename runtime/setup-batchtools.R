@@ -57,6 +57,12 @@ algo_funs <- list(
 
 # Restrict to the requested providers (conf$providers, default "all").
 active_algos <- select_algorithms(names(algo_funs), conf$providers)
+
+# Second, independent filter: which methods this run is about at all. Composes
+# with the provider filter above -- providers select implementations, methods
+# select the importance measures.
+active_algos <- intersect(active_algos, conf$methods)
+
 cli::cli_alert_info(
 	"Providers: {.val {conf$providers}} -> {length(active_algos)} algorithm(s): {.val {active_algos}}"
 )
@@ -100,19 +106,34 @@ algo_designs <- list(
 		n_repeats = 1L
 	),
 
-	# MarginalSAGE
-	MarginalSAGE = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
+	# SAGE estimator axis. The three estimators take mutually exclusive budget
+	# arguments, so these designs are an rbind of per-estimator sub-designs with
+	# NA in the inapplicable columns -- see sage_algo_design() in R/helpers.R.
+	MarginalSAGE = sage_algo_design(conf),
+
+	ConditionalSAGE = sage_algo_design(conf, sampler = conf$samplers),
+
+	# Python sage: kernel + permutation. Its kernel estimator is always the
+	# unbiased variant, so it has no variant choice, and it has no exact arm.
+	MarginalSAGE_sage = sage_algo_design(
+		conf,
+		estimators = c("permutation", "kernel"),
+		kernel_variants = NA_character_
 	),
 
-	# ConditionalSAGE (with samplers)
-	ConditionalSAGE = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		sampler = conf$samplers,
-		early_stopping = conf$sage_early_stopping
+	# fippy implements the permutation estimator only. `estimator` is set
+	# explicitly so the column is present on every SAGE row and the analysis
+	# join stays uniform across arms.
+	MarginalSAGE_fippy = sage_algo_design(
+		conf,
+		sampler = "simple",
+		estimators = "permutation"
+	),
+
+	ConditionalSAGE_fippy = sage_algo_design(
+		conf,
+		sampler = "gaussian",
+		estimators = "permutation"
 	),
 
 	# PFI_iml: Reference implementation from iml package
@@ -135,28 +156,6 @@ algo_designs <- list(
 	CFI_fippy = CJ(
 		n_repeats = conf$n_repeats,
 		sampler = "gaussian"
-	),
-
-	# MarginalSAGE_fippy: Marginal SAGE from fippy package (Python)
-	MarginalSAGE_fippy = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping,
-		sampler = "simple"
-	),
-
-	# ConditionalSAGE_fippy: Conditional SAGE from fippy package (Python)
-	ConditionalSAGE_fippy = CJ(
-		n_permutations = conf$n_permutations,
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping,
-		sampler = "gaussian"
-	),
-
-	# Kernel SAGE: Official SAGE implementation with kernel estimator
-	MarginalSAGE_sage = CJ(
-		sage_n_samples = conf$sage_n_samples,
-		early_stopping = conf$sage_early_stopping
 	)
 )
 
@@ -192,9 +191,31 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 	removeExperiments(featureless_non_xplainfi_jobs)
 }
 
+# ============================================================================
+# Remove infeasible exact-estimator jobs
+# ============================================================================
+
+# estimator = "exact" enumerates 2^n_features coalitions and aborts above
+# max_features (12L). Keeps n_features 5 (32 coalitions) and 10 (1024).
+exact_infeasible <- unwrap(getJobTable())[
+	estimator == "exact" & n_features > 12,
+]
+
+if (nrow(exact_infeasible) > 0) {
+	cli::cli_alert_warning(
+		"Removing {nrow(exact_infeasible)} exact-estimator job(s) above max_features"
+	)
+	removeExperiments(exact_infeasible)
+}
+
 # for SAGE with early stopping we only keep maximum n_permutations
+# Scoped to the permutation estimator: kernel/exact rows carry NA budgets, and
+# early_stopping is permutation-only. (With sage_early_stopping = FALSE this is
+# a no-op, but leaving it unscoped is a trap if early stopping is turned back on.)
 sage_early_stopping <- unwrap(getJobTable())[
-	early_stopping & n_permutations < max(n_permutations, na.rm = TRUE),
+	estimator == "permutation" &
+		early_stopping &
+		n_permutations < max(n_permutations, na.rm = TRUE),
 ]
 # sage_early_stopping[, .N, by = c("early_stopping", "n_permutations", "algorithm")]
 
