@@ -15,6 +15,7 @@ library(batchtools)
 source(here::here("importance", "config.R"))
 source(here::here("setup-common.R")) # pkg check + all R/ helpers via source_r()
 
+require_registry(conf$reg_path)
 reg <- loadRegistry(conf$reg_path, writeable = TRUE)
 getStatus()
 

@@ -48,6 +48,32 @@ todo <- function(..., reg = batchtools::getDefaultRegistry()) {
 # Returns data.table(job.id, memory) to pass as plan_submission(memory = ). A job
 # whose group in plan_submission contains it will request at least this much
 # (groups request the max of their members).
+# Abort with an actionable message when the registry a script is about to load
+# does not exist. batchtools' own error names the missing directory but not the
+# reason, and the two reasons need opposite fixes:
+#   * nothing built yet          -> run setup-batchtools.R
+#   * XPLAINFI_BENCH_VERSION unset/mismatched -> the registry exists under
+#     another version segment, and rebuilding would be wrong
+# Listing the siblings makes which one it is obvious at a glance.
+require_registry <- function(reg_path, lane = basename(dirname(reg_path))) {
+	if (fs::dir_exists(reg_path)) {
+		return(invisible(reg_path))
+	}
+	siblings <- fs::path_file(fs::dir_ls(fs::path_dir(reg_path), type = "directory"))
+	msg <- c(
+		"No registry at {.path {fs::path_rel(reg_path)}}.",
+		"i" = "Build it first: {.code Rscript {lane}/setup-batchtools.R}"
+	)
+	if (length(siblings) > 0) {
+		msg <- c(
+			msg,
+			"!" = "Other registries exist for this lane: {.val {siblings}}.",
+			"i" = "If one of those is the one you want, set {.envvar XPLAINFI_BENCH_VERSION} to its version segment rather than rebuilding."
+		)
+	}
+	cli::cli_abort(msg)
+}
+
 # todo(), optionally narrowed to the replications named by XPLAINFI_BENCH_REPLS
 # ("1", or "1,2"). Unset means everything outstanding.
 #
