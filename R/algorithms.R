@@ -694,11 +694,26 @@ algo_MarginalSAGE_fippy <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
+	# estimator/n_coalitions/kernel_variant are inert here: the design carries them
+	# on every SAGE row so the analysis join stays uniform across arms, but fippy
+	# implements the permutation estimator only. See the guard below.
+	estimator = "permutation",
+	n_coalitions = NA_integer_,
+	kernel_variant = NA_character_,
 	sage_n_samples = 10,
 	sampler = "simple",
 	early_stopping = TRUE,
 	min_permutations = 20
 ) {
+	# fippy implements the permutation estimator only. The column is carried on
+	# every SAGE design so the analysis join stays uniform, so accept it here and
+	# fail loudly if a design ever registers a different value.
+	if (!identical(estimator, "permutation")) {
+		cli::cli_abort(
+			"{.pkg fippy} implements the permutation estimator only, got {.val {estimator}}."
+		)
+	}
+
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -824,11 +839,26 @@ algo_ConditionalSAGE_fippy <- function(
 	job = NULL,
 	instance,
 	n_permutations = 10,
+	# estimator/n_coalitions/kernel_variant are inert here: the design carries them
+	# on every SAGE row so the analysis join stays uniform across arms, but fippy
+	# implements the permutation estimator only. See the guard below.
+	estimator = "permutation",
+	n_coalitions = NA_integer_,
+	kernel_variant = NA_character_,
 	sage_n_samples = 10,
 	sampler = "gaussian",
 	early_stopping = TRUE,
 	min_permutations = 20
 ) {
+	# fippy implements the permutation estimator only. The column is carried on
+	# every SAGE design so the analysis join stays uniform, so accept it here and
+	# fail loudly if a design ever registers a different value.
+	if (!identical(estimator, "permutation")) {
+		cli::cli_abort(
+			"{.pkg fippy} implements the permutation estimator only, got {.val {estimator}}."
+		)
+	}
+
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
 	test_ids <- instance$resampling$test_set(1)
@@ -958,6 +988,10 @@ algo_MarginalSAGE_sage <- function(
 	estimator = "kernel",
 	n_permutations = NA_integer_,
 	n_coalitions = NA_integer_,
+	# kernel_variant is a design column on every SAGE arm for join uniformity, but
+	# Python sage's kernel estimator is always the unbiased variant -- accepted
+	# and ignored here.
+	kernel_variant = NA_character_,
 	sage_n_samples = 200, # Background data size for marginalization
 	early_stopping = FALSE,
 	min_permutations = 20

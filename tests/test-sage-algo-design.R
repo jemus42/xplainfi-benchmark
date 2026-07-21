@@ -84,3 +84,35 @@ stopifnot(inherits(
 ))
 
 cat("OK: sage_algo_design\n")
+
+# ---------------------------------------------------------------------------
+# Guard: every design column must exist as a formal on the function that
+# consumes it.
+# ---------------------------------------------------------------------------
+# batchtools passes every design column as a named argument (do.call with
+# job$algo.pars, unfiltered), so a design column with no matching formal kills
+# every job for that algorithm at runtime. Check the pairing here instead.
+source(here::here("R", "algorithms.R"))
+designs <- list(
+	MarginalSAGE = sage_algo_design(conf),
+	ConditionalSAGE = sage_algo_design(conf, sampler = "gaussian"),
+	MarginalSAGE_sage = sage_algo_design(
+		conf,
+		estimators = c("permutation", "kernel"),
+		kernel_variants = NA_character_
+	),
+	MarginalSAGE_fippy = sage_algo_design(conf, sampler = "simple", estimators = "permutation"),
+	ConditionalSAGE_fippy = sage_algo_design(conf, sampler = "gaussian", estimators = "permutation")
+)
+for (nm in names(designs)) {
+	extra <- setdiff(names(designs[[nm]]), names(formals(get(paste0("algo_", nm)))))
+	if (length(extra) > 0) {
+		stop(sprintf(
+			"algo_%s lacks formals for design column(s): %s",
+			nm,
+			paste(extra, collapse = ", ")
+		))
+	}
+}
+
+cat("OK: every SAGE design column has a matching algo_* formal\n")
