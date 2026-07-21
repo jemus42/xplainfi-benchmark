@@ -28,8 +28,8 @@ conf <- list(
 	# Samples to generate
 	n_samples = 5000,
 	# Affects correlation task
-	correlation = c(0.2, 0.5, 0.7, 0.9),
-	# Affects PFI, CFI, and LOCO iterations
+	correlation = c(0.2, 0.5, 0.9),
+	# Affects PFI and CFI
 	n_repeats = 100,
 	# SAGE permutations with convergence detection (across all implementations);
 	# 100 is sufficient in practice.
@@ -40,11 +40,11 @@ conf <- list(
 	# increases RAM usage a lot if set too high, and returns are diminishing somewhat quickly
 	sage_n_samples = c(100),
 	# Types of learners to use for each method, uses create_learner helper
-	learner_types = c("linear", "rf", "mlp", "boosting"),
+	learner_types = c("linear", "rf"), # "mlp", "boosting"),
 	# Conditional samplers for CFI and ConditionalSAGE
 	samplers = c(
-		"arf",
-		"gaussian",
-		"knn"
+		# "arf",
+		"gaussian"
+		# "knn"
 	)
 )
