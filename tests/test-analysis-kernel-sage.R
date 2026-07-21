@@ -44,6 +44,12 @@ main <- function() {
 	# never produces it for the importance lane (it's a result column, not a
 	# job parameter), so the analysis recovers it by counting feature-rows per
 	# job.id. Omitting it here is what exercises that recovery path.
+	#
+	# job.id is numbered per provider block, restarting at 1 in each, mirroring
+	# two real batchtools registries -- this is what makes xplainfi job.id 1
+	# collide with reference job.id 1 once combine_reduced() stacks them, the
+	# exact scenario the by = c("job.id", "provider", "xplainfi_version") fix
+	# has to survive.
 	# -------------------------------------------------------------------------
 	arms <- list(
 		list(
@@ -93,10 +99,12 @@ main <- function() {
 
 	set.seed(1)
 	rows <- list()
-	job_id <- 0L
+	job_ids <- c(xplainfi = 0L, reference = 0L)
 	for (arm in arms) {
+		provider <- algo_provider(arm$algo)
 		for (repl in repls) {
-			job_id <- job_id + 1L
+			job_ids[[provider]] <- job_ids[[provider]] + 1L
+			job_id <- job_ids[[provider]]
 			for (feat in features) {
 				is_exact <- arm$est == "exact"
 				budget <- if (arm$est == "permutation") arm$nperm else arm$ncoal
@@ -121,6 +129,7 @@ main <- function() {
 					kernel_variant = arm$kv,
 					n_permutations = arm$nperm,
 					n_coalitions = arm$ncoal,
+					xplainfi_version = fixture_version,
 					runtime = runif(1, 1, 5)
 				)
 			}
@@ -169,8 +178,21 @@ main <- function() {
 	# failure the recovery path exists to prevent.
 	stopifnot(all(is.finite(out$bias$mean_evals)))
 
+	# Pin the recovery itself, not just its finiteness. The permutation arms'
+	# n_evals = 1 + n_permutations * n_features is the one estimator whose cost
+	# actually depends on n_features (kernel's 2 + 2 * n_coalitions does not), and
+	# their job.ids (1-4 in the xplainfi block) collide with all four reference
+	# job.ids by construction above. A regression to `by = job.id` alone recovers
+	# n_features = 4 (2 real rows + 2 from the colliding reference job) instead of
+	# the true 2, which is finite and plausible but wrong -- exactly what the
+	# is.finite() check above cannot catch, and what this pins down instead.
+	perm_bias <- out$bias[out$bias$arm == "permutation", ]
+	stopifnot(nrow(perm_bias) > 0)
+	expected_evals <- 1 + perm_bias$n_permutations * length(features)
+	stopifnot(all(perm_bias$mean_evals == expected_evals))
+
 	cat("OK: analysis-kernel-sage.R produces non-empty bias/coverage/cross tables\n")
-	cat("    with finite mean_evals (n_features recovery path exercised)\n")
+	cat("    with n_features correctly recovered (mean_evals pinned exactly)\n")
 }
 
 main()

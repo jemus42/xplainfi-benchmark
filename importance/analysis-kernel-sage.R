@@ -56,8 +56,13 @@ instance_key <- intersect(instance_key, names(res))
 # job parameter) is absent. The reduced table is long -- one row per feature per
 # job -- so recover it by counting. The runtime lane has it as a problem
 # parameter already, hence the guard.
+#
+# Group by more than job.id: it is registry-local and restarts at 1 in each, and
+# this table deliberately combines the xplainfi and reference registries. Keying
+# on job.id alone sums the feature counts of colliding jobs into a finite,
+# plausible, wrong number that no is.finite() check can catch.
 if (!("n_features" %in% names(res))) {
-	res[, n_features := .N, by = job.id]
+	res[, n_features := .N, by = c("job.id", "provider", "xplainfi_version")]
 }
 
 # Cost in evaluated coalitions, the only axis on which the three estimators are
