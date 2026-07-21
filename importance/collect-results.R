@@ -60,22 +60,33 @@ tmpres[, learner_type := NULL]
 tmpres[, task_name := NULL]
 tmpres <- cbind(results[, .(job.id)], tmpres)
 
-res <- ijoin(
-	tmpres,
-	unwrap(getJobPars())[, .(
-		job.id,
-		problem,
-		algorithm,
-		learner_type,
-		# n_samples,
-		# n_features,
-		correlation,
-		n_repeats,
-		sampler,
-		n_permutations,
-		sage_n_samples
-	)]
+pars <- unwrap(getJobPars())
+
+# When conf$methods restricts registered algorithms (e.g. a SAGE-only dev run),
+# not every one of these columns is carried by any registered algorithm's
+# design -- n_repeats belongs only to PFI/CFI/LOCO, for instance. Select only
+# the columns actually present, or this dies with "object not found".
+wanted_pars <- c(
+	"job.id",
+	"problem",
+	"algorithm",
+	"learner_type",
+	# n_samples,
+	# n_features,
+	"correlation",
+	"n_repeats",
+	"sampler",
+	"n_permutations",
+	"sage_n_samples"
 )
+res <- ijoin(tmpres, pars[, .SD, .SDcols = intersect(wanted_pars, names(pars))])
+
+# Backfill any of the above that are absent so the exploratory summaries below
+# (which reference them unconditionally) stay meaningful instead of aborting.
+missing_pars <- setdiff(wanted_pars, c("job.id", names(res)))
+if (length(missing_pars) > 0) {
+	res[, (missing_pars) := NA]
+}
 
 
 # Extract importances
