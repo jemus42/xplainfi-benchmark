@@ -106,9 +106,9 @@ if (nrow(paired) == 0) {
 			rmse = sqrt(mean(err^2)),
 			mean_evals = mean(n_evals)
 		),
-		by = .(algorithm, arm, n_permutations, n_coalitions)
+		by = .(problem, algorithm, arm, n_permutations, n_coalitions)
 	]
-	setorder(bias, algorithm, arm, mean_evals)
+	setorder(bias, problem, algorithm, arm, mean_evals)
 
 	cli::cli_h1("Check 1: bias vs the exact estimator")
 	cli::cli_alert_info(
@@ -130,9 +130,9 @@ if (nrow(paired) == 0) {
 			mean_width = mean(conf_upper - conf_lower),
 			mean_se = mean(se)
 		),
-		by = .(algorithm, arm, n_permutations, n_coalitions)
+		by = .(problem, algorithm, arm, n_permutations, n_coalitions)
 	]
-	setorder(coverage, algorithm, arm, n_coalitions, n_permutations)
+	setorder(coverage, problem, algorithm, arm, n_coalitions, n_permutations)
 
 	cli::cli_h1("Check 2: Monte Carlo CI calibration (nominal 0.95)")
 	cli::cli_alert_info(

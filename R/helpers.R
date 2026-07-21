@@ -237,6 +237,11 @@ create_problem_instance <- function(
 # kernel_variants  which design-matrix variants it supports. Pass NA_character_
 #                  for implementations with no variant choice (Python sage's
 #                  kernel estimator is always the unbiased one).
+#
+# Note the inverse failure mode of the missing-formals bug this guards against
+# (see tests/test-sage-algo-design.R): omitting "permutation" from `estimators`
+# drops the early_stopping / min_permutations columns from the design entirely,
+# so the consuming algo_* function's own defaults silently take over instead.
 sage_algo_design <- function(
 	conf,
 	sampler = NULL,

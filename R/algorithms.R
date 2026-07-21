@@ -702,7 +702,7 @@ algo_MarginalSAGE_fippy <- function(
 	kernel_variant = NA_character_,
 	sage_n_samples = 10,
 	sampler = "simple",
-	early_stopping = TRUE,
+	early_stopping = FALSE,
 	min_permutations = 20
 ) {
 	# fippy implements the permutation estimator only. The column is carried on
@@ -847,7 +847,7 @@ algo_ConditionalSAGE_fippy <- function(
 	kernel_variant = NA_character_,
 	sage_n_samples = 10,
 	sampler = "gaussian",
-	early_stopping = TRUE,
+	early_stopping = FALSE,
 	min_permutations = 20
 ) {
 	# fippy implements the permutation estimator only. The column is carried on

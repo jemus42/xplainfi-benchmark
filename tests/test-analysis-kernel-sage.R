@@ -31,12 +31,16 @@ main <- function() {
 		}
 		if (fs::file_exists(out_path)) fs::file_delete(out_path)
 	}
-	on.exit(cleanup(), add = TRUE)
+	# Must run before on.exit() registers cleanup(): if out_path already holds a
+	# real results/importance/kernel-sage-validation.rds from an actual analysis
+	# run, this aborts before cleanup can ever delete it. Registering cleanup()
+	# first would delete real output the instant this stopifnot fails.
 	stopifnot(
 		!fs::file_exists(xplainfi_fixture_path),
 		!fs::file_exists(reference_fixture_path),
 		!fs::file_exists(out_path)
 	)
+	on.exit(cleanup(), add = TRUE)
 
 	# -------------------------------------------------------------------------
 	# Build the fixture: every arm the analysis pairs up, across 2 features and

@@ -61,6 +61,12 @@ active_algos <- select_algorithms(names(algo_funs), conf$providers)
 # Second, independent filter: which methods this run is about at all. Composes
 # with the provider filter above -- providers select implementations, methods
 # select the importance measures.
+unknown_methods <- setdiff(conf$methods, names(algo_funs))
+if (length(unknown_methods) > 0) {
+	cli::cli_abort(
+		"Unknown {.arg conf$methods}: {.val {unknown_methods}}. Must be one of {.val {names(algo_funs)}}."
+	)
+}
 active_algos <- intersect(active_algos, conf$methods)
 
 cli::cli_alert_info(

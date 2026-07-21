@@ -72,6 +72,12 @@ active_algos <- select_algorithms(names(algo_funs), conf$providers)
 # Second, independent filter: which methods this run is about at all. Composes
 # with the provider filter above -- providers select implementations, methods
 # select the importance measures.
+unknown_methods <- setdiff(conf$methods, names(algo_funs))
+if (length(unknown_methods) > 0) {
+	cli::cli_abort(
+		"Unknown {.arg conf$methods}: {.val {unknown_methods}}. Must be one of {.val {names(algo_funs)}}."
+	)
+}
 active_algos <- intersect(active_algos, conf$methods)
 
 cli::cli_alert_info(
@@ -251,11 +257,13 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 # Remove infeasible exact-estimator jobs
 # ============================================================================
 
-# estimator = "exact" enumerates 2^n_features coalitions and aborts above
-# max_features (12L). bike_sharing has 13 features. friedman1 (10 features,
-# 1024 coalitions) is kept: that is essentially the cost of the largest kernel
-# budget (2 + 2 * 512 = 1026), so it is a fair ground truth rather than an
-# outlier expense.
+# estimator = "exact" enumerates 2^n_features coalitions. bike_sharing has 12
+# features -- exactly at max_features (12L), so the exact arm is feasible here,
+# not infeasible. It is excluded on cost grounds instead: 2^12 = 4096 coalitions
+# is four times the largest kernel budget (2 + 2 * 512 = 1026), so this lane has
+# no ground-truth arm on bike_sharing. friedman1 (10 features, 1024 coalitions)
+# is kept: that is essentially the cost of the largest kernel budget, so it is
+# a fair ground truth rather than an outlier expense.
 exact_infeasible <- unwrap(getJobTable())[
 	estimator == "exact" & problem == "bike_sharing",
 ]
