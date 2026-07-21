@@ -955,8 +955,11 @@ algo_MarginalSAGE_sage <- function(
 	data = NULL,
 	job = NULL,
 	instance,
+	estimator = "kernel",
+	n_permutations = NA_integer_,
+	n_coalitions = NA_integer_,
 	sage_n_samples = 200, # Background data size for marginalization
-	early_stopping = TRUE,
+	early_stopping = FALSE,
 	min_permutations = 20
 ) {
 	# Use first resampling iteration
@@ -1020,10 +1023,24 @@ algo_MarginalSAGE_sage <- function(
 		random_state <- 2093564L
 	}
 
-	estimator <- sage$KernelEstimator(
-		imputer = imputer,
-		loss = loss,
-		random_state = as.integer(random_state)
+	# `estimator` is now the design column, so the Python object gets its own name.
+	# PermutationEstimator exposes n_jobs; KernelEstimator has no thread argument.
+	# Thread parity is mandatory (see CLAUDE.md) -- an unset n_jobs would give the
+	# reference arm one core while xplainfi gets n_threads().
+	estimator_obj <- switch(
+		estimator,
+		kernel = sage$KernelEstimator(
+			imputer = imputer,
+			loss = loss,
+			random_state = as.integer(random_state)
+		),
+		permutation = sage$PermutationEstimator(
+			imputer = imputer,
+			loss = loss,
+			random_state = as.integer(random_state),
+			n_jobs = as.integer(n_threads())
+		),
+		cli::cli_abort("Unsupported {.arg estimator} for the sage package: {.val {estimator}}")
 	)
 
 	start_time <- Sys.time()
@@ -1034,13 +1051,30 @@ algo_MarginalSAGE_sage <- function(
 	# Convert to numpy arrays explicitly to avoid shape attribute errors
 	np <- reticulate::import("numpy", convert = FALSE)
 
-	explanation <- estimator(
+	call_args <- list(
 		X = np$array(sklearn_data$X_test),
 		Y = np$array(sklearn_data$y_test),
 		detect_convergence = early_stopping,
 		verbose = FALSE,
 		bar = FALSE
 	)
+
+	# sage's own budget arguments. NOTE: `n_samples` on KernelEstimator is the
+	# COALITION budget, not the background sample -- that is MarginalImputer(data=)
+	# above, which already consumes sage_n_samples.
+	if (estimator == "kernel") {
+		call_args$n_samples <- as.integer(n_coalitions)
+		# KernelEstimator computes `n_loops = int(n_samples / batch_size)` with no
+		# ceiling (unlike PermutationEstimator, which uses ceil): a budget below
+		# the 512 default runs zero loops and crashes in calculate_result() on an
+		# empty `b`. Cap batch_size to the requested budget so small/test-scale
+		# runs still do at least one loop; real (large) budgets are unaffected.
+		call_args$batch_size <- min(512L, as.integer(n_coalitions))
+	} else {
+		call_args$n_permutations <- as.integer(n_permutations)
+	}
+
+	explanation <- do.call(estimator_obj, call_args)
 
 	end_time <- Sys.time()
 

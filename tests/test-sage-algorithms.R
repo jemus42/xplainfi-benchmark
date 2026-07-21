@@ -63,4 +63,20 @@ cres <- algo_ConditionalSAGE(
 )
 stopifnot(nrow(cres$importance[[1]]) == 3L)
 
+# Python sage reference arm: both estimators, explicit budgets, no convergence
+# detection (so the budget is what we asked for, not what its detector picked).
+for (est in c("kernel", "permutation")) {
+	sres <- algo_MarginalSAGE_sage(
+		instance = inst,
+		estimator = est,
+		n_coalitions = 16L,
+		n_permutations = 5L,
+		sage_n_samples = 20,
+		early_stopping = FALSE
+	)
+	stopifnot(nrow(sres$importance[[1]]) == 3L)
+	stopifnot(all(is.finite(sres$importance[[1]]$importance)))
+	cat("   sage", est, "ok\n")
+}
+
 cat("OK: SAGE algorithm functions\n")
