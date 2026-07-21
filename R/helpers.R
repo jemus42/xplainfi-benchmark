@@ -220,3 +220,71 @@ create_problem_instance <- function(
 		... # Additional problem-specific metadata
 	)
 }
+
+# SAGE estimator axis -------------------------------------------------------
+
+# Build the algorithm design for a SAGE implementation.
+#
+# The three estimators take mutually exclusive budget arguments (passing
+# n_permutations with estimator = "kernel" is an error, not a no-op), so the
+# estimator axis is an rbind of per-estimator sub-designs with NA in the
+# inapplicable columns -- never a CJ over all of them.
+#
+# conf             the lane's conf list
+# sampler          character vector to cross-join, or NULL for marginal methods
+# estimators       which estimators this implementation supports. fippy has only
+#                  the permutation estimator; Python sage has kernel+permutation.
+# kernel_variants  which design-matrix variants it supports. Pass NA_character_
+#                  for implementations with no variant choice (Python sage's
+#                  kernel estimator is always the unbiased one).
+sage_algo_design <- function(
+	conf,
+	sampler = NULL,
+	estimators = conf$sage_estimators,
+	kernel_variants = conf$kernel_variants
+) {
+	parts <- list()
+
+	if ("permutation" %in% estimators) {
+		parts$permutation <- data.table::CJ(
+			estimator = "permutation",
+			n_permutations = conf$n_permutations,
+			n_coalitions = NA_integer_,
+			kernel_variant = NA_character_,
+			sage_n_samples = conf$sage_n_samples,
+			early_stopping = conf$sage_early_stopping,
+			min_permutations = conf$min_permutations
+		)
+	}
+
+	if ("kernel" %in% estimators) {
+		parts$kernel <- data.table::CJ(
+			estimator = "kernel",
+			n_permutations = NA_integer_,
+			n_coalitions = conf$n_coalitions,
+			kernel_variant = kernel_variants,
+			sage_n_samples = conf$sage_n_samples
+		)
+	}
+
+	if ("exact" %in% estimators) {
+		parts$exact <- data.table::CJ(
+			estimator = "exact",
+			n_permutations = NA_integer_,
+			n_coalitions = NA_integer_,
+			kernel_variant = NA_character_,
+			sage_n_samples = conf$sage_n_samples
+		)
+	}
+
+	d <- data.table::rbindlist(parts, fill = TRUE)
+
+	if (!is.null(sampler)) {
+		# Cross join. data.table's merge has no by = NULL, base merge does.
+		d <- data.table::as.data.table(
+			merge(as.data.frame(d), data.frame(sampler = sampler, stringsAsFactors = FALSE))
+		)
+	}
+
+	d[]
+}
