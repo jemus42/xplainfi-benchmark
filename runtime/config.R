@@ -24,7 +24,7 @@ conf <- list(
 	),
 	providers = providers,
 	seed = 2025,
-	repls = 50,
+	repls = 10,
 	# Samples to generate
 	n_samples = c(100, 250, 1000, 5000, 10000),
 	# Only one task with variable number of features
@@ -33,13 +33,19 @@ conf <- list(
 	n_repeats = c(1, 50),
 	# For SAGE permutations
 	n_permutations = c(10, 50, 100),
+	min_permutations = 20,
 	sage_early_stopping = FALSE,
-	# Size of sampled data used for Monte Carlo integration in SAGE methods
+	n_coalitions = c(32, 128, 512),
+	kernel_variants = c("original", "unbiased"),
+	sage_estimators = c("permutation", "kernel", "exact"),
+	# Size of sampled data used for Monte Carlo integration in SAGE methods.
+	# Two values so the marginalization budget contributes visible variance to
+	# the cost curve; the importance lane holds it fixed instead.
 	sage_n_samples = c(10, 50),
 	# Types of learners to use for each method, uses create_learner helper
 	learner_types = c(
-	# "featureless", 
-	"linear"
+		# "featureless",
+		"linear"
 	),
 	# Conditional samplers for CFI and ConditionalSAGE
 	samplers = c(
@@ -47,5 +53,13 @@ conf <- list(
 		"gaussian"
 		# "knn",
 		# "ctree"
+	),
+	# SAGE-only dev validation run (mlr-org/xplainfi#83).
+	methods = c(
+		"MarginalSAGE",
+		"ConditionalSAGE",
+		"MarginalSAGE_sage",
+		"MarginalSAGE_fippy",
+		"ConditionalSAGE_fippy"
 	)
 )

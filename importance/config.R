@@ -24,18 +24,30 @@ conf <- list(
 	),
 	providers = providers,
 	seed = 2025,
-	repls = 50,
+	repls = 10,
 	# Samples to generate
 	n_samples = 5000,
 	# Affects correlation task
 	correlation = c(0.2, 0.5, 0.9),
 	# Affects PFI and CFI
 	n_repeats = 100,
-	# SAGE permutations with convergence detection (across all implementations);
-	# 100 is sufficient in practice.
-	n_permutations = 100,
+	# SAGE permutation-estimator budget. Early stopping is off for this run so
+	# the permutation arm spends a known budget and stays comparable, per
+	# evaluated coalition, against the kernel and exact arms.
+	n_permutations = c(10, 50, 100),
 	min_permutations = 20,
-	sage_early_stopping = TRUE,
+	sage_early_stopping = FALSE,
+	# SAGE kernel-estimator budget (paired coalition draws). Independent of
+	# n_features, so evaluated-coalition cost differs across problems -- the
+	# analysis reports cost explicitly rather than matching it in the design.
+	n_coalitions = c(32, 128, 512),
+	# Design-matrix ("A matrix") variant: "original" samples it alongside the
+	# right-hand side (Covert & Lee Eq. 7), "unbiased" uses the exact closed form
+	# (Eq. 9) and is what the Python sage package implements.
+	kernel_variants = c("original", "unbiased"),
+	# "exact" enumerates all 2^n_features coalitions -- the ground truth this run
+	# validates the sampling estimators against.
+	sage_estimators = c("permutation", "kernel", "exact"),
 	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was usually sufficient
 	# increases RAM usage a lot if set too high, and returns are diminishing somewhat quickly
 	sage_n_samples = c(100),
@@ -46,5 +58,14 @@ conf <- list(
 		# "arf",
 		"gaussian"
 		# "knn"
+	),
+	# SAGE-only dev validation run (mlr-org/xplainfi#83): PFI/CFI/LOCO and their
+	# reference implementations sit this out. Restore the full list to re-enable.
+	methods = c(
+		"MarginalSAGE",
+		"ConditionalSAGE",
+		"MarginalSAGE_sage",
+		"MarginalSAGE_fippy",
+		"ConditionalSAGE_fippy"
 	)
 )
