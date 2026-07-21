@@ -151,6 +151,21 @@ if (nrow(paired) == 0) {
 # the Python sage package, which implements exactly that variant. Point estimates
 # should agree up to Monte Carlo error. Reported uncertainties are NOT comparable
 # (sage includes observation-sampling noise; xplainfi conditions on the test set).
+#
+# Only the bias signal (mean_diff) below is interpretable, and only with its
+# Monte Carlo SE as a threshold for calling agreement. `sage` scores each
+# coalition on a single resampled test row while xplainfi scores it on the
+# whole test set, so both rmse and cor here are dominated by sage's
+# observation-sampling noise, not by any xplainfi defect -- rmse is reported
+# for reference only. cor is additionally near 1 practically by construction:
+# it pools across features whose true importances differ by orders of
+# magnitude, so it is not reported at all.
+#
+# The two implementations also draw their marginalization background
+# differently, a real bias source that lands squarely in this check: `sage`
+# uses the first `sage_n_samples` training rows (see the MarginalImputer
+# construction in R/algorithms.R), whereas xplainfi draws a random n_samples
+# subsample from the full task.
 xpl <- res[algorithm == "MarginalSAGE" & arm == "kernel-unbiased"]
 ref <- res[algorithm == "MarginalSAGE_sage" & estimator == "kernel"]
 
@@ -165,8 +180,8 @@ if (nrow(xpl) > 0 && nrow(ref) > 0) {
 	cross <- cmp[,
 		.(
 			n = .N,
-			cor = cor(importance_xplainfi, importance_sage),
 			mean_diff = mean(importance_xplainfi - importance_sage),
+			se_mean_diff = sd(importance_xplainfi - importance_sage) / sqrt(.N),
 			rmse = sqrt(mean((importance_xplainfi - importance_sage)^2))
 		),
 		by = .(problem, n_coalitions)
