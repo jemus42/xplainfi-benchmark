@@ -149,6 +149,16 @@ reduce_importances <- function(reg, reg_path = reg$file.dir) {
 
 	pars <- batchtools::unwrap(batchtools::getJobPars(reg = reg))
 
+	# getJobPars() selects only job.id/problem/prob.pars/algorithm/algo.pars --
+	# `repl` lives on the job table. It is part of the documented paired-comparison
+	# key, and without it a paired join silently becomes many-to-many across
+	# replications, so pull it across here.
+	repls <- data.table::as.data.table(batchtools::getJobTable(reg = reg))[,
+		c("job.id", "repl"),
+		with = FALSE
+	]
+	pars <- merge(pars, repls, by = "job.id", all.x = TRUE)
+
 	out <- merge(importances, pars, by = "job.id", all.x = TRUE)
 	out <- merge(out, runtimes, by = "job.id", all.x = TRUE)
 

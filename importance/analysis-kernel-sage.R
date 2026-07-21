@@ -12,7 +12,13 @@ suppressPackageStartupMessages({
 source(here::here("setup-common.R"))
 source(here::here("importance", "config.R"))
 
-res <- latest_reduced("importance", "xplainfi")
+# collect-results.R writes one reduced table per provider, so the reference arm
+# (MarginalSAGE_sage) lives in a separate file from xplainfi's own methods.
+# Check 3 compares the two, so both must be loaded.
+res <- combine_reduced(
+	latest_reduced("importance", "xplainfi"),
+	latest_reduced("importance", "reference")
+)
 if (is.null(res) || nrow(res) == 0) {
 	cli::cli_abort("No reduced importance results found. Run collect-results.R first.")
 }
@@ -31,6 +37,18 @@ instance_key <- c(
 	"correlation",
 	"sage_n_samples"
 )
+
+# intersect() below tolerates problem parameters that only some problems carry.
+# These are not optional: dropping one silently turns the paired join into a
+# many-to-many across that dimension instead of failing.
+required_key <- c("problem", "algorithm", "feature", "repl")
+missing_key <- setdiff(required_key, names(res))
+if (length(missing_key) > 0) {
+	cli::cli_abort(c(
+		"Reduced table is missing join key column{?s} {.val {missing_key}}.",
+		"i" = "Paired comparisons would silently become many-to-many. Re-run {.file collect-results.R}."
+	))
+}
 instance_key <- intersect(instance_key, names(res))
 
 # reduce_importances() keeps only `importance` and `runtime` from each job's

@@ -15,20 +15,28 @@ suppressPackageStartupMessages(library(data.table))
 source(here::here("setup-common.R")) # -> algo_provider(), save_reduced(), reduced_path()
 
 fixture_version <- "test-fixture-kernel-sage"
-fixture_path <- reduced_path("importance", "xplainfi", fixture_version)
+xplainfi_fixture_path <- reduced_path("importance", "xplainfi", fixture_version)
+reference_fixture_path <- reduced_path("importance", "reference", fixture_version)
 out_path <- here::here("results", "importance", "kernel-sage-validation.rds")
 
 # The whole test body lives in a function: on.exit() is a silent no-op at top
 # level (nothing to attach it to), so cleanup would never run without this.
 main <- function() {
 	cleanup <- function() {
-		if (fs::file_exists(fixture_path)) {
-			fs::file_delete(fixture_path)
+		if (fs::file_exists(xplainfi_fixture_path)) {
+			fs::file_delete(xplainfi_fixture_path)
+		}
+		if (fs::file_exists(reference_fixture_path)) {
+			fs::file_delete(reference_fixture_path)
 		}
 		if (fs::file_exists(out_path)) fs::file_delete(out_path)
 	}
 	on.exit(cleanup(), add = TRUE)
-	stopifnot(!fs::file_exists(fixture_path), !fs::file_exists(out_path))
+	stopifnot(
+		!fs::file_exists(xplainfi_fixture_path),
+		!fs::file_exists(reference_fixture_path),
+		!fs::file_exists(out_path)
+	)
 
 	# -------------------------------------------------------------------------
 	# Build the fixture: every arm the analysis pairs up, across 2 features and
@@ -122,8 +130,18 @@ main <- function() {
 	fixture[, provider := algo_provider(algorithm)]
 	stopifnot(!("n_features" %in% names(fixture)))
 
-	invisible(save_reduced(fixture, "importance", provider = "xplainfi", version = fixture_version))
-	stopifnot(fs::file_exists(fixture_path))
+	# Mirror collect-results.R: one reduced table per provider present. This is
+	# what exercises the fix for Defect 2 (analysis loading only the xplainfi
+	# file and never seeing the reference arm needed for check 3).
+	for (prov_name in unique(fixture$provider)) {
+		invisible(save_reduced(
+			fixture[provider == prov_name],
+			"importance",
+			provider = prov_name,
+			version = fixture_version
+		))
+	}
+	stopifnot(fs::file_exists(xplainfi_fixture_path), fs::file_exists(reference_fixture_path))
 
 	# -------------------------------------------------------------------------
 	# Run the real analysis script unmodified, in a subprocess, against the
