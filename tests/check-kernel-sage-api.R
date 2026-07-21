@@ -45,10 +45,12 @@ stopifnot(inherits(
 
 # 3. kernel_variant is kernel-only and takes both documented values.
 for (v in c("original", "unbiased")) {
-	stopifnot(inherits(
-		new_sage(estimator = "kernel", n_coalitions = 16L, kernel_variant = v),
-		"MarginalSAGE"
-	))
+	m <- new_sage(estimator = "kernel", n_coalitions = 16L, kernel_variant = v)
+	stopifnot(inherits(m, "MarginalSAGE"))
+	# Not just accepted -- actually stored. Every other assertion here would pass
+	# if kernel_variant were silently ignored and the default used for both, which
+	# would make the original-vs-unbiased comparison meaningless.
+	stopifnot(identical(m$param_set$values$kernel_variant, v))
 }
 stopifnot(inherits(
 	try(new_sage(estimator = "permutation", kernel_variant = "original"), silent = TRUE),
