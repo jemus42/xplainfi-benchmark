@@ -57,7 +57,8 @@ Feature counts, which govern exact-estimator feasibility:
 | Variants in scope | xplainfi Marginal + Conditional × {permutation, kernel-original, kernel-unbiased, exact}; Python `sage` × {kernel, permutation} | Separates estimator differences from implementation differences on both sides. |
 | Disabling PFI/CFI/LOCO | `conf$methods` knob in `config.R` | Non-destructive, one line to revert, composes with the existing `XPLAINFI_BENCH_PROVIDERS` filter, and avoids a merge-conflict magnet in `setup-batchtools.R` against `main`. |
 | Uncertainty | Store `$importance(ci_method = "montecarlo")` | The only way to validate the new delta-method SE machinery rather than just the point estimates. |
-| Scale (importance lane) | `repls = 20`, all 8 problems, `sage_n_samples = c(100)` | ~8,000 xplainfi jobs. Full DGP coverage matters more than Monte Carlo precision when hunting estimator bugs in conditioning/confounding/mediation structure. |
+| Scale | `repls = 10` in both lanes; all 8 problems in the importance lane | ~4,000 xplainfi jobs (importance) and ~6,000 (runtime). This is a development sanity check, not an exhaustive study: full DGP coverage matters more than Monte Carlo precision when hunting estimator bugs in conditioning/confounding/mediation structure. |
+| Marginalization axis | `sage_n_samples = c(100)` (importance), `c(10, 50)` (runtime) | The runtime lane needs *some* variance in the marginalization budget to show its cost contribution; two distinct values suffice. The importance lane holds it fixed so the coalition-budget axis is read cleanly. |
 | Permutation early stopping | Off in the importance lane | With early stopping the permutation arm spends an unknown budget, making accuracy-vs-cost against kernel unreadable. |
 | Runtime lane | Same estimator axis; exact only where `p <= 10` | Gives the scaling curve in `p` and `n`; exact is skipped at `p = 25`, which exceeds `max_features`. |
 
@@ -275,7 +276,7 @@ error.
 `importance/config.R`:
 
 ```r
-repls = 20,                                             # was 50
+repls = 10,                                             # was 50
 n_permutations = c(10, 50, 100),                        # was 100
 n_coalitions = c(32, 128, 512),                         # new
 kernel_variants = c("original", "unbiased"),            # new
@@ -287,8 +288,20 @@ methods = c("MarginalSAGE", "ConditionalSAGE", "MarginalSAGE_sage",
             "MarginalSAGE_fippy", "ConditionalSAGE_fippy")
 ```
 
-`runtime/config.R` gets the same three new knobs and the same `methods` list;
-`repls` stays at 50.
+`runtime/config.R` gets the same new knobs and the same `methods` list, plus
+`min_permutations = 20` (see below), and `repls = 10` (was 50). It keeps its own
+`sage_n_samples = c(10, 50)`, which doubles its estimator axis to 20 rows per
+xplainfi algorithm.
+
+Resulting job counts:
+
+| Lane | Problem-design rows | Algo rows / algorithm | xplainfi jobs |
+| --- | --- | --- | --- |
+| importance | 20 | 10 | 20 × 10 × 2 × 10 = **4,000** |
+| runtime | 15 | 20 | 15 × 20 × 2 × 10 = **6,000** |
+
+plus the Python reference arms (6 rows for `MarginalSAGE_sage`, 3 each for the
+two `fippy` arms, on the same problem designs).
 
 The `fippy` SAGE arms stay in: they are SAGE, already wired, and serve as a
 second permutation-estimator reference.
@@ -375,11 +388,12 @@ parameter columns.
    *finished* jobs, so a fresh registry gives `eta.R` nothing to learn from. The
    estimator axis is entirely new — no historical registry has an `estimator`
    column — so there is no prior model to borrow either. Submit
-   `findExperiments(repls = 1)` first (~400 xplainfi jobs in the importance lane)
-   and let it finish. `repl = 1` covers every design cell exactly once, which is
-   the coverage the runtime model needs; extrapolating to an unseen cell is what
-   produces bad walltime tiers. With no estimates present, `plan_submission()`
-   falls back to chunking by job count, which is fine at pilot size.
+   `findExperiments(repls = 1)` first (400 xplainfi jobs in the importance lane,
+   600 in the runtime lane) and let it finish. `repl = 1` covers every design cell
+   exactly once, which is the coverage the runtime model needs; extrapolating to
+   an unseen cell is what produces bad walltime tiers. With no estimates present,
+   `plan_submission()` falls back to chunking by job count, which is fine at pilot
+   size.
 6. `eta.R` per lane, now that the pilot has finished.
 7. `run-experiment.R` per lane for the remaining replications.
 8. `collect-results.R`, then `analysis-kernel-sage.R`.
@@ -387,7 +401,8 @@ parameter columns.
 The pilot doubles as a smoke test, and is the cheapest place to discover the two
 cost outliers: the exact arm on `friedman1` (1024 coalitions) and `peak` at
 `n_features = 10`. If either is disproportionate, drop it before committing the
-remaining 19 replications.
+remaining 9 replications. At `repls = 10` the pilot is a tenth of the total, so
+it is cheap insurance rather than a meaningful fraction of the budget.
 
 Note that `write_estimates()` takes an `ids` argument for exactly this shape of
 workflow — `\(reg) findExperiments(repls = 1, reg = reg)` restricts the training
