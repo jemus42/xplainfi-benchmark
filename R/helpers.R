@@ -303,3 +303,31 @@ sage_algo_design <- function(
 
 	d[]
 }
+
+# Batch size for a Python `sage` estimator call.
+#
+# sage does not truncate to the requested budget: KernelEstimator runs
+# `int(budget / batch_size)` loops and PermutationEstimator `ceiling(budget /
+# (batch_size * n_jobs))`, each spending `n_jobs * batch_size` samples per loop.
+# With the default batch_size of 512 a small budget therefore either evaluates
+# nothing (kernel, floor to zero loops) or massively overspends (permutation,
+# one full batch per job). Sizing the batch to the budget makes the actual spend
+# equal the requested one whenever n_jobs divides it, which is the case for this
+# benchmark's grid on the cluster's 2-cpu allocation.
+sage_batch_size <- function(budget, n_jobs = 1L) {
+	budget <- as.integer(budget)
+	n_jobs <- as.integer(n_jobs)
+	checkmate::assert_int(budget, lower = 1L)
+	checkmate::assert_int(n_jobs, lower = 1L)
+
+	batch <- max(1L, as.integer(ceiling(budget / n_jobs)))
+	spent <- batch * n_jobs
+	if (spent != budget) {
+		cli::cli_warn(c(
+			"Python {.pkg sage} will spend {.val {spent}} evaluations for a requested budget of {.val {budget}}.",
+			"i" = "It rounds to whole {.code n_jobs * batch_size} blocks; {.val {n_jobs}} does not divide {.val {budget}}.",
+			"i" = "Comparisons against xplainfi at this budget are not cost-matched."
+		))
+	}
+	batch
+}

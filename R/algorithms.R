@@ -1024,9 +1024,11 @@ algo_MarginalSAGE_sage <- function(
 	}
 
 	# `estimator` is now the design column, so the Python object gets its own name.
-	# PermutationEstimator exposes n_jobs; KernelEstimator has no thread argument.
-	# Thread parity is mandatory (see CLAUDE.md) -- an unset n_jobs would give the
-	# reference arm one core while xplainfi gets n_threads().
+	# PermutationEstimator parallelises over jobs; KernelEstimator is single
+	# threaded and takes no n_jobs. Thread parity (see CLAUDE.md) requires the
+	# same CPU budget as xplainfi.
+	n_jobs <- as.integer(n_threads())
+
 	estimator_obj <- switch(
 		estimator,
 		kernel = sage$KernelEstimator(
@@ -1038,7 +1040,7 @@ algo_MarginalSAGE_sage <- function(
 			imputer = imputer,
 			loss = loss,
 			random_state = as.integer(random_state),
-			n_jobs = as.integer(n_threads())
+			n_jobs = n_jobs
 		),
 		cli::cli_abort("Unsupported {.arg estimator} for the sage package: {.val {estimator}}")
 	)
@@ -1059,19 +1061,15 @@ algo_MarginalSAGE_sage <- function(
 		bar = FALSE
 	)
 
-	# sage's own budget arguments. NOTE: `n_samples` on KernelEstimator is the
-	# COALITION budget, not the background sample -- that is MarginalImputer(data=)
-	# above, which already consumes sage_n_samples.
+	# sage's own budget arguments.
 	if (estimator == "kernel") {
+		# NOTE: `n_samples` here is the COALITION budget, not the background
+		# sample -- that is MarginalImputer(data =) above, from sage_n_samples.
 		call_args$n_samples <- as.integer(n_coalitions)
-		# KernelEstimator computes `n_loops = int(n_samples / batch_size)` with no
-		# ceiling (unlike PermutationEstimator, which uses ceil): a budget below
-		# the 512 default runs zero loops and crashes in calculate_result() on an
-		# empty `b`. Cap batch_size to the requested budget so small/test-scale
-		# runs still do at least one loop; real (large) budgets are unaffected.
-		call_args$batch_size <- min(512L, as.integer(n_coalitions))
+		call_args$batch_size <- sage_batch_size(n_coalitions, n_jobs = 1L)
 	} else {
 		call_args$n_permutations <- as.integer(n_permutations)
+		call_args$batch_size <- sage_batch_size(n_permutations, n_jobs = n_jobs)
 	}
 
 	explanation <- do.call(estimator_obj, call_args)

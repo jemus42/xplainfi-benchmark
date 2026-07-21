@@ -70,4 +70,17 @@ stopifnot(is.integer(dfippy$n_permutations), is.integer(dfippy$n_coalitions))
 # A typo must fail loudly, not return an empty design.
 stopifnot(inherits(try(sage_algo_design(conf, estimators = "nope"), silent = TRUE), "try-error"))
 
+# sage does not truncate to the requested budget, so the batch must be sized to
+# it. The benchmark's grid on the cluster's 2-cpu allocation must come out exact.
+stopifnot(sage_batch_size(512L, n_jobs = 1L) == 512L)
+stopifnot(sage_batch_size(32L, n_jobs = 1L) == 32L)
+for (budget in c(10L, 50L, 100L)) {
+	stopifnot(sage_batch_size(budget, n_jobs = 2L) * 2L == budget)
+}
+# A budget n_jobs cannot divide must warn rather than silently overspend.
+stopifnot(inherits(
+	tryCatch(sage_batch_size(10L, n_jobs = 3L), warning = function(w) w),
+	"warning"
+))
+
 cat("OK: sage_algo_design\n")
