@@ -1,5 +1,5 @@
 # Simple Shiny app for exploring runtime benchmark results
-# Run with: shiny::runApp("R/shiny-runtime.R")
+# Run with: shiny::runApp("runtime/shiny.R")
 
 library(shiny)
 library(data.table)
@@ -7,12 +7,12 @@ library(ggplot2)
 library(bslib)
 
 # Load data and helper functions
-source(here::here("R", "analysis.R"))
+source(here::here("R", "plotting.R"))
 
 file_runtime <- fs::path(here::here("results", "runtime"), "runtime", ext = "rds")
 
 if (!fs::file_exists(file_runtime)) {
-	stop("Run analysis-runtime.R first to generate runtime.rds")
+	stop("Run runtime/analysis.R first to generate runtime.rds")
 }
 runtimes <- readRDS(file_runtime)
 

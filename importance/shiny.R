@@ -1,5 +1,5 @@
 # Simple Shiny app for exploring importance benchmark results
-# Run with: shiny::runApp("R/shiny-importance.R")
+# Run with: shiny::runApp("importance/shiny.R")
 
 library(shiny)
 library(data.table)
@@ -7,11 +7,11 @@ library(ggplot2)
 library(bslib)
 
 # Load data and helper functions
-source(here::here("R", "analysis.R"))
+source(here::here("R", "plotting.R"))
 
 file_importance <- fs::path(here::here("results", "importance"), "importances", ext = "rds")
 if (!fs::file_exists(file_importance)) {
-	stop("Run analysis-importance.R first to generate importances.rds")
+	stop("Run importance/analysis.R first to generate importances.rds")
 }
 importances <- readRDS(file_importance)
 

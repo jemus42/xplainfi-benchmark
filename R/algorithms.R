@@ -83,48 +83,12 @@ algo_CFI <- function(
 
 
 # ============================================================================
-# RFI - Relative Feature Importance
-# ============================================================================
-
-# algo_RFI <- function(
-# 	data = NULL,
-# 	job = NULL,
-# 	instance,
-# 	n_repeats = 1,
-# 	sampler = "arf"
-# ) {
-# 	# Create sampler instance
-# 	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
-
-# 	method <- RFI$new(
-# 		task = instance$task,
-# 		learner = instance$learner,
-# 		measure = instance$measure,
-# 		resampling = instance$resampling,
-# 		conditioning_set = instance$conditioning_set,
-# 		sampler = sampler_instance,
-# 		n_repeats = n_repeats
-# 	)
-
-# 	start_time <- Sys.time()
-# 	method$compute()
-# 	end_time <- Sys.time()
-
-# 	data.table::data.table(
-# 		importance = list(method$importance()),
-# 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
-# 		n_features = instance$n_features,
-# 		n_samples = instance$n_samples,
-# 		task_type = instance$task_type,
-# 		task_name = instance$name,
-# 		conditioning_set = list(instance$conditioning_set)
-# 	)
-# }
-
-# ============================================================================
 # LOCO - Leave-One-Covariate-Out
 # ============================================================================
 
+# n_repeats is accepted (batchtools passes the design column) but deliberately not
+# forwarded: LOCO refits rather than resamples, so repeats only duplicate work.
+# xplainfi's default is 1L and the argument may be dropped for LOCO entirely.
 algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	# Create learner for this algorithm
 	learner <- create_learner(
@@ -137,8 +101,7 @@ algo_LOCO <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		task = instance$task,
 		learner = learner,
 		measure = instance$measure,
-		resampling = instance$resampling,
-		n_repeats = n_repeats
+		resampling = instance$resampling
 	)
 
 	start_time <- Sys.time()
@@ -325,7 +288,7 @@ algo_PFI_iml <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		}
 	)
 
-	perf = resample_result$score(instance$measure_eval)[,
+	perf <- resample_result$score(instance$measure_eval)[,
 		.SD,
 		.SDcols = mlr3misc::ids(c(instance$measure_eval))
 	]
@@ -399,9 +362,15 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 	test_data <- instance$task$data(rows = test_ids)
 	target_name <- instance$task$target_names
 
-	# Determine metric based on task type
-	# Doesn't support MSE accoridng to vip::list_metrics()
-	metric <- if (instance$task_type == "regr") "rmse" else "accuracy"
+	# Mirror instance$measure (regr.mse / classif.ce) so importances are on the same
+	# scale as the other methods: vip::list_metrics() has neither, but `metric` also
+	# accepts a function(truth, estimate)
+	metric <- switch(
+		instance$measure$id,
+		"regr.mse" = function(truth, estimate) mean((truth - estimate)^2),
+		"classif.ce" = function(truth, estimate) mean(truth != estimate),
+		cli::cli_abort("No vip metric matching measure {.val {instance$measure$id}}")
+	)
 
 	# Create wrapper predict function for vip
 	# vip expects a function(object, newdata) that returns predictions
@@ -421,7 +390,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		preds$response
 	}
 
-	perf = resample_result$score(instance$measure_eval)[,
+	perf <- resample_result$score(instance$measure_eval)[,
 		.SD,
 		.SDcols = mlr3misc::ids(c(instance$measure_eval))
 	]
@@ -436,6 +405,7 @@ algo_PFI_vip <- function(data = NULL, job = NULL, instance, n_repeats = 1) {
 		train = test_data,
 		target = target_name,
 		metric = metric,
+		smaller_is_better = TRUE,
 		nsim = n_repeats,
 		pred_wrapper = pred_wrapper
 	)

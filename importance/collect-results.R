@@ -6,7 +6,8 @@ library(dplyr)
 library(kableExtra)
 
 # Load registry
-source("config.R")
+source(here::here("importance", "config.R"))
+source(here::here("setup-common.R")) # pkg check + all R/ helpers via source_r()
 reg <- loadRegistry(conf$reg_path, writeable = FALSE, work.dir = here::here())
 tab <- unwrap(getJobTable())
 
@@ -17,6 +18,36 @@ if (status$done == 0) {
 	stop("No jobs completed yet. Run the experiment first.")
 }
 
+# ============================================================================
+# Provenance-stamped reduced table (the durable, versioned artifact)
+# ============================================================================
+# Registries are disposable scratch; the reduced tables below are what we keep
+# and version. Each row carries provider + xplainfi_version + xplainfi_sha, so
+# tables from different xplainfi versions can be stacked and still told apart.
+
+collected <- reduce_importances(reg, conf$reg_path)
+
+# Save one file per provider present, keyed by xplainfi version, under
+# results/importance/. A frozen reference table produced by an earlier "all" or
+# "reference"-only run is retained and reused (see combine below).
+for (prov_name in unique(collected$provider)) {
+	save_reduced(collected[provider == prov_name], lane = "importance")
+}
+
+# Compare a fresh xplainfi run against the frozen reference results without
+# re-running the (slow, unchanged) reference implementations. Alignment is safe
+# because instances are synchronised across registries by the batchtools problem
+# seed (problem.seed + repl - 1), independent of job.id.
+xplainfi_now <- collected[provider == "xplainfi"]
+reference_frozen <- latest_reduced("importance", "reference")
+combined <- combine_reduced(xplainfi_now, reference_frozen)
+
+if (!is.null(reference_frozen)) {
+	cli::cli_alert_info(
+		"Combined {nrow(xplainfi_now)} fresh xplainfi rows with {nrow(reference_frozen)} frozen reference rows"
+	)
+}
+
 # Get results
 cat("\nCollecting results...\n")
 results <- reduceResultsDataTable()
@@ -24,12 +55,12 @@ results <- reduceResultsDataTable()
 
 # lapply(results$result, \(x) data.table(x$importance[[1]]))
 
-tmpres = data.table::rbindlist(results$result, fill = TRUE)
+tmpres <- data.table::rbindlist(results$result, fill = TRUE)
 tmpres[, learner_type := NULL]
 tmpres[, task_name := NULL]
-tmpres = cbind(results[, .(job.id)], tmpres)
+tmpres <- cbind(results[, .(job.id)], tmpres)
 
-res = ijoin(
+res <- ijoin(
 	tmpres,
 	unwrap(getJobPars())[, .(
 		job.id,
@@ -48,15 +79,15 @@ res = ijoin(
 
 
 # Extract importances
-importances = rbindlist(
+importances <- rbindlist(
 	lapply(results$job.id, \(x) {
-		importances = results[job.id == x, result[[1]]$importance]
+		importances <- results[job.id == x, result[[1]]$importance]
 		importances[, job.id := x]
 	}),
 	fill = TRUE
 )
 
-importances = merge(res[, -"importance"], importances, by = "job.id")
+importances <- merge(res[, -"importance"], importances, by = "job.id")
 
 importances |>
 	dplyr::filter(problem == "correlated") |>
@@ -126,7 +157,6 @@ res_fless |>
 	# 		levels = c(
 	# 			"PFI",
 	# 			"CFI",
-	# 			"RFI",
 	# 			"MarginalSAGE",
 	# 			"ConditionalSAGE",
 	# 			"LOCO"
@@ -312,7 +342,7 @@ res |>
 				"{algorithm} ({sampler}, {n_permutations} perms)",
 				.na = ""
 			),
-			stringr::str_detect(algorithm, "^(PFI|CFI|RFI|LOCO)") ~ glue::glue(
+			stringr::str_detect(algorithm, "^(PFI|CFI|LOCO)") ~ glue::glue(
 				"{algorithm} ({n_repeats} iter)",
 				.na = ""
 			)
@@ -329,7 +359,7 @@ res |>
 	View()
 
 
-runtime_base = res |>
+runtime_base <- res |>
 	mutate(
 		problem = ifelse(
 			problem == "correlated",
@@ -349,7 +379,7 @@ runtime_base = res |>
 	arrange(desc(minutes))
 
 
-runtime_base_summary = runtime_base |>
+runtime_base_summary <- runtime_base |>
 	group_by(algorithm, problem, sampler) |>
 	summarize(
 		q25 = quantile(minutes, probs = 0.25, na.rm = TRUE),

@@ -1,12 +1,27 @@
+# CPUs this job may use. parallelly::availableCores() honors the Slurm allocation
+# (SLURM_CPUS_PER_TASK, ncpus=2 by default), cgroup quotas, PBS/SGE, etc., falling
+# back to all cores off-cluster. Applied uniformly to every learner/model thread
+# count so runtime comparisons stay fair (parity).
+n_threads <- function() {
+	as.integer(parallelly::availableCores())
+}
+
 .ensure_torch <- function() {
-	if (requireNamespace("torch", quietly = TRUE)) {
-		if (!torch::torch_is_installed()) {
-			cli::cli_warn(c(
-				"!" = "torch is not installed yet",
-				i = "Run {.code library(mlr3torch)} and follow the instructions on screen"
-			))
-		}
+	if (!requireNamespace("torch", quietly = TRUE)) {
+		cli::cli_abort(c(
+			"x" = "The {.pkg torch} package is not installed.",
+			"i" = "Run {.code make setup} (or {.code rv sync})."
+		))
 	}
+	# Fail fast with an actionable message: without libtorch the mlp learner dies
+	# deep in torch (a cryptic {.code .torch_can_load} error) instead of here.
+	if (!torch::torch_is_installed()) {
+		cli::cli_abort(c(
+			"x" = "libtorch is not installed, so the torch (mlp) learner cannot run.",
+			"i" = "Run {.code make torch} (downloads libtorch via {.fn torch::install_torch})."
+		))
+	}
+	invisible(TRUE)
 }
 
 # Helper function to create resampling strategy
@@ -63,7 +78,7 @@ create_learner <- function(
 			lrn(paste(task_type, "featureless", sep = "."))
 		},
 		"rf" = {
-			lrn(paste(task_type, "ranger", sep = "."), num.trees = n_trees, num.threads = 1)
+			lrn(paste(task_type, "ranger", sep = "."), num.trees = n_trees, num.threads = n_threads())
 		},
 		"linear" = {
 			switch(task_type, regr = lrn("regr.lm"), classif = lrn("classif.log_reg"))
@@ -71,6 +86,9 @@ create_learner <- function(
 		"mlp" = {
 			.ensure_torch()
 			require(mlr3torch)
+			# Cap torch to the allotted CPUs -- uncapped it grabs the whole node,
+			# breaking parity with the single/2-threaded ranger & xgboost learners.
+			torch::torch_set_num_threads(n_threads())
 			base_learner <- lrn(
 				paste(task_type, "mlp", sep = "."),
 				# architecture parameters
@@ -112,12 +130,12 @@ create_learner <- function(
 				eta = 0.1,
 				booster = "gbtree",
 				tree_method = "hist",
-				nthread = 1
+				nthread = n_threads()
 			)
 
 			# Add encoding, sadly makes predict_newdata_fast impossible
 			if (needs_encoding) {
-				base_learner = po("encode", method = "one-hot") %>>%
+				base_learner <- po("encode", method = "one-hot") %>>%
 					base_learner |>
 					as_learner()
 			}
@@ -131,12 +149,12 @@ create_learner <- function(
 
 # Helper function to create measure
 create_measure <- function(task_type = "regr") {
-	importance = switch(
+	importance <- switch(
 		task_type,
 		"regr" = mlr3::msr("regr.mse"),
 		"classif" = mlr3::msr("classif.ce")
 	)
-	eval = switch(
+	eval <- switch(
 		task_type,
 		"regr" = mlr3::msr("regr.rsq"),
 		"classif" = mlr3::msr("classif.acc")
