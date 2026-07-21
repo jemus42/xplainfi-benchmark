@@ -48,6 +48,34 @@ todo <- function(..., reg = batchtools::getDefaultRegistry()) {
 # Returns data.table(job.id, memory) to pass as plan_submission(memory = ). A job
 # whose group in plan_submission contains it will request at least this much
 # (groups request the max of their members).
+# todo(), optionally narrowed to the replications named by XPLAINFI_BENCH_REPLS
+# ("1", or "1,2"). Unset means everything outstanding.
+#
+# This exists so the pilot pass is an env var rather than an edit: replication 1
+# covers every design cell exactly once, which is the coverage
+# batchtools::estimateRuntimes() needs before eta.R can model anything, and a
+# fresh registry has no completed jobs to learn from.
+todo_repls <- function(
+	repls = Sys.getenv("XPLAINFI_BENCH_REPLS", unset = ""),
+	reg = batchtools::getDefaultRegistry()
+) {
+	if (!nzchar(repls)) {
+		return(todo(reg = reg))
+	}
+	# anyNA() below is the real guard; the coercion warning would only be noise.
+	repls <- suppressWarnings(as.integer(trimws(strsplit(repls, ",")[[1]])))
+	if (anyNA(repls)) {
+		cli::cli_abort(
+			"{.envvar XPLAINFI_BENCH_REPLS} must be comma-separated integers, got {.val {repls}}."
+		)
+	}
+	ids <- todo(repls = repls, reg = reg)
+	cli::cli_alert_info(
+		"{.envvar XPLAINFI_BENCH_REPLS}={.val {repls}}: {nrow(ids)} outstanding job{?s}"
+	)
+	ids
+}
+
 escalate_memory <- function(
 	base = NULL,
 	factor = 2,
