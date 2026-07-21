@@ -128,10 +128,13 @@ algo_MarginalSAGE <- function(
 	data = NULL,
 	job = NULL,
 	instance,
-	n_permutations = 10,
+	estimator = "permutation",
+	n_permutations = NA_integer_,
+	n_coalitions = NA_integer_,
+	kernel_variant = NA_character_,
 	sage_n_samples = 200,
 	batch_size = 10000,
-	early_stopping = TRUE,
+	early_stopping = FALSE,
 	min_permutations = 20
 ) {
 	# Create learner for this algorithm
@@ -141,24 +144,47 @@ algo_MarginalSAGE <- function(
 		task = instance$task
 	)
 
-	method <- MarginalSAGE$new(
+	args <- list(
 		task = instance$task,
 		learner = learner,
 		measure = instance$measure,
 		resampling = instance$resampling,
-		n_permutations = n_permutations,
+		estimator = estimator,
 		n_samples = sage_n_samples,
-		batch_size = batch_size,
-		early_stopping = early_stopping,
-		min_permutations = min_permutations
+		batch_size = batch_size
 	)
+
+	# Each estimator owns exactly one budget argument and the others must stay
+	# unset: n_permutations with estimator = "kernel" is a hard error, and the
+	# permutation-only convergence controls warn on the other estimators. The
+	# design table carries NA in the inapplicable columns, so they are read here
+	# only inside their own branch.
+	if (estimator == "permutation") {
+		args$n_permutations <- as.integer(n_permutations)
+		args$early_stopping <- early_stopping
+		args$min_permutations <- as.integer(min_permutations)
+	} else if (estimator == "kernel") {
+		args$n_coalitions <- as.integer(n_coalitions)
+		args$kernel_variant <- as.character(kernel_variant)
+	}
+
+	method <- do.call(MarginalSAGE$new, args)
 
 	start_time <- Sys.time()
 	method$compute()
 	end_time <- Sys.time()
 
+	# The exact estimator has no coalition-sampling error and rejects
+	# ci_method = "montecarlo"; the sampling estimators report the Monte Carlo
+	# SEs that the validation analysis checks for calibration.
+	importance <- if (estimator == "exact") {
+		method$importance()
+	} else {
+		method$importance(ci_method = "montecarlo")
+	}
+
 	data.table::data.table(
-		importance = list(method$importance()),
+		importance = list(importance),
 		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = method$resample_result$aggregate(instance$measure_eval),
@@ -179,11 +205,14 @@ algo_ConditionalSAGE <- function(
 	data = NULL,
 	job = NULL,
 	instance,
-	n_permutations = 10,
+	estimator = "permutation",
+	n_permutations = NA_integer_,
+	n_coalitions = NA_integer_,
+	kernel_variant = NA_character_,
 	sage_n_samples = 200,
 	sampler = "arf",
 	batch_size = 10000,
-	early_stopping = TRUE,
+	early_stopping = FALSE,
 	min_permutations = 20
 ) {
 	# Create learner for this algorithm
@@ -196,25 +225,42 @@ algo_ConditionalSAGE <- function(
 	# Create sampler instance
 	sampler_instance <- create_sampler(sampler = sampler, task = instance$task)
 
-	method <- ConditionalSAGE$new(
+	args <- list(
 		task = instance$task,
 		learner = learner,
 		measure = instance$measure,
 		resampling = instance$resampling,
 		sampler = sampler_instance,
-		n_permutations = n_permutations,
+		estimator = estimator,
 		n_samples = sage_n_samples,
-		batch_size = batch_size,
-		early_stopping = early_stopping,
-		min_permutations = min_permutations
+		batch_size = batch_size
 	)
+
+	# See algo_MarginalSAGE: budget arguments are mutually exclusive, and the
+	# permutation-only convergence controls warn on the other estimators.
+	if (estimator == "permutation") {
+		args$n_permutations <- as.integer(n_permutations)
+		args$early_stopping <- early_stopping
+		args$min_permutations <- as.integer(min_permutations)
+	} else if (estimator == "kernel") {
+		args$n_coalitions <- as.integer(n_coalitions)
+		args$kernel_variant <- as.character(kernel_variant)
+	}
+
+	method <- do.call(ConditionalSAGE$new, args)
 
 	start_time <- Sys.time()
 	method$compute()
 	end_time <- Sys.time()
 
+	importance <- if (estimator == "exact") {
+		method$importance()
+	} else {
+		method$importance(ci_method = "montecarlo")
+	}
+
 	data.table::data.table(
-		importance = list(method$importance()),
+		importance = list(importance),
 		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = method$resample_result$aggregate(instance$measure_eval),
