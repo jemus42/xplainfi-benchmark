@@ -72,16 +72,23 @@ stopifnot(inherits(try(sage_algo_design(conf, estimators = "nope"), silent = TRU
 
 # sage does not truncate to the requested budget, so the batch must be sized to
 # it. The benchmark's grid on the cluster's 2-cpu allocation must come out exact.
-stopifnot(sage_batch_size(512L, n_jobs = 1L) == 512L)
-stopifnot(sage_batch_size(32L, n_jobs = 1L) == 32L)
+# sage_batch_size() returns list(batch_size, n_jobs): n_jobs is reduced to the
+# largest divisor of the budget, so the realised spend is exact by construction.
+stopifnot(sage_batch_size(512L, n_jobs = 1L)$batch_size == 512L)
+stopifnot(sage_batch_size(32L, n_jobs = 1L)$batch_size == 32L)
 for (budget in c(10L, 50L, 100L)) {
-	stopifnot(sage_batch_size(budget, n_jobs = 2L) * 2L == budget)
+	res <- sage_batch_size(budget, n_jobs = 2L)
+	stopifnot(res$batch_size * res$n_jobs == budget)
 }
-# A budget n_jobs cannot divide must warn rather than silently overspend.
-stopifnot(inherits(
-	tryCatch(sage_batch_size(10L, n_jobs = 3L), warning = function(w) w),
-	"warning"
-))
+
+# Exactness must hold even when the requested n_jobs is far larger than the
+# budget or does not divide it -- this is the scenario that silently overspent
+# off-cluster before the fix (n_threads() can be 48, sage_batch_size(10, 48)
+# used to floor batch_size to 1 and spend 48 for a labelled budget of 10).
+r10 <- sage_batch_size(10L, n_jobs = 48L)
+stopifnot(r10$batch_size * r10$n_jobs == 10L)
+r100 <- sage_batch_size(100L, n_jobs = 48L)
+stopifnot(r100$batch_size * r100$n_jobs == 100L)
 
 cat("OK: sage_algo_design\n")
 

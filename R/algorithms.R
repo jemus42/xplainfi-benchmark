@@ -1061,7 +1061,18 @@ algo_MarginalSAGE_sage <- function(
 	# PermutationEstimator parallelises over jobs; KernelEstimator is single
 	# threaded and takes no n_jobs. Thread parity (see CLAUDE.md) requires the
 	# same CPU budget as xplainfi.
-	n_jobs <- as.integer(n_threads())
+	n_jobs_requested <- as.integer(n_threads())
+
+	# sage does not truncate to the requested budget (see sage_batch_size()), so
+	# the batch is sized to make the realised spend exact. PermutationEstimator
+	# must be constructed with the SAME n_jobs the batch is sized for below, or
+	# the effective spend drifts from the labelled budget again.
+	if (estimator == "permutation") {
+		perm_batch <- sage_batch_size(n_permutations, n_jobs = n_jobs_requested)
+		n_jobs <- perm_batch$n_jobs
+	} else {
+		n_jobs <- 1L
+	}
 
 	estimator_obj <- switch(
 		estimator,
@@ -1100,10 +1111,10 @@ algo_MarginalSAGE_sage <- function(
 		# NOTE: `n_samples` here is the COALITION budget, not the background
 		# sample -- that is MarginalImputer(data =) above, from sage_n_samples.
 		call_args$n_samples <- as.integer(n_coalitions)
-		call_args$batch_size <- sage_batch_size(n_coalitions, n_jobs = 1L)
+		call_args$batch_size <- sage_batch_size(n_coalitions, n_jobs = 1L)$batch_size
 	} else {
 		call_args$n_permutations <- as.integer(n_permutations)
-		call_args$batch_size <- sage_batch_size(n_permutations, n_jobs = n_jobs)
+		call_args$batch_size <- perm_batch$batch_size
 	}
 
 	explanation <- do.call(estimator_obj, call_args)

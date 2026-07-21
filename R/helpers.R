@@ -314,20 +314,22 @@ sage_algo_design <- function(
 # one full batch per job). Sizing the batch to the budget makes the actual spend
 # equal the requested one whenever n_jobs divides it, which is the case for this
 # benchmark's grid on the cluster's 2-cpu allocation.
+# Returns list(batch_size, n_jobs): the caller must construct its Python
+# estimator with the returned n_jobs, not the requested one, or the realised
+# spend (n_jobs * batch_size) drifts from the labelled budget again.
 sage_batch_size <- function(budget, n_jobs = 1L) {
 	budget <- as.integer(budget)
 	n_jobs <- as.integer(n_jobs)
 	checkmate::assert_int(budget, lower = 1L)
 	checkmate::assert_int(n_jobs, lower = 1L)
 
-	batch <- max(1L, as.integer(ceiling(budget / n_jobs)))
-	spent <- batch * n_jobs
-	if (spent != budget) {
-		cli::cli_warn(c(
-			"Python {.pkg sage} will spend {.val {spent}} evaluations for a requested budget of {.val {budget}}.",
-			"i" = "It rounds to whole {.code n_jobs * batch_size} blocks; {.val {n_jobs}} does not divide {.val {budget}}.",
-			"i" = "Comparisons against xplainfi at this budget are not cost-matched."
-		))
-	}
-	batch
+	# The realised spend is n_jobs * batch, so pick the largest n_jobs that
+	# divides the budget: parallelism where it is free, exactness always. A
+	# labelled budget that silently cost more would make the frozen reference
+	# table uncomparable, and the discrepancy would live only in a worker log.
+	n_jobs <- max(which(budget %% seq_len(min(n_jobs, budget)) == 0L))
+	batch <- as.integer(budget / n_jobs)
+	stopifnot(batch * n_jobs == budget)
+
+	list(batch_size = batch, n_jobs = n_jobs)
 }
