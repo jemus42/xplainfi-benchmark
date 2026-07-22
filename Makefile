@@ -27,7 +27,12 @@ torch: ## Download libtorch for mlr3torch if not already installed
 
 check: ## Report sync status of all three backends (no install)
 	@echo "== R packages (rv) =="
-	@rv plan --locked >/dev/null 2>&1 && echo "  OK   library matches rv.lock" || echo "  TODO run 'make r-deps'"
+# `rv plan` exits 0 whether or not there is work to do, so the exit code says
+# nothing -- it reported "OK" with a stale xplainfi installed. Match its
+# no-op output instead; any other output (including an error) reports TODO,
+# which fails safe. Matters most for the dev-branch xplainfi pin, where a new
+# commit can carry the same version string as the installed build.
+	@rv plan --locked 2>/dev/null | grep -q 'Nothing to do' && echo "  OK   library matches rv.lock" || echo "  TODO run 'make r-deps'"
 	@echo "== Python venv (uv) =="
 	@uv sync --check >/dev/null 2>&1 && echo "  OK   .venv matches uv.lock" || echo "  TODO run 'make py-deps'"
 	@echo "== libtorch (mlr3torch) =="
