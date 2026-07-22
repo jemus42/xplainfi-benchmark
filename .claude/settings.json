@@ -1,9 +1,9 @@
 {
   "permissions": {
     "deny": [
-      "Bash(rm -rf registries/**)",
-      "Bash(rm -r registries/**)",
-      "Bash(rm registries/**)"
+      "Bash(rm *)",
+      "Bash(rmdir *)",
+      "Bash(find registries *)"
     ]
   }
 }
