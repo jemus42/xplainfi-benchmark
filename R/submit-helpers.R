@@ -515,3 +515,90 @@ resubmit_expired <- function(
 	}
 	invisible(groups)
 }
+
+# What actually happened to the expired jobs, chunk by chunk.
+#
+# The unit of failure is the CHUNK, not the job: batchtools runs a chunk's jobs
+# sequentially in one Slurm job sharing one log file, so a job that is killed
+# takes every not-yet-run job in its chunk down with it. Those bystanders are
+# indistinguishable from the culprit in findExpired() -- and a chunk log that
+# ends with "Job terminated successfully" is the signature, since it means the
+# chunk died in the NEXT job, which never got far enough to log anything.
+#
+# Reports one row per chunk containing expired jobs:
+#   n_expired / n_done   how far the chunk got before dying
+#   last_ok              the last job.id that completed (the log's final line)
+#   batch.id             the Slurm job id, to hand to sacct for the real cause:
+#                          sacct -j <batch.id> -o JobID,State,MaxRSS,ReqMem,Elapsed
+#   reason               classify_expiry_log() on the shared log
+#
+# batchtools cannot tell OOM from walltime-kill itself, and its own `mem.used` is
+# a gc()-based R-heap figure that misses allocations outside R. sacct (or the
+# slurm-memcheck utility that parses it) is the authority on both.
+expired_overview <- function(
+	reg = batchtools::getDefaultRegistry(),
+	expired = batchtools::findExpired(reg = reg),
+	log_lines = 3L
+) {
+	# Return the full schema even when empty, so a caller's column selection does
+	# not error on the happy path.
+	empty <- data.table::data.table(
+		batch.id = character(),
+		n_jobs = integer(),
+		n_done = integer(),
+		n_expired = integer(),
+		last_ok = character(),
+		reason = character(),
+		log_tail = character()
+	)
+	expired <- data.table::as.data.table(expired)
+	if (nrow(expired) == 0L) {
+		cli::cli_alert_success("No expired jobs")
+		return(invisible(empty))
+	}
+
+	tab <- data.table::as.data.table(batchtools::getJobTable(reg = reg))
+	done <- data.table::as.data.table(batchtools::findDone(reg = reg))$job.id
+
+	# Chunk membership is not in the job table; recover it from the shared log
+	# file, which is one per Slurm job and therefore one per chunk.
+	tab[, .chunk := log.file]
+	chunks <- tab[job.id %in% expired$job.id, unique(.chunk)]
+
+	out <- data.table::rbindlist(
+		lapply(chunks, function(lf) {
+			members <- tab[.chunk == lf]
+			txt <- tryCatch(
+				batchtools::getLog(members$job.id[1], reg = reg),
+				error = function(e) NA_character_
+			)
+			data.table::data.table(
+				batch.id = members$batch.id[1],
+				n_jobs = nrow(members),
+				n_done = sum(members$job.id %in% done),
+				n_expired = sum(members$job.id %in% expired$job.id),
+				last_ok = {
+					hits <- grep("terminated successfully", txt, value = TRUE)
+					if (length(hits) == 0) NA_character_ else utils::tail(hits, 1)
+				},
+				reason = classify_expiry_log(txt),
+				log_tail = paste(utils::tail(txt[!is.na(txt)], log_lines), collapse = " | ")
+			)
+		}),
+		fill = TRUE
+	)
+
+	setorder(out, -n_expired)
+	cli::cli_alert_info(
+		"{nrow(expired)} expired job{?s} across {nrow(out)} chunk{?s}; reasons: {paste(out[, .N, by = reason][, paste0(reason, '=', N)], collapse = ', ')}"
+	)
+	if (any(out$n_done > 0)) {
+		cli::cli_alert_warning(
+			"{sum(out$n_done > 0)} chunk{?s} had jobs succeed before dying -- those chunk-mates expired as bystanders, not on their own merits."
+		)
+	}
+	cli::cli_alert_info(
+		"Real cause is in sacct: {.code sacct -j <batch.id> -o JobID,State,MaxRSS,ReqMem,Elapsed}"
+	)
+	out[]
+}
