@@ -1,9 +1,22 @@
 {
+  "_comment": "Guards for the shared working directory. registries/ holds live batchtools registries with cluster jobs queued against them; an agent once rm -rf'd one mid-run. See .claude/CLAUDE.md. These rules match COMMAND TEXT and are therefore leaky by construction (cd registries && rm x, xargs rm, unlink() from an Rscript). They stop absent-minded phrasings, not determined ones. The boundary version is sandbox.filesystem.denyWrite with the sandbox enabled.",
   "permissions": {
     "deny": [
       "Bash(rm *)",
       "Bash(rmdir *)",
-      "Bash(find registries *)"
+      "Bash(/bin/rm *)",
+      "Bash(/usr/bin/rm *)",
+      "Bash(sudo rm *)",
+      "Bash(command rm *)",
+      "Bash(shred *)",
+      "Bash(git clean *)",
+      "Bash(rm -rf registries *)",
+      "Bash(rm -r registries *)",
+      "Bash(rm -f registries *)",
+      "Bash(mv registries *)",
+      "Bash(find registries *)",
+      "Edit(registries/**)",
+      "Write(registries/**)"
     ]
   }
 }
