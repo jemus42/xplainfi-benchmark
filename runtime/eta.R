@@ -14,6 +14,3 @@ write_estimates(
 	n_print = 1500
 )
 
-# Memory sizing from the registry's own mem.used measurements. Kept separate from
-# the runtime model above because it needs no fitting -- see R/estimate.R.
-write_memory_estimates(conf$reg_path, prefix = "runtime")
