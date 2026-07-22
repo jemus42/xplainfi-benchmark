@@ -112,9 +112,43 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
   follow `OMP_NUM_THREADS`, which the BIPS Slurm job prolog sets cluster-wide, so R
   and Python BLAS already match (nothing to configure here).
 
+## Shared working directory — agents read this first
+
+The project directory is shared: the user runs interactive R sessions and submits
+cluster jobs against the same paths an agent sees. Two things follow.
+
+- **Never delete, rebuild, or submit into a registry you did not create.**
+  `registries/<lane>/xplainfi-<version>/` is very likely a live pretest with jobs
+  queued against it, even when it looks like leftover scratch. An agent once
+  `rm -rf`'d one mid-run; the symptom was baffling (`findDone()` listing jobs whose
+  `loadResult()` failed, because the user's in-memory registry object outlived the
+  directory).
+  For any agent-side verification, namespace it:
+  `XPLAINFI_BENCH_VERSION=agent-scratch Rscript importance/setup-batchtools.R`
+  gives `registries/importance/xplainfi-agent-scratch/`, which cannot collide.
+  Delete only that. Ask before touching anything else under `registries/`.
+
+- **`.venv` is shared but machine-specific.** The host and a yolobox resolve
+  different interpreters, so each side's `uv sync` rebuilds `.venv` and breaks the
+  other. Set `UV_PROJECT_ENVIRONMENT` to a machine-local path (e.g. `.venv-yolobox`)
+  rather than running `uv` against the shared one; `.Rprofile` and
+  `R/helpers-python.R` both read that variable, so uv and reticulate stay in
+  agreement. Never `uv run` here — it re-resolves and rebuilds the environment.
+
 ## Gotchas
 
 - `docs/` is gitignored (pkgdown default) but `docs/overview.qmd` is tracked (moved
   there). New files under `docs/` are silently ignored — `git add -f` them.
 - Kernel SAGE: xplainfi now ships its own `estimator = "kernel"`; the benchmark's
   `MarginalSAGE_sage` is the *external* `sage` package reference, not xplainfi's.
+- Estimate files (`eta-<lane>.rds`, `mem-<lane>.rds`) are keyed by `job.id`, which is
+  registry-local. `write_estimates()` stamps the registry it came from and
+  `read_estimates(reg_path =)` discards a file that does not match — an unstamped or
+  foreign file silently applies one registry's runtimes to another's jobs, which is
+  how a submission ended up as 3 chunks of several hundred jobs.
+- A chunk is ONE Slurm job running its members sequentially, so chunk size is the
+  blast radius of a single OOM: every job in it expires, most as bystanders. A chunk
+  log ending in `Job terminated successfully` means it died in the *next* job.
+  `expired_overview()` reports this per chunk; `sacct -j <batch.id>` is the authority
+  on OOM vs walltime (batchtools' `mem.used` is a gc() R-heap figure and misses
+  allocations outside R — the `slurm-memcheck` utility parses sacct instead).
