@@ -7,6 +7,8 @@ plots/*
 
 # Python virtual environment (managed by uv)
 .venv/
+# Per-machine environments when the project dir is shared (UV_PROJECT_ENVIRONMENT)
+.venv-*/
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/R

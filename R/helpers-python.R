@@ -1,19 +1,39 @@
 # Python/fippy integration helpers
 
-# Python environment is managed via uv with a local .venv
-# See pyproject.toml for dependency specification and uv.lock for exact versions
-# Setup instructions are in README.md
+# Python environment is managed via uv. See pyproject.toml for the dependency
+# specification and uv.lock for exact versions; setup is in README.md.
+#
+# The environment directory is UV_PROJECT_ENVIRONMENT (uv's own variable) or
+# `.venv`. Honouring it here matters when the project directory is shared between
+# machines that resolve different interpreters -- e.g. a yolobox and its host,
+# where the host's uv points .venv at a uv-managed CPython under the host's home
+# that does not exist inside the container. Each side's `uv sync` then rebuilds
+# .venv for itself and breaks the other. Setting UV_PROJECT_ENVIRONMENT on one
+# side gives it a separate directory, and uv and reticulate agree because both
+# read the same variable.
+.uv_venv_path <- function() {
+	here::here(Sys.getenv("UV_PROJECT_ENVIRONMENT", unset = ".venv"))
+}
 
-# Initialize Python environment from local .venv
-# The .venv must be created beforehand using: uv sync
 .ensure_python_packages <- function() {
 	if (!reticulate::py_available()) {
-		venv_path <- here::here(".venv")
+		venv_path <- .uv_venv_path()
 		if (!dir.exists(venv_path)) {
 			cli::cli_abort(c(
 				"x" = "Python virtual environment not found at {.path {venv_path}}",
-				"i" = "Run {.code uv sync} in the project directory to create it.",
+				"i" = "Run {.code make py-deps} in the project directory to create it.",
 				"i" = "See README.md for detailed setup instructions."
+			))
+		}
+		# A venv whose interpreter symlink dangles is the shared-directory failure
+		# above, not a missing environment -- say so, or the fix looks like `uv sync`
+		# when it is actually `UV_PROJECT_ENVIRONMENT`.
+		py <- file.path(venv_path, "bin", "python")
+		if (!file.exists(Sys.readlink(py) %||% py) && !file.exists(py)) {
+			cli::cli_abort(c(
+				"x" = "{.path {py}} points at an interpreter that does not exist here.",
+				"i" = "The environment was built by a different machine sharing this directory.",
+				"i" = "Set {.envvar UV_PROJECT_ENVIRONMENT} to a machine-local path and re-run {.code make py-deps}."
 			))
 		}
 		reticulate::use_virtualenv(venv_path, required = TRUE)
