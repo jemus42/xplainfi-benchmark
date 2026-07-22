@@ -51,6 +51,19 @@ stopifnot(all(
 # Requesting no ES variants drops the rows entirely (the reference arms).
 stopifnot(nrow(sage_algo_design(conf, kernel_es_variants = character())) == 10L)
 
+# A permutation budget at or below min_permutations can never reach the
+# convergence check, so it spends in full and reports converged = FALSE while
+# claiming to be an early-stopping arm. xplainfi checks the two arguments
+# independently and never against each other, so this must abort here.
+conf_es <- modifyList(conf, list(sage_early_stopping = TRUE))
+stopifnot(inherits(try(sage_algo_design(conf_es), silent = TRUE), "try-error"))
+# Only the offending budgets matter: raising the floor below the whole grid is fine.
+stopifnot(is.data.table(
+	sage_algo_design(modifyList(conf_es, list(min_permutations = 5)))
+))
+# ...and the check is scoped to the permutation estimator, which owns the floor.
+stopifnot(is.data.table(sage_algo_design(conf_es, estimators = c("kernel", "exact"))))
+
 # sage_n_samples applies to every estimator.
 stopifnot(all(!is.na(d$sage_n_samples)))
 
@@ -89,26 +102,6 @@ stopifnot(is.integer(dfippy$n_permutations), is.integer(dfippy$n_coalitions))
 
 # A typo must fail loudly, not return an empty design.
 stopifnot(inherits(try(sage_algo_design(conf, estimators = "nope"), silent = TRUE), "try-error"))
-
-# sage does not truncate to the requested budget, so the batch must be sized to
-# it. The benchmark's grid on the cluster's 2-cpu allocation must come out exact.
-# sage_batch_size() returns list(batch_size, n_jobs): n_jobs is reduced to the
-# largest divisor of the budget, so the realised spend is exact by construction.
-stopifnot(sage_batch_size(512L, n_jobs = 1L)$batch_size == 512L)
-stopifnot(sage_batch_size(32L, n_jobs = 1L)$batch_size == 32L)
-for (budget in c(10L, 50L, 100L)) {
-	res <- sage_batch_size(budget, n_jobs = 2L)
-	stopifnot(res$batch_size * res$n_jobs == budget)
-}
-
-# Exactness must hold even when the requested n_jobs is far larger than the
-# budget or does not divide it -- this is the scenario that silently overspent
-# off-cluster before the fix (n_threads() can be 48, sage_batch_size(10, 48)
-# used to floor batch_size to 1 and spend 48 for a labelled budget of 10).
-r10 <- sage_batch_size(10L, n_jobs = 48L)
-stopifnot(r10$batch_size * r10$n_jobs == 10L)
-r100 <- sage_batch_size(100L, n_jobs = 48L)
-stopifnot(r100$batch_size * r100$n_jobs == 100L)
 
 cat("OK: sage_algo_design\n")
 

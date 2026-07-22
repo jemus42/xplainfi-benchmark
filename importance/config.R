@@ -35,6 +35,11 @@ conf <- list(
 	# the permutation arm spends a known budget and stays comparable, per
 	# evaluated coalition, against the kernel and exact arms.
 	n_permutations = c(10, 50, 100),
+	# Floor on permutations before an early stop can be declared, so a lucky first
+	# checkpoint cannot end the run. Inert while sage_early_stopping is FALSE, but
+	# it must stay set: sage_algo_design() puts it on the design unconditionally,
+	# and dropping it would hand the budget floor to algo_MarginalSAGE's own
+	# default instead (see the note above sage_algo_design() in R/helpers.R).
 	min_permutations = 20,
 	sage_early_stopping = FALSE,
 	# SAGE kernel-estimator budget (paired coalition draws). Independent of

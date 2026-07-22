@@ -115,9 +115,17 @@ if (nrow(paired) == 0) {
 	# Check 2: Monte Carlo CI calibration
 	# ---------------------------------------------------------------------------
 	# Does the 95% montecarlo interval cover the exact value at the nominal rate?
-	# This is the check that exercises the new delta-method SE machinery rather
-	# than just the point estimates.
-	coverage <- paired[!is.na(conf_lower) & !is.na(conf_upper)][,
+	# This exercises the delta-method SE machinery. Coverage-of-exact is a valid
+	# metric ONLY for arms whose point estimate is unbiased for the exact value:
+	# kernel-unbiased, permutation, and the sage reference. The kernel-ORIGINAL
+	# variant trades bias for a much lower variance (Covert & Lee Eq. 7), so its
+	# tight interval sits around a biased centre and cannot cover the exact value
+	# -- scoring it here would flunk a working estimator on the wrong axis. Its
+	# bias is in Check 1; its (small, genuine) sampling SE is reported separately
+	# just below. Pilot evidence: original SE ~2e-5 flat in budget with 7-17%
+	# coverage, while unbiased shrinks 1/sqrt(budget) and covers at ~0.95.
+	is_original <- grepl("^kernel-original", paired$arm)
+	coverage <- paired[!is_original & !is.na(conf_lower) & !is.na(conf_upper)][,
 		.(
 			n = .N,
 			coverage = mean(conf_lower <= importance_exact & importance_exact <= conf_upper),
@@ -130,12 +138,37 @@ if (nrow(paired) == 0) {
 
 	cli::cli_h1("Check 2: Monte Carlo CI calibration (nominal 0.95)")
 	cli::cli_alert_info(
-		"Under-coverage means the reported SEs are too small. For MarginalSAGE the
-		 SE conditions on the fixed reference subsample, so some under-coverage is
-		 expected by construction -- compare arms against each other, not only
-		 against 0.95."
+		"Unbiased / permutation / sage arms only. Under-coverage means the reported
+		 SEs are too small. For MarginalSAGE the SE conditions on the fixed reference
+		 subsample, so some under-coverage is expected by construction -- compare
+		 arms against each other, not only against 0.95."
 	)
 	print(coverage)
+
+	# kernel-original, judged on its own terms: bias vs sampling SE, no coverage.
+	# The variant's whole point is a low variance around a slightly biased point,
+	# so both numbers are reported and exact-coverage is deliberately omitted.
+	orig <- paired[is_original]
+	if (nrow(orig) > 0) {
+		original_se <- orig[,
+			.(
+				n = .N,
+				bias = mean(err),
+				rmse = sqrt(mean(err^2)),
+				mean_se = mean(se),
+				se_zero_rate = mean(se == 0, na.rm = TRUE)
+			),
+			by = .(problem, algorithm, arm, n_coalitions)
+		]
+		setorder(original_se, problem, algorithm, arm, n_coalitions)
+		cli::cli_h2("kernel-original: bias vs sampling SE (coverage-of-exact omitted)")
+		cli::cli_alert_info(
+			"mean_se near zero alongside a non-zero, budget-flat bias is the expected
+			 signature: converged in variance to a biased point. Judge this arm by
+			 bias (small, roughly flat in budget), never by exact-coverage."
+		)
+		print(original_se)
+	}
 }
 
 # ---------------------------------------------------------------------------
@@ -256,11 +289,100 @@ if (nrow(xpl) > 0 && nrow(ref) > 0) {
 	cross <- data.table()
 }
 
+# ---------------------------------------------------------------------------
+# Check 5: cross-implementation agreement, permutation estimator
+# ---------------------------------------------------------------------------
+# xplainfi's permutation SAGE is the implementation under test. Sanity-check its
+# point estimates against the exact truth AND against the independent reference
+# implementations at a matched n_permutations budget: fippy (marginal AND
+# conditional) and the Python sage package (marginal only). Paired on the DGP
+# instance, NOT on `sampler`: for the marginal method `sampler` is an
+# implementation label, not a data axis (xplainfi and sage report NA, fippy
+# reports "simple"), so it is normalised to NA there and the instance drives the
+# join. Conditional methods keep their real sampler, so an xplainfi sampler with
+# no matching reference row simply does not pair, rather than pairing against the
+# wrong sampler.
+perm <- res[estimator == "permutation"]
+exact_truth <- res[estimator == "exact"]
+if (nrow(perm) > 0 && nrow(exact_truth) > 0) {
+	norm_perm <- function(dt) {
+		dt <- copy(dt)
+		dt[, method := sub("_(fippy|sage)$", "", algorithm)]
+		dt[,
+			impl := fcase(
+				grepl("_fippy$", algorithm) , "fippy" ,
+				grepl("_sage$", algorithm)  , "sage"  ,
+				default = "xplainfi"
+			)
+		]
+		dt[, join_sampler := fifelse(grepl("^Marginal", method), NA_character_, as.character(sampler))]
+		dt
+	}
+	perm <- norm_perm(perm)
+	exact_truth <- norm_perm(exact_truth)
+	pkey <- c(setdiff(cross_key, "sampler"), "join_sampler", "method")
+	xpl_perm <- perm[impl == "xplainfi"]
+
+	# One row per (reference, method, problem, n_permutations). Against fippy/sage
+	# the budget is matched (both sample); against exact it is not (exact is
+	# budget-free), so mean_diff there is xplainfi's bias vs truth at that budget.
+	compare_ref <- function(ri) {
+		r <- if (ri == "exact") exact_truth else perm[impl == ri]
+		if (nrow(r) == 0) {
+			return(data.table())
+		}
+		by_cols <- if (ri == "exact") pkey else c(pkey, "n_permutations")
+		m <- merge(
+			xpl_perm[, c(pkey, "n_permutations", "importance"), with = FALSE],
+			r[, c(by_cols, "importance"), with = FALSE],
+			by = by_cols,
+			suffixes = c("_xpl", "_ref"),
+			allow.cartesian = TRUE
+		)
+		if (nrow(m) == 0) {
+			return(data.table())
+		}
+		m[,
+			.(
+				reference = ri,
+				n = .N,
+				mean_diff = mean(importance_xpl - importance_ref),
+				se_mean_diff = sd(importance_xpl - importance_ref) / sqrt(.N),
+				rmse = sqrt(mean((importance_xpl - importance_ref)^2))
+			),
+			by = .(method, problem, n_permutations)
+		]
+	}
+
+	perm_cross <- rbindlist(
+		lapply(c("exact", "fippy", "sage"), compare_ref),
+		fill = TRUE
+	)
+	setorder(perm_cross, method, problem, reference, n_permutations)
+
+	cli::cli_h1("Check 5: permutation cross-implementation")
+	cli::cli_alert_info(
+		"reference = exact: mean_diff is xplainfi's bias vs truth, should shrink as
+		 n_permutations grows. reference = fippy/sage: mean_diff within a few
+		 se_mean_diff of 0 means the two implementations agree at that budget. If
+		 xplainfi tracks fippy but both drift from exact, the gap is the estimator,
+		 not xplainfi."
+	)
+	print(perm_cross)
+} else {
+	cli::cli_warn(
+		"No permutation or exact rows; skipping the permutation cross-implementation check."
+	)
+	perm_cross <- data.table()
+}
+
 out <- list(
 	bias = if (exists("bias")) bias else data.table(),
 	coverage = if (exists("coverage")) coverage else data.table(),
+	original_se = if (exists("original_se")) original_se else data.table(),
 	early_stopping = if (exists("stopped")) stopped else data.table(),
-	cross = cross
+	cross = cross,
+	perm_cross = if (exists("perm_cross")) perm_cross else data.table()
 )
 saveRDS(out, here::here("results", "importance", "kernel-sage-validation.rds"))
 cli::cli_alert_success("Wrote results/importance/kernel-sage-validation.rds")

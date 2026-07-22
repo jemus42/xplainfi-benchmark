@@ -1089,18 +1089,21 @@ algo_MarginalSAGE_sage <- function(
 	# PermutationEstimator parallelises over jobs; KernelEstimator is single
 	# threaded and takes no n_jobs. Thread parity (see CLAUDE.md) requires the
 	# same CPU budget as xplainfi.
-	n_jobs_requested <- as.integer(n_threads())
+	n_jobs <- if (estimator == "permutation") as.integer(n_threads()) else 1L
 
-	# sage does not truncate to the requested budget (see sage_batch_size()), so
-	# the batch is sized to make the realised spend exact. PermutationEstimator
-	# must be constructed with the SAME n_jobs the batch is sized for below, or
-	# the effective spend drifts from the labelled budget again.
-	if (estimator == "permutation") {
-		perm_batch <- sage_batch_size(n_permutations, n_jobs = n_jobs_requested)
-		n_jobs <- perm_batch$n_jobs
-	} else {
-		n_jobs <- 1L
-	}
+	# sage's `batch_size` is the DATA minibatch ("set to a large value" per its
+	# docstring), NOT the coalition/permutation budget. The budget is the LOOP
+	# count: KernelEstimator runs int(n_samples / batch_size) loops and
+	# PermutationEstimator ceil(n_permutations / (batch_size * n_jobs)), each loop
+	# averaging one draw per point over the whole minibatch. Sizing batch_size TO
+	# the budget (the old sage_batch_size approach) collapsed both to a single
+	# loop over one tiny minibatch -- fast, but the SAGE value came from a handful
+	# of points and was wildly underbudgeted. Instead fix batch_size to a real
+	# data minibatch and scale the sample count below so the loop count equals the
+	# labelled budget. Cost note: kernel then draws data_batch coalitions per
+	# round, so n_coalitions = 512 with this batch is ~512x the sampling of the
+	# old (broken) arm -- accurate, but the full run's sage arm is far heavier.
+	data_batch <- min(nrow(sklearn_data$X_test), 512L)
 
 	estimator_obj <- switch(
 		estimator,
@@ -1134,29 +1137,34 @@ algo_MarginalSAGE_sage <- function(
 		bar = FALSE
 	)
 
-	# sage's own budget arguments.
+	# Scale the sample count so sage runs exactly `budget` loops (see data_batch
+	# above): n_coalitions coalition-sampling rounds, or n_permutations orderings.
+	# `n_samples`/`n_permutations` here are sage's raw sample counts, NOT the
+	# background sample -- that is MarginalImputer(data =) above, from
+	# sage_n_samples. The background stays as passed; only the loop budget changes.
+	call_args$batch_size <- data_batch
 	if (estimator == "kernel") {
-		# NOTE: `n_samples` here is the COALITION budget, not the background
-		# sample -- that is MarginalImputer(data =) above, from sage_n_samples.
-		call_args$n_samples <- as.integer(n_coalitions)
-		call_args$batch_size <- sage_batch_size(n_coalitions, n_jobs = 1L)$batch_size
+		call_args$n_samples <- as.integer(n_coalitions) * data_batch
 	} else {
-		call_args$n_permutations <- as.integer(n_permutations)
-		call_args$batch_size <- perm_batch$batch_size
+		call_args$n_permutations <- as.integer(n_permutations) * data_batch * n_jobs
 	}
 
 	explanation <- do.call(estimator_obj, call_args)
 
 	end_time <- Sys.time()
 
-	# Coalition evaluations, matching the definition xplainfi's $budget reports so
-	# the two implementations are comparable on cost. sage's Explanation object
-	# does not expose the effort it spent, so with detect_convergence the realised
-	# figure is unknown -- which is another reason this arm runs a fixed budget.
+	# Realised coalition/model-evaluation count. We control the loop count exactly
+	# (it equals the budget), and each kernel loop draws data_batch paired
+	# coalitions, each permutation loop unrolls data_batch * n_jobs orderings-per-
+	# point over n_features -- so this is the true sampling effort, not a nominal
+	# figure. It is NOT on the same axis as xplainfi's n_evals: xplainfi evaluates
+	# a coalition over the whole test set as one batched op, sage samples one datum
+	# per draw. Cross-implementation cost is compared with this caveat; within-
+	# implementation and value-vs-exact comparisons are the primary axis.
 	n_evals <- if (estimator == "kernel") {
-		2 + 2 * as.integer(n_coalitions)
+		2 + 2 * as.integer(n_coalitions) * data_batch
 	} else {
-		1 + as.integer(n_permutations) * instance$n_features
+		1 + as.integer(n_permutations) * data_batch * n_jobs * instance$n_features
 	}
 
 	# Extract SAGE values from explanation object
@@ -1166,11 +1174,21 @@ algo_MarginalSAGE_sage <- function(
 		importance = as.numeric(explanation$values)
 	)
 
+	# Fixed budget: early stopping is off for the sage reference arm, and sage's
+	# Explanation exposes no realised effort under detect_convergence anyway, so
+	# requested == used and there is no convergence verdict. The unit is the loop
+	# budget -- n_coalitions rounds or n_permutations orderings -- matching the
+	# design grid, so a budget-matched compare against xplainfi's $budget lines up
+	# on the labelled axis (raw n_evals above does not; that is secondary).
+	budget <- if (estimator == "kernel") as.numeric(n_coalitions) else as.numeric(n_permutations)
 	data.table::data.table(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = learner_performance,
 		n_evals = n_evals,
+		budget_requested = budget,
+		budget_used = budget,
+		converged = NA,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type

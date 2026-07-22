@@ -281,6 +281,24 @@ sage_algo_design <- function(
 		)
 	}
 
+	# A permutation budget at or below min_permutations can never reach the
+	# convergence check (xplainfi guards it with `n_completed >= max(min_permutations,
+	# 2L)`), so the row spends its whole budget and reports converged = FALSE --
+	# numerically identical to a fixed-budget row, but labelled as an early-stopping
+	# arm. xplainfi validates the two arguments independently and never against each
+	# other, so nothing downstream catches this. Only bites once early stopping is on.
+	if (isTRUE(conf$sage_early_stopping) && "permutation" %in% estimators) {
+		min_perms <- as.integer(conf$min_permutations)
+		incoherent <- n_permutations[n_permutations <= min_perms]
+		if (length(incoherent) > 0) {
+			cli::cli_abort(c(
+				"{.field n_permutations} {.val {incoherent}} at or below {.field min_permutations} = {.val {min_perms}}.",
+				i = "With {.code sage_early_stopping = TRUE} such a budget never reaches the convergence check: it spends in full and reports {.code converged = FALSE}, indistinguishable from a fixed-budget row.",
+				i = "Raise {.field n_permutations} above {.field min_permutations}, or lower {.field min_permutations}."
+			))
+		}
+	}
+
 	parts <- list()
 
 	if ("permutation" %in% estimators) {
@@ -341,34 +359,4 @@ sage_algo_design <- function(
 	}
 
 	d[]
-}
-
-# Batch size for a Python `sage` estimator call.
-#
-# sage does not truncate to the requested budget: KernelEstimator runs
-# `int(budget / batch_size)` loops and PermutationEstimator `ceiling(budget /
-# (batch_size * n_jobs))`, each spending `n_jobs * batch_size` samples per loop.
-# With the default batch_size of 512 a small budget therefore either evaluates
-# nothing (kernel, floor to zero loops) or massively overspends (permutation,
-# one full batch per job). Sizing the batch to the budget makes the actual spend
-# equal the requested one whenever n_jobs divides it, which is the case for this
-# benchmark's grid on the cluster's 2-cpu allocation.
-# Returns list(batch_size, n_jobs): the caller must construct its Python
-# estimator with the returned n_jobs, not the requested one, or the realised
-# spend (n_jobs * batch_size) drifts from the labelled budget again.
-sage_batch_size <- function(budget, n_jobs = 1L) {
-	budget <- as.integer(budget)
-	n_jobs <- as.integer(n_jobs)
-	checkmate::assert_int(budget, lower = 1L)
-	checkmate::assert_int(n_jobs, lower = 1L)
-
-	# The realised spend is n_jobs * batch, so pick the largest n_jobs that
-	# divides the budget: parallelism where it is free, exactness always. A
-	# labelled budget that silently cost more would make the frozen reference
-	# table uncomparable, and the discrepancy would live only in a worker log.
-	n_jobs <- max(which(budget %% seq_len(min(n_jobs, budget)) == 0L))
-	batch <- as.integer(budget / n_jobs)
-	stopifnot(batch * n_jobs == budget)
-
-	list(batch_size = batch, n_jobs = n_jobs)
 }
