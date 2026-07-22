@@ -51,34 +51,28 @@ if (length(missing_key) > 0) {
 }
 instance_key <- intersect(instance_key, names(res))
 
-# reduce_importances() keeps only `importance` and `runtime` from each job's
-# result, so the importance lane's `n_features` (a result column there, not a
-# job parameter) is absent. The reduced table is long -- one row per feature per
-# job -- so recover it by counting. The runtime lane has it as a problem
-# parameter already, hence the guard.
-#
-# Group by more than job.id: it is registry-local and restarts at 1 in each, and
-# this table deliberately combines the xplainfi and reference registries. Keying
-# on job.id alone sums the feature counts of colliding jobs into a finite,
-# plausible, wrong number that no is.finite() check can catch.
-if (!("n_features" %in% names(res))) {
-	res[, n_features := .N, by = c("job.id", "provider", "xplainfi_version")]
+# n_evals -- coalition evaluations, the cost axis comparable across estimators
+# and implementations -- is now reported by every arm and carried through
+# reduce_importances(), so it is read rather than re-derived. It used to be
+# computed here from n_features, which the importance lane does not carry as a
+# job parameter; recovering it by counting rows per job.id was wrong across
+# combined registries, where job.id restarts at 1.
+if (!("n_evals" %in% names(res))) {
+	cli::cli_abort(c(
+		"Reduced table has no {.field n_evals} column.",
+		"i" = "It comes from the algo_* result. Re-run the jobs and {.file collect-results.R}."
+	))
 }
 
-# Cost in evaluated coalitions, the only axis on which the three estimators are
-# directly comparable (see the estimator docs in xplainfi).
-res[,
-	n_evals := fcase(
-		estimator == "permutation" , 1 + n_permutations * n_features ,
-		estimator == "kernel"      , 2 + 2 * n_coalitions            ,
-		estimator == "exact"       , 2^n_features
-	)
-]
-
-# A readable label for the estimator configuration.
+# A readable label for the estimator configuration. Early-stopped kernel rows are
+# a separate arm: their budget is a ceiling, not a spend, so pooling them with the
+# fixed-budget rows of the same variant would mix two different things.
 res[,
 	arm := fcase(
-		estimator == "kernel" , paste0("kernel-", kernel_variant) ,
+		estimator == "kernel" & !is.na(early_stopping) & early_stopping ,
+		paste0("kernel-", kernel_variant, "-ES")                        ,
+		estimator == "kernel"                                           ,
+		paste0("kernel-", kernel_variant)                               ,
 		default = estimator
 	)
 ]
@@ -145,6 +139,73 @@ if (nrow(paired) == 0) {
 }
 
 # ---------------------------------------------------------------------------
+# Check 4: does early stopping stop at a sensible point?
+# ---------------------------------------------------------------------------
+# Only kernel_variant = "original" carries an early-stopped arm: it is the
+# shipped default and the estimator under test. "unbiased" exists here purely as
+# the fixed-budget numerical bridge to the Python sage package, and cannot meet
+# the default threshold at any tolerable budget in xplainfi's batch-averaged
+# regime (~8k draws measured), so early stopping there would only exhaust the
+# ceiling. See sage_algo_design() in R/helpers.R.
+#
+# Three things are asked of the stopped runs:
+#   converged      how often the criterion was met before the ceiling
+#   budget_used    what it cost, against the fixed-budget rows of the same variant
+#   err_at_stop    error vs the exact arm where it stopped, versus the error the
+#                  fixed budgets bought -- did it stop too early?
+es <- if (nrow(paired) > 0 && "err" %in% names(paired)) {
+	paired[grepl("-ES$", arm)]
+} else {
+	data.table()
+}
+if (nrow(es) > 0) {
+	stopped <- es[,
+		.(
+			n = .N,
+			converged_rate = mean(converged),
+			median_used = median(budget_used),
+			median_evals = median(n_evals),
+			rmse_at_stop = sqrt(mean(err^2))
+		),
+		by = .(algorithm, arm, problem, sage_n_samples)
+	]
+	setorder(stopped, algorithm, arm, problem, sage_n_samples)
+
+	cli::cli_h1("Check 4: early stopping")
+	cli::cli_alert_info(
+		"Compare rmse_at_stop against the fixed-budget rows in Check 1 at a similar
+		 n_evals. Stopping is working if it reaches comparable error at lower cost;
+		 it stopped too early if the error is materially worse than a fixed budget
+		 of the same size."
+	)
+	print(stopped)
+
+	# The interpretive crux. The SAGE standard errors quantify coalition-sampling
+	# error ONLY -- for MarginalSAGE they condition on the fixed reference
+	# subsample, so marginalization error is invisible to the stopping rule. If
+	# the error at the stopping point falls with sage_n_samples while the reported
+	# SE does not, then "converged" provably does not mean "accurate", and the
+	# residual is the marginalization floor rather than an under-spent budget.
+	if (uniqueN(es$sage_n_samples) > 1) {
+		floor_check <- es[,
+			.(n = .N, rmse_at_stop = sqrt(mean(err^2)), mean_se = mean(se)),
+			by = .(algorithm, arm, sage_n_samples)
+		]
+		setorder(floor_check, algorithm, arm, sage_n_samples)
+		cli::cli_h2("Error at the stopping point vs the marginalization budget")
+		cli::cli_alert_info(
+			"rmse_at_stop falling with {.field sage_n_samples} while {.field mean_se}
+			 stays flat means the residual error is marginalization, which no extra
+			 coalition budget would remove."
+		)
+		print(floor_check)
+	}
+} else {
+	cli::cli_warn("No early-stopped rows found; skipping the early-stopping check.")
+	stopped <- data.table()
+}
+
+# ---------------------------------------------------------------------------
 # Check 3: cross-implementation agreement
 # ---------------------------------------------------------------------------
 # xplainfi kernel_variant = "unbiased" is the only apples-to-apples pairing with
@@ -198,6 +259,7 @@ if (nrow(xpl) > 0 && nrow(ref) > 0) {
 out <- list(
 	bias = if (exists("bias")) bias else data.table(),
 	coverage = if (exists("coverage")) coverage else data.table(),
+	early_stopping = if (exists("stopped")) stopped else data.table(),
 	cross = cross
 )
 saveRDS(out, here::here("results", "importance", "kernel-sage-validation.rds"))

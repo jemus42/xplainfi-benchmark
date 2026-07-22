@@ -166,6 +166,10 @@ algo_MarginalSAGE <- function(
 	} else if (estimator == "kernel") {
 		args$n_coalitions <- as.integer(n_coalitions)
 		args$kernel_variant <- as.character(kernel_variant)
+		# early_stopping and se_threshold apply to the kernel estimator as well;
+		# min_permutations and check_interval remain permutation-only and warn.
+		# With early stopping the budget is a ceiling, not a spend.
+		args$early_stopping <- early_stopping
 	}
 
 	method <- do.call(MarginalSAGE$new, args)
@@ -188,8 +192,14 @@ algo_MarginalSAGE <- function(
 		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = method$resample_result$aggregate(instance$measure_eval),
-		n_permutations_used = method$n_permutations_used,
-		converged = method$converged,
+		# $budget replaces the deprecated $n_permutations_used: it reports effort in
+		# the estimator's own unit plus n_evals, the coalition-evaluation count that
+		# is comparable ACROSS estimators. `requested` vs `used` is what early
+		# stopping actually saved; `converged` is FALSE when a ceiling was exhausted.
+		budget_requested = method$budget$requested,
+		budget_used = method$budget$used,
+		n_evals = method$budget$n_evals,
+		converged = method$budget$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -245,6 +255,10 @@ algo_ConditionalSAGE <- function(
 	} else if (estimator == "kernel") {
 		args$n_coalitions <- as.integer(n_coalitions)
 		args$kernel_variant <- as.character(kernel_variant)
+		# early_stopping and se_threshold apply to the kernel estimator as well;
+		# min_permutations and check_interval remain permutation-only and warn.
+		# With early stopping the budget is a ceiling, not a spend.
+		args$early_stopping <- early_stopping
 	}
 
 	method <- do.call(ConditionalSAGE$new, args)
@@ -264,8 +278,14 @@ algo_ConditionalSAGE <- function(
 		scores = list(method$scores()),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = method$resample_result$aggregate(instance$measure_eval),
-		n_permutations_used = method$n_permutations_used,
-		converged = method$converged,
+		# $budget replaces the deprecated $n_permutations_used: it reports effort in
+		# the estimator's own unit plus n_evals, the coalition-evaluation count that
+		# is comparable ACROSS estimators. `requested` vs `used` is what early
+		# stopping actually saved; `converged` is FALSE when a ceiling was exhausted.
+		budget_requested = method$budget$requested,
+		budget_used = method$budget$used,
+		n_evals = method$budget$n_evals,
+		converged = method$budget$converged,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type
@@ -822,6 +842,10 @@ algo_MarginalSAGE_fippy <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = learner_performance,
 		n_permutations_used = n_permutations_used,
+		# Coalition evaluations, the cost axis comparable across estimators and
+		# implementations. Stored here so the analysis never has to re-derive it
+		# (see the xplainfi arms, which read it from $budget).
+		n_evals = 1 + n_permutations_used * instance$n_features,
 		converged = n_permutations_used < n_permutations,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
@@ -969,6 +993,10 @@ algo_ConditionalSAGE_fippy <- function(
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = learner_performance,
 		n_permutations_used = n_permutations_used,
+		# Coalition evaluations, the cost axis comparable across estimators and
+		# implementations. Stored here so the analysis never has to re-derive it
+		# (see the xplainfi arms, which read it from $budget).
+		n_evals = 1 + n_permutations_used * instance$n_features,
 		converged = n_permutations_used < n_permutations,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
@@ -1121,6 +1149,16 @@ algo_MarginalSAGE_sage <- function(
 
 	end_time <- Sys.time()
 
+	# Coalition evaluations, matching the definition xplainfi's $budget reports so
+	# the two implementations are comparable on cost. sage's Explanation object
+	# does not expose the effort it spent, so with detect_convergence the realised
+	# figure is unknown -- which is another reason this arm runs a fixed budget.
+	n_evals <- if (estimator == "kernel") {
+		2 + 2 * as.integer(n_coalitions)
+	} else {
+		1 + as.integer(n_permutations) * instance$n_features
+	}
+
 	# Extract SAGE values from explanation object
 	# explanation$values is a numpy array with shape (n_features,)
 	importance_dt <- data.table::data.table(
@@ -1132,6 +1170,7 @@ algo_MarginalSAGE_sage <- function(
 		importance = list(importance_dt),
 		runtime = as.numeric(difftime(end_time, start_time, units = "secs")),
 		learner_performance = learner_performance,
+		n_evals = n_evals,
 		n_features = instance$n_features,
 		n_samples = instance$n_samples,
 		task_type = instance$task_type

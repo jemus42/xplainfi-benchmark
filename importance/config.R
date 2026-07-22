@@ -45,12 +45,27 @@ conf <- list(
 	# right-hand side (Covert & Lee Eq. 7), "unbiased" uses the exact closed form
 	# (Eq. 9) and is what the Python sage package implements.
 	kernel_variants = c("original", "unbiased"),
+	# Which kernel variants additionally get an early-stopped row. "original" is
+	# the shipped default and the estimator under test; "unbiased" exists only as
+	# the numerical bridge to the Python sage package, which needs a matched fixed
+	# budget on both sides. Measured: "unbiased" needs ~8k draws to meet the
+	# default threshold in this batch-averaged regime, so early stopping there
+	# only burns the ceiling. See sage_algo_design() in R/helpers.R.
+	kernel_es_variants = "original",
+	# Ceiling for early-stopped kernel rows: a bound, not a spend. "original"
+	# typically converges in well under 100 draws.
+	n_coalitions_ceiling = 2048,
 	# "exact" enumerates all 2^n_features coalitions -- the ground truth this run
 	# validates the sampling estimators against.
 	sage_estimators = c("permutation", "kernel", "exact"),
 	# Size of sampled data used for Monte Carlo integration in SAGE methods, 200 was usually sufficient
 	# increases RAM usage a lot if set too high, and returns are diminishing somewhat quickly
-	sage_n_samples = c(100),
+	# Two values so the analysis can separate the two error sources. Both kernel
+	# variants bottom out at the same accuracy regardless of coalition budget --
+	# that floor is marginalization error set by this parameter, and the SAGE
+	# standard errors do not capture it. If the error at the early-stopping point
+	# falls with sage_n_samples, "converged" demonstrably does not mean "accurate".
+	sage_n_samples = c(100, 400),
 	# Types of learners to use for each method, uses create_learner helper
 	learner_types = c("linear", "rf"), # "mlp", "boosting"),
 	# Conditional samplers for CFI and ConditionalSAGE

@@ -121,10 +121,15 @@ algo_designs <- list(
 
 	# Python sage: kernel + permutation. Its kernel estimator is always the
 	# unbiased variant, so it has no variant choice, and it has no exact arm.
+	# Fixed budget only: this arm is the numerical bridge to xplainfi's
+	# kernel_variant = "unbiased", and that comparison needs matched budgets on
+	# both sides. sage's Explanation also does not report the effort it spent, so
+	# with convergence detection the realised cost would be unknown.
 	MarginalSAGE_sage = sage_algo_design(
 		conf,
 		estimators = c("permutation", "kernel"),
-		kernel_variants = NA_character_
+		kernel_variants = NA_character_,
+		kernel_es_variants = character()
 	),
 
 	# fippy implements the permutation estimator only. `estimator` is set

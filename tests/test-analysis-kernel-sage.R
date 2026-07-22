@@ -44,10 +44,11 @@ main <- function() {
 
 	# -------------------------------------------------------------------------
 	# Build the fixture: every arm the analysis pairs up, across 2 features and
-	# 2 repls. n_features is deliberately NOT a column -- reduce_importances()
-	# never produces it for the importance lane (it's a result column, not a
-	# job parameter), so the analysis recovers it by counting feature-rows per
-	# job.id. Omitting it here is what exercises that recovery path.
+	# 2 repls. n_evals is now a real result column carried through
+	# reduce_importances(), so the analysis reads it instead of deriving it from
+	# n_features -- which the importance lane never had as a job parameter, and
+	# whose recovery by counting rows per job.id was wrong across combined
+	# registries. n_features stays absent to prove nothing depends on it.
 	#
 	# job.id is numbered per provider block, restarting at 1 in each, mirroring
 	# two real batchtools registries -- this is what makes xplainfi job.id 1
@@ -74,6 +75,17 @@ main <- function() {
 		list(algo = "MarginalSAGE", est = "kernel", nperm = NA_integer_, ncoal = 128L, kv = "original"),
 		list(algo = "MarginalSAGE", est = "kernel", nperm = NA_integer_, ncoal = 32L, kv = "unbiased"),
 		list(algo = "MarginalSAGE", est = "kernel", nperm = NA_integer_, ncoal = 128L, kv = "unbiased"),
+		# Early-stopped kernel row: budget is a ceiling, so used < requested and
+		# converged is TRUE. Only "original" carries one, matching the role split
+		# in sage_algo_design().
+		list(
+			algo = "MarginalSAGE",
+			est = "kernel",
+			nperm = NA_integer_,
+			ncoal = 2048L,
+			kv = "original",
+			es = TRUE
+		),
 		list(
 			algo = "MarginalSAGE",
 			est = "exact",
@@ -97,6 +109,14 @@ main <- function() {
 		)
 	)
 
+	# Every arm that did not declare early stopping runs a fixed budget.
+	arms <- lapply(arms, function(a) {
+		if (is.null(a[["es"]])) {
+			a[["es"]] <- FALSE
+		}
+		a
+	})
+
 	features <- c("x1", "x2")
 	repls <- 1:2
 	truth <- c(x1 = 0.5, x2 = 0.3)
@@ -112,7 +132,8 @@ main <- function() {
 			for (feat in features) {
 				is_exact <- arm$est == "exact"
 				budget <- if (arm$est == "permutation") arm$nperm else arm$ncoal
-				se_val <- if (is_exact) NA_real_ else 0.05 / sqrt(budget)
+				spent <- if (arm[["es"]]) 64L else budget
+				se_val <- if (is_exact) NA_real_ else 0.05 / sqrt(spent)
 				imp_val <- truth[[feat]] + if (is_exact) 0 else rnorm(1, sd = se_val)
 				rows[[length(rows) + 1L]] <- data.table(
 					job.id = job_id,
@@ -133,6 +154,20 @@ main <- function() {
 					kernel_variant = arm$kv,
 					n_permutations = arm$nperm,
 					n_coalitions = arm$ncoal,
+					early_stopping = if (is_exact) NA else arm[["es"]],
+					# Effort actually spent: an early-stopped run stops well short of
+					# its ceiling, which is what makes budget_used < budget_requested
+					# the signal the analysis reports.
+					budget_requested = budget,
+					budget_used = if (arm[["es"]]) 64L else budget,
+					n_evals = if (is_exact) {
+						8
+					} else if (arm$est == "kernel") {
+						2 + 2 * (if (arm[["es"]]) 64L else budget)
+					} else {
+						1 + budget * length(features)
+					},
+					converged = if (is_exact) TRUE else arm[["es"]],
 					xplainfi_version = fixture_version,
 					runtime = runif(1, 1, 5)
 				)
@@ -174,29 +209,46 @@ main <- function() {
 	stopifnot(fs::file_exists(out_path))
 	out <- readRDS(out_path)
 
-	stopifnot(is.list(out), all(c("bias", "coverage", "cross") %in% names(out)))
-	stopifnot(nrow(out$bias) > 0, nrow(out$coverage) > 0, nrow(out$cross) > 0)
+	stopifnot(
+		is.list(out),
+		all(c("bias", "coverage", "early_stopping", "cross") %in% names(out))
+	)
+	stopifnot(
+		nrow(out$bias) > 0,
+		nrow(out$coverage) > 0,
+		nrow(out$cross) > 0,
+		nrow(out$early_stopping) > 0
+	)
 
-	# The n_features recovery path feeds n_evals, which is only persisted to
-	# disk in aggregate as bias$mean_evals -- an NA there is exactly the silent
-	# failure the recovery path exists to prevent.
+	# n_evals now comes from the algo_* result rather than being derived, so an NA
+	# here means reduce_importances() dropped the column on its way through -- the
+	# failure mode that motivated listing scalar result fields explicitly.
 	stopifnot(all(is.finite(out$bias$mean_evals)))
 
-	# Pin the recovery itself, not just its finiteness. The permutation arms'
-	# n_evals = 1 + n_permutations * n_features is the one estimator whose cost
-	# actually depends on n_features (kernel's 2 + 2 * n_coalitions does not), and
-	# their job.ids (1-4 in the xplainfi block) collide with all four reference
-	# job.ids by construction above. A regression to `by = job.id` alone recovers
-	# n_features = 4 (2 real rows + 2 from the colliding reference job) instead of
-	# the true 2, which is finite and plausible but wrong -- exactly what the
-	# is.finite() check above cannot catch, and what this pins down instead.
+	# Pin the value, not just its finiteness. The permutation arms' cost is
+	# 1 + n_permutations * n_features, which is what the fixture stores, so a
+	# regression that re-derived n_evals from a miscounted n_features (the old
+	# by = job.id bug, where colliding reference job.ids doubled the feature
+	# count) would produce a finite but wrong number that no is.finite() catches.
 	perm_bias <- out$bias[out$bias$arm == "permutation", ]
 	stopifnot(nrow(perm_bias) > 0)
 	expected_evals <- 1 + perm_bias$n_permutations * length(features)
 	stopifnot(all(perm_bias$mean_evals == expected_evals))
 
-	cat("OK: analysis-kernel-sage.R produces non-empty bias/coverage/cross tables\n")
-	cat("    with n_features correctly recovered (mean_evals pinned exactly)\n")
+	# The early-stopping check must see the ES arm as its own arm, not pooled
+	# with the fixed-budget rows of the same variant, and must report that it
+	# converged short of its ceiling.
+	es <- out$early_stopping
+	stopifnot(all(grepl("-ES$", es$arm)))
+	stopifnot(all(es$arm == "kernel-original-ES"))
+	stopifnot(all(es$converged_rate == 1))
+	stopifnot(all(es$median_used == 64))
+	# ES rows must NOT leak into the fixed-budget bias table under a bare
+	# variant label, or Check 1's cost curve would mix ceilings with spends.
+	stopifnot(!any(out$bias$arm == "kernel-original" & out$bias$n_coalitions == 2048))
+
+	cat("OK: analysis-kernel-sage.R produces non-empty bias/coverage/early_stopping/cross\n")
+	cat("    with n_evals read from the result and the ES arm kept separate\n")
 }
 
 main()

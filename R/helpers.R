@@ -230,13 +230,30 @@ create_problem_instance <- function(
 # estimator axis is an rbind of per-estimator sub-designs with NA in the
 # inapplicable columns -- never a CJ over all of them.
 #
-# conf             the lane's conf list
-# sampler          character vector to cross-join, or NULL for marginal methods
-# estimators       which estimators this implementation supports. fippy has only
-#                  the permutation estimator; Python sage has kernel+permutation.
-# kernel_variants  which design-matrix variants it supports. Pass NA_character_
-#                  for implementations with no variant choice (Python sage's
-#                  kernel estimator is always the unbiased one).
+# conf                the lane's conf list
+# sampler             character vector to cross-join, or NULL for marginal methods
+# estimators          which estimators this implementation supports. fippy has only
+#                     the permutation estimator; Python sage has kernel+permutation.
+# kernel_variants     which design-matrix variants it supports. Pass NA_character_
+#                     for implementations with no variant choice (Python sage's
+#                     kernel estimator is always the unbiased one).
+# kernel_es_variants  which kernel variants additionally get an early-stopped row,
+#                     on top of the fixed-budget rows. Defaults to
+#                     conf$kernel_es_variants; character(0) means none.
+#
+# The two kernel variants play different roles here, which is why their coverage
+# differs rather than being a ragged accident:
+#
+#   "original"  is the shipped default and the estimator under test. It gets the
+#               fixed-budget curve AND an early-stopped row, so early stopping can
+#               be judged against that curve and against the exact arm.
+#   "unbiased"  exists only as the numerical bridge to the Python `sage` package,
+#               which computes exactly that estimator. Comparing the two packages
+#               requires a matched fixed budget on both sides, so an early-stopped
+#               row would defeat the purpose of the row. It also cannot converge at
+#               any tolerable budget in xplainfi's batch-averaged regime (~8k draws
+#               at the default threshold, measured), so early stopping there just
+#               burns the ceiling and warns.
 #
 # Note the inverse failure mode of the missing-formals bug this guards against
 # (see tests/test-sage-algo-design.R): omitting "permutation" from `estimators`
@@ -246,7 +263,8 @@ sage_algo_design <- function(
 	conf,
 	sampler = NULL,
 	estimators = conf$sage_estimators,
-	kernel_variants = conf$kernel_variants
+	kernel_variants = conf$kernel_variants,
+	kernel_es_variants = conf$kernel_es_variants
 ) {
 	# conf carries unsuffixed numeric literals, so coerce once here: otherwise a
 	# column's type depends on which estimators were requested (rbindlist upcasts
@@ -283,8 +301,24 @@ sage_algo_design <- function(
 			n_permutations = NA_integer_,
 			n_coalitions = n_coalitions,
 			kernel_variant = kernel_variants,
-			sage_n_samples = conf$sage_n_samples
+			sage_n_samples = conf$sage_n_samples,
+			early_stopping = FALSE
 		)
+
+		# Early-stopped rows: the budget becomes a ceiling rather than a spend, so
+		# it is set well above the fixed grid and `converged` records whether the
+		# criterion was met before hitting it.
+		es_variants <- intersect(kernel_es_variants %||% character(), kernel_variants)
+		if (length(es_variants) > 0) {
+			parts$kernel_es <- data.table::CJ(
+				estimator = "kernel",
+				n_permutations = NA_integer_,
+				n_coalitions = as.integer(conf$n_coalitions_ceiling),
+				kernel_variant = es_variants,
+				sage_n_samples = conf$sage_n_samples,
+				early_stopping = TRUE
+			)
+		}
 	}
 
 	if ("exact" %in% estimators) {

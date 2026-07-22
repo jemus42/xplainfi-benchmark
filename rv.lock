@@ -1500,8 +1500,8 @@ dependencies = [
 
 [[packages]]
 name = "xplainfi"
-version = "1.1.0.9000"
-source = { git = "https://github.com/mlr-org/xplainfi", sha = "334b59ef4120cf3cb633c53afffdf3f0c3f78236", branch = "kernel-sage" }
+version = "1.1.0.9001"
+source = { git = "https://github.com/mlr-org/xplainfi", sha = "3ec4df3cd6bfa5fbfd093b7bb354fc2e96901ba6", branch = "kernel-sage" }
 force_source = true
 dependencies = [
     "checkmate",

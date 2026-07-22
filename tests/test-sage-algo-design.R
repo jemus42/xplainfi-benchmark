@@ -12,12 +12,15 @@ conf <- list(
 	sage_estimators = c("permutation", "kernel", "exact"),
 	sage_early_stopping = FALSE,
 	sage_n_samples = c(100),
-	min_permutations = 20
+	min_permutations = 20,
+	kernel_es_variants = "original",
+	n_coalitions_ceiling = 2048
 )
 
-# Full xplainfi axis: 3 permutation + 2 variants x 3 budgets + 1 exact = 10.
+# Full xplainfi axis: 3 permutation + 2 variants x 3 fixed budgets
+# + 1 early-stopped row for "original" + 1 exact = 11.
 d <- sage_algo_design(conf)
-stopifnot(nrow(d) == 10L)
+stopifnot(nrow(d) == 11L)
 stopifnot(identical(sort(unique(d$estimator)), c("exact", "kernel", "permutation")))
 
 # The budget argument of a non-owning estimator must be NA, or batchtools would
@@ -28,10 +31,25 @@ stopifnot(all(is.na(d[estimator != "kernel", kernel_variant])))
 stopifnot(all(!is.na(d[estimator == "permutation", n_permutations])))
 stopifnot(all(!is.na(d[estimator == "kernel", n_coalitions])))
 
-# Permutation-only convergence controls must not leak onto the other arms,
-# where a non-default value warns.
-stopifnot(all(is.na(d[estimator != "permutation", early_stopping])))
+# early_stopping applies to the permutation AND kernel estimators, but warns for
+# exact, so it must stay NA there. min_permutations remains permutation-only.
+stopifnot(all(!is.na(d[estimator %in% c("permutation", "kernel"), early_stopping])))
+stopifnot(all(is.na(d[estimator == "exact", early_stopping])))
 stopifnot(all(is.na(d[estimator != "permutation", min_permutations])))
+
+# The role split: "original" is the estimator under test and gets an
+# early-stopped row on top of its fixed-budget curve; "unbiased" is the
+# fixed-budget bridge to the Python sage package and must get none, since that
+# comparison requires matched budgets on both sides.
+stopifnot(nrow(d[kernel_variant == "original" & early_stopping]) == 1L)
+stopifnot(nrow(d[kernel_variant == "unbiased" & early_stopping]) == 0L)
+# The early-stopped row's budget is a ceiling, set above the whole fixed grid.
+stopifnot(d[kernel_variant == "original" & early_stopping, n_coalitions] == 2048L)
+stopifnot(all(
+	d[(early_stopping), n_coalitions] > max(d[estimator == "kernel" & !early_stopping, n_coalitions])
+))
+# Requesting no ES variants drops the rows entirely (the reference arms).
+stopifnot(nrow(sage_algo_design(conf, kernel_es_variants = character())) == 10L)
 
 # sage_n_samples applies to every estimator.
 stopifnot(all(!is.na(d$sage_n_samples)))
@@ -46,7 +64,7 @@ stopifnot(is.character(d$kernel_variant))
 
 # Sampler cross-join multiplies rows and adds the column.
 ds <- sage_algo_design(conf, sampler = c("gaussian", "knn"))
-stopifnot(nrow(ds) == 20L)
+stopifnot(nrow(ds) == 22L)
 stopifnot("sampler" %in% names(ds))
 stopifnot(identical(sort(unique(ds$sampler)), c("gaussian", "knn")))
 
@@ -54,9 +72,11 @@ stopifnot(identical(sort(unique(ds$sampler)), c("gaussian", "knn")))
 dsage <- sage_algo_design(
 	conf,
 	estimators = c("permutation", "kernel"),
-	kernel_variants = NA_character_
+	kernel_variants = NA_character_,
+	kernel_es_variants = character()
 )
 stopifnot(nrow(dsage) == 6L)
+stopifnot(!any(dsage$early_stopping))
 stopifnot(!("exact" %in% dsage$estimator))
 stopifnot(all(is.na(dsage$kernel_variant)))
 stopifnot(is.integer(dsage$n_permutations), is.integer(dsage$n_coalitions))
@@ -106,7 +126,8 @@ designs <- list(
 	MarginalSAGE_sage = sage_algo_design(
 		conf,
 		estimators = c("permutation", "kernel"),
-		kernel_variants = NA_character_
+		kernel_variants = NA_character_,
+		kernel_es_variants = character()
 	),
 	MarginalSAGE_fippy = sage_algo_design(conf, sampler = "simple", estimators = "permutation"),
 	ConditionalSAGE_fippy = sage_algo_design(conf, sampler = "gaussian", estimators = "permutation")

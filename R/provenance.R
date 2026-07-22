@@ -135,14 +135,37 @@ reduce_importances <- function(reg, reg_path = reg$file.dir) {
 		fill = TRUE
 	)
 
-	# Per-job scalar runtime (broadcast across that job's feature rows on merge).
-	runtimes <- data.table::rbindlist(
+	# Per-job scalar result fields (broadcast across that job's feature rows on
+	# merge). Anything an algo_* function *returns* rather than *receives* has to
+	# be listed here or it never reaches the reduced table -- job parameters come
+	# from getJobPars() below, but results are dropped unless named.
+	#
+	# n_evals is the coalition-evaluation count, the cost axis comparable across
+	# estimators AND implementations; every SAGE arm reports it. budget_*/converged
+	# come from SAGE's $budget and are what early stopping is judged on: `converged`
+	# is FALSE when a ceiling was exhausted without meeting the criterion.
+	scalar_fields <- c(
+		runtime = "numeric",
+		n_evals = "numeric",
+		budget_requested = "numeric",
+		budget_used = "numeric",
+		converged = "logical"
+	)
+	scalars <- data.table::rbindlist(
 		lapply(seq_len(nrow(results)), function(i) {
 			r <- results$result[[i]]
-			data.table::data.table(
-				job.id = results$job.id[i],
-				runtime = if (is.null(r$runtime)) NA_real_ else as.numeric(r$runtime)
-			)
+			row <- data.table::data.table(job.id = results$job.id[i])
+			for (f in names(scalar_fields)) {
+				v <- r[[f]]
+				row[,
+					(f) := if (is.null(v) || length(v) != 1L) {
+						as(NA, scalar_fields[[f]])
+					} else {
+						as(v, scalar_fields[[f]])
+					}
+				]
+			}
+			row
 		}),
 		fill = TRUE
 	)
@@ -160,7 +183,7 @@ reduce_importances <- function(reg, reg_path = reg$file.dir) {
 	pars <- merge(pars, repls, by = "job.id", all.x = TRUE)
 
 	out <- merge(importances, pars, by = "job.id", all.x = TRUE)
-	out <- merge(out, runtimes, by = "job.id", all.x = TRUE)
+	out <- merge(out, scalars, by = "job.id", all.x = TRUE)
 
 	prov <- read_provenance(reg_path)
 	out[, provider := algo_provider(algorithm)]

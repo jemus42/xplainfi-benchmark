@@ -37,6 +37,10 @@ conf <- list(
 	sage_early_stopping = FALSE,
 	n_coalitions = c(32, 128, 512),
 	kernel_variants = c("original", "unbiased"),
+	# See importance/config.R: early stopping is scoped to the shipped default
+	# variant; "unbiased" is the fixed-budget bridge to the Python sage package.
+	kernel_es_variants = "original",
+	n_coalitions_ceiling = 2048,
 	sage_estimators = c("permutation", "kernel", "exact"),
 	# Size of sampled data used for Monte Carlo integration in SAGE methods.
 	# Two values so the marginalization budget contributes visible variance to

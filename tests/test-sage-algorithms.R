@@ -23,6 +23,14 @@ cases <- list(
 	permutation = list(estimator = "permutation", n_permutations = 5L, early_stopping = FALSE),
 	kernel_orig = list(estimator = "kernel", n_coalitions = 16L, kernel_variant = "original"),
 	kernel_unb = list(estimator = "kernel", n_coalitions = 16L, kernel_variant = "unbiased"),
+	# Early stopping now applies to the kernel estimator. The budget becomes a
+	# ceiling, so this must stop well short of it on a 3-feature task.
+	kernel_es = list(
+		estimator = "kernel",
+		n_coalitions = 512L,
+		kernel_variant = "original",
+		early_stopping = TRUE
+	),
 	exact = list(estimator = "exact")
 )
 
@@ -32,6 +40,22 @@ for (nm in names(cases)) {
 	stopifnot(nrow(imp) == 3L)
 	stopifnot(all(is.finite(imp$importance)))
 	stopifnot(is.finite(res$runtime))
+
+	# $budget replaced the deprecated $n_permutations_used. Reading the old field
+	# warns, so its absence here also proves we are not still touching it.
+	stopifnot(all(c("budget_requested", "budget_used", "n_evals", "converged") %in% names(res)))
+	stopifnot(!("n_permutations_used" %in% names(res)))
+	stopifnot(is.finite(res$n_evals), res$n_evals > 0)
+	# Realised effort never exceeds what was asked for.
+	stopifnot(res$budget_used <= res$budget_requested)
+
+	if (identical(nm, "kernel_es")) {
+		# The whole point of the arm: it stopped early rather than spending the
+		# ceiling, and said so.
+		stopifnot(res$converged)
+		stopifnot(res$budget_used < res$budget_requested)
+	}
+
 	if (cases[[nm]]$estimator == "exact") {
 		# Exact has no coalition-sampling error and rejects ci_method.
 		stopifnot(!("conf_lower" %in% names(imp)))
