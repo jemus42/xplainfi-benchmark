@@ -102,11 +102,66 @@ todo_repls <- function(
 	ids
 }
 
+# Why an expired job died, from its Slurm log. batchtools' findExpired() cannot
+# tell the two apart -- both are "started, never wrote a result" -- but the two
+# need opposite fixes, and applying the wrong one loops forever: a walltime-kill
+# resubmitted with double memory and the same walltime dies identically.
+#
+# Split out as a pure function on the log text so it is testable without a
+# cluster (see tests/test-submit-helpers.R). Markers are arguments because they
+# are Slurm/template wording, not batchtools API.
+classify_expiry_log <- function(
+	log_text,
+	timeout_markers = c("DUE TO TIME LIMIT", "TIME LIMIT"),
+	oom_markers = c("oom-kill", "Out Of Memory", "Exceeded job memory limit", "OUT_OF_MEMORY")
+) {
+	if (length(log_text) == 0L || all(is.na(log_text))) {
+		return("unknown")
+	}
+	txt <- paste(log_text, collapse = "\n")
+	hit <- function(m) any(vapply(m, grepl, logical(1), x = txt, fixed = TRUE))
+	# Timeout first: an OOM-killed job can also be reported as cancelled, but a
+	# time-limit message is unambiguous.
+	if (hit(timeout_markers)) {
+		return("timeout")
+	}
+	if (hit(oom_markers)) {
+		return("oom")
+	}
+	"unknown"
+}
+
+# Classify every expired job. Unreadable or unrecognised logs are "unknown",
+# which callers escalate on BOTH axes -- over-provisioning is recoverable, an
+# infinite resubmit loop is not.
+expired_reasons <- function(
+	reg = batchtools::getDefaultRegistry(),
+	expired = batchtools::findExpired(reg = reg)
+) {
+	expired <- data.table::as.data.table(expired)
+	if (nrow(expired) == 0L) {
+		return(data.table::data.table(job.id = integer(), reason = character()))
+	}
+	reasons <- vapply(
+		expired$job.id,
+		function(id) {
+			txt <- tryCatch(
+				batchtools::getLog(id, reg = reg),
+				error = function(e) NA_character_
+			)
+			classify_expiry_log(txt)
+		},
+		character(1)
+	)
+	data.table::data.table(job.id = expired$job.id, reason = reasons)
+}
+
 escalate_memory <- function(
 	base = NULL,
 	factor = 2,
 	reg = batchtools::getDefaultRegistry(),
-	expired = batchtools::findExpired(reg = reg)
+	expired = batchtools::findExpired(reg = reg),
+	reasons = NULL
 ) {
 	out <- if (is.null(base)) {
 		data.table::data.table(job.id = integer(), memory = numeric())
@@ -116,6 +171,16 @@ escalate_memory <- function(
 	expired <- data.table::as.data.table(expired)
 	if (nrow(expired) == 0L) {
 		return(out)
+	}
+	# Only bump memory for jobs that plausibly ran out of it. Doubling memory on a
+	# walltime-kill wastes an allocation and, because the tier is unchanged, the
+	# resubmit dies exactly the same way.
+	if (!is.null(reasons)) {
+		keep <- data.table::as.data.table(reasons)[reason %in% c("oom", "unknown"), job.id]
+		expired <- expired[job.id %in% keep]
+		if (nrow(expired) == 0L) {
+			return(out)
+		}
 	}
 	res <- batchtools::getJobResources(expired, reg = reg)
 	req <- res[, .(
@@ -127,6 +192,64 @@ escalate_memory <- function(
 		list(out[!job.id %in% req$job.id], req),
 		use.names = TRUE
 	)
+}
+
+# The walltime counterpart of escalate_memory(): bump the *runtime estimate* of
+# jobs that were killed by the time limit, so plan_submission()'s existing
+# tier_of() lookup promotes them to a longer-walltime tier.
+#
+# Inflating the estimate rather than overriding the walltime directly is
+# deliberate -- `runtimes` already drives both tiering and bin-packing, so one
+# change gets the job a longer walltime AND stops it sharing a chunk with short
+# jobs. There is no per-job walltime to override: plan_submission() issues one
+# `resources` list per group.
+#
+# The basis is the walltime the job was *given*, not how long it ran (batchtools
+# records no completion time for a job that never finished), so `factor` is
+# relative to the previous request.
+escalate_runtime <- function(
+	base = NULL,
+	factor = 2,
+	reg = batchtools::getDefaultRegistry(),
+	expired = batchtools::findExpired(reg = reg),
+	reasons = NULL,
+	tiers = default_tiers
+) {
+	out <- if (is.null(base)) {
+		data.table::data.table(job.id = integer(), runtime = numeric())
+	} else {
+		data.table::as.data.table(base)[, .(job.id, runtime)]
+	}
+	expired <- data.table::as.data.table(expired)
+	if (nrow(expired) == 0L) {
+		return(out)
+	}
+	if (!is.null(reasons)) {
+		keep <- data.table::as.data.table(reasons)[reason %in% c("timeout", "unknown"), job.id]
+		expired <- expired[job.id %in% keep]
+		if (nrow(expired) == 0L) {
+			return(out)
+		}
+	}
+
+	res <- batchtools::getJobResources(expired, reg = reg)
+	req <- res[, .(
+		job.id,
+		runtime = factor * vapply(resources, function(r) as.numeric(r$walltime %||% NA), numeric(1))
+	)]
+
+	# Nothing above the last tier, so a job killed there cannot be given more.
+	# Silently resubmitting it would loop forever.
+	ceiling_rt <- tiers[[length(tiers)]]$walltime
+	stuck <- req[!is.na(runtime) & runtime > factor * ceiling_rt]
+	if (nrow(stuck) > 0) {
+		cli::cli_warn(c(
+			"{nrow(stuck)} job{?s} already expired at the longest tier ({round(ceiling_rt / 3600)}h).",
+			"i" = "Resubmitting cannot give {?it/them} more walltime -- split the work or add a tier to {.fun default_tiers}."
+		))
+	}
+
+	data.table::rbindlist(list(out[!job.id %in% req$job.id], req), use.names = TRUE)
 }
 
 # Ordered runtime ceilings -> requested walltime. A job lands in the first tier
@@ -304,11 +427,37 @@ resubmit_expired <- function(
 		cli::cli_alert_success("No expired jobs to resubmit")
 		return(invisible(NULL))
 	}
-	cli::cli_alert_info("Resubmitting {nrow(expired)} expired job{?s} at {factor}x memory")
+	# OOM and walltime-kill need opposite fixes, and applying the wrong one loops:
+	# a timed-out job resubmitted with double memory and the same tier dies the
+	# same way. Classify from the Slurm log; "unknown" gets both, since
+	# over-provisioning is recoverable and an infinite resubmit loop is not.
+	reasons <- expired_reasons(reg = reg, expired = expired)
+	tally <- reasons[, .N, by = reason][order(-N)]
+	cli::cli_alert_info(
+		"Resubmitting {nrow(expired)} expired job{?s} at {factor}x: {paste(tally$reason, tally$N, sep = '=', collapse = ', ')}"
+	)
+	if ("unknown" %in% reasons$reason) {
+		cli::cli_alert_warning(
+			"{sum(reasons$reason == 'unknown')} job{?s} had no recognisable reason in the log; escalating both memory and walltime."
+		)
+	}
+
 	groups <- plan_submission(
 		ids = expired,
-		runtimes = runtimes,
-		memory = escalate_memory(base = base, factor = factor, reg = reg, expired = expired),
+		runtimes = escalate_runtime(
+			base = runtimes,
+			factor = factor,
+			reg = reg,
+			expired = expired,
+			reasons = reasons
+		),
+		memory = escalate_memory(
+			base = base,
+			factor = factor,
+			reg = reg,
+			expired = expired,
+			reasons = reasons
+		),
 		...
 	)
 	report_groups(groups)
