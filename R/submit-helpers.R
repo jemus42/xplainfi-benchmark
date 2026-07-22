@@ -442,23 +442,39 @@ resubmit_expired <- function(
 		)
 	}
 
-	groups <- plan_submission(
-		ids = expired,
-		runtimes = escalate_runtime(
-			base = runtimes,
-			factor = factor,
-			reg = reg,
-			expired = expired,
-			reasons = reasons
-		),
-		memory = escalate_memory(
-			base = base,
-			factor = factor,
-			reg = reg,
-			expired = expired,
-			reasons = reasons
-		),
-		...
+	# Chunk expired jobs ALONE by default. batchtools runs a chunk's jobs
+	# sequentially in one Slurm job, so a single OOM or overrun tears down the
+	# whole chunk and every job in it lands in findExpired() -- most of them
+	# innocent. Re-packing that same set together reproduces the coupling and can
+	# re-kill the bystanders indefinitely; one job per chunk isolates the culprit,
+	# and the next round's estimates are then per-job rather than per-chunk.
+	dots <- list(...)
+	if (is.null(dots$chunk_size)) {
+		dots$chunk_size <- 1L
+	}
+
+	groups <- do.call(
+		plan_submission,
+		c(
+			list(
+				ids = expired,
+				runtimes = escalate_runtime(
+					base = runtimes,
+					factor = factor,
+					reg = reg,
+					expired = expired,
+					reasons = reasons
+				),
+				memory = escalate_memory(
+					base = base,
+					factor = factor,
+					reg = reg,
+					expired = expired,
+					reasons = reasons
+				)
+			),
+			dots
+		)
 	)
 	report_groups(groups)
 	if (submit) {

@@ -13,3 +13,7 @@ write_estimates(
 	rf = list(num.trees = 1000, min.node.size = 5, mtry = 8, max.depth = 10),
 	n_print = 1500
 )
+
+# Memory sizing from the registry's own mem.used measurements. Kept separate from
+# the runtime model above because it needs no fitting -- see R/estimate.R.
+write_memory_estimates(conf$reg_path, prefix = "runtime")
