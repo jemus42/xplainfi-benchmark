@@ -287,8 +287,27 @@ plan_submission <- function(
 	target_seconds = 12 * 3600,
 	mem_headroom = 1.3,
 	mem_default = 4 * 1024,
-	chunk_size = 20L
+	chunk_size = 20L,
+	max_chunk_jobs = 25L,
+	pilot = FALSE
 ) {
+	# Pilot: nothing has run yet, so any runtime estimate is either absent or --
+	# worse -- left over from a different registry, where it is keyed by a job.id
+	# that now means something else. Bin-packing on those produced 3-4 chunks of
+	# several hundred jobs each, and because a chunk is ONE Slurm job, the first
+	# OOM took all of them down. Chunk by count, small, and request the longest
+	# walltime and generous memory: a pilot is measuring cost, not economising.
+	if (pilot) {
+		runtimes <- NULL
+		memory <- NULL
+		chunk_size <- min(chunk_size, 4L)
+		max_chunk_jobs <- min(max_chunk_jobs, 4L)
+		tiers <- tiers[length(tiers)]
+		mem_default <- max(mem_default, 8 * 1024)
+		cli::cli_alert_info(
+			"Pilot mode: {.val {chunk_size}} job{?s}/chunk, {round(tiers[[1]]$walltime / 3600)}h walltime, {mem_default}MB, estimates ignored."
+		)
+	}
 	ids <- data.table::as.data.table(ids)[, .(job.id)]
 	ids[,
 		backend := data.table::fifelse(
@@ -341,6 +360,20 @@ plan_submission <- function(
 				cap <- max(target_seconds, grp$rt)
 				grp[, chunk := batchtools::binpack(rt, chunk.size = cap)]
 			}
+			# Hard cap on jobs per chunk, whichever path built them. A chunk is one
+			# Slurm job running its members sequentially, so its size is the blast
+			# radius of a single OOM or overrun: every job in it lands in
+			# findExpired(), most of them innocent. Bin-packing to a wall-clock
+			# target alone ignores this -- many short jobs pack into one enormous
+			# chunk.
+			grp[,
+				chunk := {
+					sub <- seq_len(.N) - 1L
+					chunk * 1000L + (sub %/% max_chunk_jobs)
+				},
+				by = chunk
+			]
+			grp[, chunk := as.integer(factor(chunk))]
 			grp[, chunk := chunk + offset * 1e6L]
 
 			est <- grp$memory[!is.na(grp$memory)]

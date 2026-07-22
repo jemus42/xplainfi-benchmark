@@ -38,12 +38,20 @@ est <- read_estimates(
 		here::here("eta-runtime.rds")
 	} else {
 		here::here("results", "runtime-est.rds")
-	}
+	},
+	reg_path = conf$reg_path
 )
 
 # Double the memory of any expired (OOM/walltime-killed) job being resubmitted.
+# Pretesting (XPLAINFI_BENCH_REPLS set) submits with deliberately conservative
+# resources: small chunks so one OOM cannot take down hundreds of jobs, the
+# longest walltime, generous memory, and no reliance on estimates that do not
+# exist yet. Measuring cost is the point; economising comes after.
+pilot <- nzchar(Sys.getenv("XPLAINFI_BENCH_REPLS"))
+
 groups <- plan_submission(
 	ids = ids,
+	pilot = pilot,
 	runtimes = est$runtimes,
 	memory = escalate_memory()
 )

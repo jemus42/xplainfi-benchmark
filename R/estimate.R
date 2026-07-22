@@ -41,6 +41,16 @@ write_estimates <- function(
 	print(est, n = n_print)
 	cli::cli_inform("Runtime model R^2: {round(est$model$r.squared, 2)}")
 
+	# Stamp which registry this came from. Estimates are keyed by job.id, which is
+	# REGISTRY-LOCAL: an eta file from an earlier registry silently applies its
+	# runtimes to whatever job now holds each id. That is not a small error -- it
+	# fed bin-packing bogus per-job costs and produced a handful of chunks holding
+	# hundreds of jobs each, where one OOM expired the lot.
+	attr(est, "reg_stamp") <- list(
+		reg_path = as.character(reg_path),
+		n_jobs = nrow(batchtools::getJobTable(reg = reg))
+	)
+
 	out <- here::here(paste0("eta-", prefix, ".rds"))
 	saveRDS(est, out)
 	cli::cli_alert_success("Wrote {.file {out}}")
@@ -55,12 +65,47 @@ write_estimates <- function(
 #
 # Accepts both the full estimate object (uses $runtimes / $memory) and a bare
 # data.table (legacy snapshots such as results/runtime-est.rds).
-read_estimates <- function(prefix, runtime_path = NULL, memory_path = NULL) {
+# reg_path  when given, estimate files stamped for a DIFFERENT registry are
+#           discarded with a warning rather than silently misapplied (see the
+#           stamp written by write_estimates()). Files with no stamp predate it
+#           and are accepted, so old snapshots keep working.
+read_estimates <- function(prefix, runtime_path = NULL, memory_path = NULL, reg_path = NULL) {
+	check_stamp <- function(x, path) {
+		stamp <- attr(x, "reg_stamp")
+		if (is.null(reg_path)) {
+			return(TRUE)
+		}
+		# No stamp means it cannot be verified, and an unverifiable estimate file is
+		# exactly what caused the damage: one left over from an earlier registry was
+		# applied by job.id to a new one. Discarding costs a chunking pass by job
+		# count; accepting cost a submission.
+		if (is.null(stamp)) {
+			cli::cli_warn(c(
+				"Ignoring {.file {fs::path_rel(path)}}: no registry stamp, so it cannot be matched to this registry.",
+				"i" = "It is keyed by {.field job.id}, which is registry-local -- an older file's runtimes would be applied to whichever jobs now hold those ids.",
+				"i" = "Re-run {.file {prefix}/eta.R} once this registry has finished jobs."
+			))
+			return(FALSE)
+		}
+		if (!identical(as.character(stamp$reg_path), as.character(reg_path))) {
+			cli::cli_warn(c(
+				"Ignoring {.file {fs::path_rel(path)}}: written for a different registry.",
+				"i" = "It is keyed by {.field job.id}, which is registry-local, so its runtimes belong to other jobs.",
+				"x" = "Stamped {.path {stamp$reg_path}}, current is {.path {reg_path}}.",
+				"i" = "Re-run {.file {prefix}/eta.R} once this registry has finished jobs."
+			))
+			return(FALSE)
+		}
+		TRUE
+	}
 	pick <- function(path, field) {
 		if (is.null(path) || !fs::file_exists(path)) {
 			return(NULL)
 		}
 		x <- readRDS(path)
+		if (!check_stamp(x, path)) {
+			return(NULL)
+		}
 		# The estimate object (class RuntimeEstimate) also carries a data.table
 		# class, so check its $runtimes/$memory element before the bare-dt case
 		# (a legacy flat snapshot like results/runtime-est.rds).

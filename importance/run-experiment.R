@@ -31,13 +31,20 @@ ids <- todo_repls()
 # Estimates from completed jobs (eta-importance.rds from eta.R; mem-importance.rds
 # from the external slurm-memcheck utility, if materialised). Absent on the pilot
 # pass -> chunk by job count / default memory.
-est <- read_estimates("importance")
+est <- read_estimates("importance", reg_path = conf$reg_path)
 
 # Double the memory of any expired (OOM/walltime-killed) job being resubmitted, so
 # it does not just fail the same way. A group requests the max of its members, so a
 # bumped job lifts its whole chunk (safe over-provisioning).
+# Pretesting (XPLAINFI_BENCH_REPLS set) submits with deliberately conservative
+# resources: small chunks so one OOM cannot take down hundreds of jobs, the
+# longest walltime, generous memory, and no reliance on estimates that do not
+# exist yet. Measuring cost is the point; economising comes after.
+pilot <- nzchar(Sys.getenv("XPLAINFI_BENCH_REPLS"))
+
 groups <- plan_submission(
 	ids = ids,
+	pilot = pilot,
 	runtimes = est$runtimes,
 	memory = escalate_memory(base = est$memory)
 )
