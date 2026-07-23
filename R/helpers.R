@@ -351,6 +351,15 @@ sage_algo_design <- function(
 
 	d <- data.table::rbindlist(parts, fill = TRUE)
 
+	# Convergence threshold for early stopping, matched across every implementation
+	# (xplainfi's `se_threshold`, sage's and fippy's `thresh`) so an ES comparison
+	# is fair -- all three use the same spread-relative max(se)/spread < threshold
+	# criterion. Constant, deliberately NOT swept: only its consistency matters, and
+	# sage's 0.025 default is the shared value (xplainfi and fippy default to a
+	# stricter 0.01, which needed ~6x more draws and read as "non-convergence").
+	# Inert on fixed-budget and exact rows, which never run convergence detection.
+	d[, se_threshold := as.numeric(conf$se_threshold)]
+
 	if (!is.null(sampler)) {
 		# Cross join. data.table's merge has no by = NULL, base merge does.
 		d <- data.table::as.data.table(

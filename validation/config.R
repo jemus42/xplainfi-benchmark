@@ -1,14 +1,12 @@
-# Configuration file for batchtools experiment -- IMPORTANCE lane.
+# Configuration file for batchtools experiment -- VALIDATION lane.
 #
-# MIGRATION IN PROGRESS: this lane is meant to run a SINGLE realistic budget per
-# estimator with early stopping ON (realistic settings -> "good" estimates, then
-# compare implementations). It currently still mirrors the VALIDATION lane (budget
-# sweeps + a fixed-budget ES arm) because the realistic values are exactly what the
-# validation lane exists to determine. Do NOT treat this lane's results as the
-# realistic-settings comparison yet. Once validation has run, this config collapses
-# n_permutations / n_coalitions / sage_n_samples to single values and sets
-# sage_early_stopping = TRUE. Until then, run the validation lane, not this one.
-# Experiment settings
+# This lane exists to *earn* the realistic settings the importance lane will use:
+# it sweeps the budget factors (n_permutations, n_coalitions, sage_n_samples) AND
+# carries the kernel early-stopping arm, so the analysis can see where each
+# estimator converges, whether ES stops at a sensible point, and how the
+# implementations agree. The importance lane then runs a single realistic budget
+# with ES on; the runtime lane sweeps budgets with ES off. Keep those three
+# distinct -- do not fold sweeps back into importance or ES into runtime.
 
 # Registry directory is namespaced by the xplainfi version actually installed,
 # so results for different versions are retained side by side. Override with
@@ -29,7 +27,7 @@ providers <- trimws(strsplit(
 conf <- list(
 	# General batchtools settings
 	reg_path = fs::path(
-		here::here("registries", "importance", paste0("xplainfi-", xplainfi_version))
+		here::here("registries", "validation", paste0("xplainfi-", xplainfi_version))
 	),
 	providers = providers,
 	seed = 2025,

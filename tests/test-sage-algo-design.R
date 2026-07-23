@@ -13,6 +13,7 @@ conf <- list(
 	sage_early_stopping = FALSE,
 	sage_n_samples = c(100),
 	min_permutations = 20,
+	se_threshold = 0.025,
 	kernel_es_variants = "original",
 	n_coalitions_ceiling = 2048
 )

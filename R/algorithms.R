@@ -135,7 +135,8 @@ algo_MarginalSAGE <- function(
 	sage_n_samples = 200,
 	batch_size = 10000,
 	early_stopping = FALSE,
-	min_permutations = 20
+	min_permutations = 20,
+	se_threshold = 0.025
 ) {
 	# Create learner for this algorithm
 	learner <- create_learner(
@@ -163,6 +164,7 @@ algo_MarginalSAGE <- function(
 		args$n_permutations <- as.integer(n_permutations)
 		args$early_stopping <- early_stopping
 		args$min_permutations <- as.integer(min_permutations)
+		args$se_threshold <- se_threshold
 	} else if (estimator == "kernel") {
 		args$n_coalitions <- as.integer(n_coalitions)
 		args$kernel_variant <- as.character(kernel_variant)
@@ -170,6 +172,7 @@ algo_MarginalSAGE <- function(
 		# min_permutations and check_interval remain permutation-only and warn.
 		# With early stopping the budget is a ceiling, not a spend.
 		args$early_stopping <- early_stopping
+		args$se_threshold <- se_threshold
 	}
 
 	method <- do.call(MarginalSAGE$new, args)
@@ -223,7 +226,8 @@ algo_ConditionalSAGE <- function(
 	sampler = "arf",
 	batch_size = 10000,
 	early_stopping = FALSE,
-	min_permutations = 20
+	min_permutations = 20,
+	se_threshold = 0.025
 ) {
 	# Create learner for this algorithm
 	learner <- create_learner(
@@ -252,6 +256,7 @@ algo_ConditionalSAGE <- function(
 		args$n_permutations <- as.integer(n_permutations)
 		args$early_stopping <- early_stopping
 		args$min_permutations <- as.integer(min_permutations)
+		args$se_threshold <- se_threshold
 	} else if (estimator == "kernel") {
 		args$n_coalitions <- as.integer(n_coalitions)
 		args$kernel_variant <- as.character(kernel_variant)
@@ -259,6 +264,7 @@ algo_ConditionalSAGE <- function(
 		# min_permutations and check_interval remain permutation-only and warn.
 		# With early stopping the budget is a ceiling, not a spend.
 		args$early_stopping <- early_stopping
+		args$se_threshold <- se_threshold
 	}
 
 	method <- do.call(ConditionalSAGE$new, args)
@@ -723,7 +729,8 @@ algo_MarginalSAGE_fippy <- function(
 	sage_n_samples = 10,
 	sampler = "simple",
 	early_stopping = FALSE,
-	min_permutations = 20
+	min_permutations = 20,
+	se_threshold = 0.025
 ) {
 	# fippy implements the permutation estimator only. The column is carried on
 	# every SAGE design so the analysis join stays uniform, so accept it here and
@@ -817,6 +824,9 @@ algo_MarginalSAGE_fippy <- function(
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
 		detect_convergence = early_stopping,
+		# Matched convergence threshold across implementations (fippy defaults to a
+		# stricter 0.01); inert unless detect_convergence is on. See sage_algo_design().
+		thresh = se_threshold,
 		# For consistency with xplainfi: Ensure at least this number of permutations (orderings) is evaluated
 		# fippy adds `extra_orderings` after convergence detection, xplainfi explicitly checks if min_permutations are checked before convergence is declared
 		extra_orderings = min_permutations
@@ -872,7 +882,8 @@ algo_ConditionalSAGE_fippy <- function(
 	sage_n_samples = 10,
 	sampler = "gaussian",
 	early_stopping = FALSE,
-	min_permutations = 20
+	min_permutations = 20,
+	se_threshold = 0.025
 ) {
 	# fippy implements the permutation estimator only. The column is carried on
 	# every SAGE design so the analysis join stays uniform, so accept it here and
@@ -968,6 +979,9 @@ algo_ConditionalSAGE_fippy <- function(
 		nr_runs = 1L,
 		nr_resample_marginalize = as.integer(sage_n_samples),
 		detect_convergence = early_stopping,
+		# Matched convergence threshold across implementations (fippy defaults to a
+		# stricter 0.01); inert unless detect_convergence is on. See sage_algo_design().
+		thresh = se_threshold,
 		# For consistency with xplainfi: Ensure at least this number of permutations (orderings) is evaluated
 		# fippy adds `extra_orderings` after convergence detection, xplainfi explicitly checks if min_permutations are checked before convergence is declared
 		extra_orderings = min_permutations
@@ -1022,7 +1036,8 @@ algo_MarginalSAGE_sage <- function(
 	kernel_variant = NA_character_,
 	sage_n_samples = 200, # Background data size for marginalization
 	early_stopping = FALSE,
-	min_permutations = 20
+	min_permutations = 20,
+	se_threshold = 0.025
 ) {
 	# Use first resampling iteration
 	train_ids <- instance$resampling$train_set(1)
@@ -1133,6 +1148,9 @@ algo_MarginalSAGE_sage <- function(
 		X = np$array(sklearn_data$X_test),
 		Y = np$array(sklearn_data$y_test),
 		detect_convergence = early_stopping,
+		# Matched convergence threshold; this is already sage's default (0.025), set
+		# explicitly so the shared value lives in one place. See sage_algo_design().
+		thresh = se_threshold,
 		verbose = FALSE,
 		bar = FALSE
 	)

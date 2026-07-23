@@ -39,7 +39,7 @@ local({
 })
 
 
-fs::dir_create(here::here("registries", c("runtime", "importance")))
+fs::dir_create(here::here("registries", c("runtime", "importance", "validation")))
 
 library(batchtools)
 library(mlr3)

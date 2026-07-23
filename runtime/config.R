@@ -35,11 +35,17 @@ conf <- list(
 	n_permutations = c(10, 50, 100),
 	min_permutations = 20,
 	sage_early_stopping = FALSE,
+	# Matched convergence threshold (see importance/config.R). Inert in this lane
+	# while early stopping is off, but kept so every lane defines it in one place.
+	se_threshold = 0.025,
 	n_coalitions = c(32, 128, 512),
 	kernel_variants = c("original", "unbiased"),
-	# See importance/config.R: early stopping is scoped to the shipped default
-	# variant; "unbiased" is the fixed-budget bridge to the Python sage package.
-	kernel_es_variants = "original",
+	# No early-stopping arm in the runtime lane: a converging estimator has a
+	# variable, budget-dependent runtime that cannot be attributed to a fixed
+	# budget, which defeats the point of a runtime-vs-budget sweep. Early stopping
+	# is studied in the validation lane and used in the importance lane; here every
+	# arm runs a fixed budget so its cost is exactly attributable.
+	kernel_es_variants = character(0),
 	n_coalitions_ceiling = 2048,
 	sage_estimators = c("permutation", "kernel", "exact"),
 	# Size of sampled data used for Monte Carlo integration in SAGE methods.
