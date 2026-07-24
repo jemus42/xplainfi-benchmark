@@ -4,10 +4,12 @@
 #
 # Jobs are grouped on two axes, in order:
 #
-#   1. Backend (R vs Python). batchtools runs every job sharing a `chunk`
-#      value sequentially in ONE R session, so R-backed jobs (mlr3torch ->
-#      libtorch) and Python-backed jobs (reticulate -> torch) must never share
-#      a chunk, or two torch runtimes load into the same process.
+#   1. Partition (plan_submission's `group_by`, default `backend_split`: R vs
+#      Python). batchtools runs every job sharing a `chunk` value sequentially in
+#      ONE R session, so R-backed jobs (mlr3torch -> libtorch) and Python-backed
+#      jobs (reticulate -> torch) must never share a chunk, or two torch runtimes
+#      load into the same process. This is the only benchmark-specific axis; the
+#      rest generalises to any batchtools project.
 #
 #   2. Resource tier. A single submitJobs() call carries ONE `resources` list,
 #      so the jobs in it must have aligned requirements. Tiers bucket by
@@ -16,6 +18,39 @@
 #      Memory is taken from pretested estimates when available.
 #
 # The output is a flat list of submission groups; each is one submitJobs() call.
+
+# Start-of-session helper for an ongoing benchmark lane. Sources the lane config
+# for its registry path, loads the registry WRITEABLE (so you can resubmit),
+# reads any runtime/memory estimates, prints status, and returns the pieces the
+# submission helpers want. One call replaces the source/loadRegistry/getStatus/
+# read_estimates boilerplate:
+#   b <- resume("validation")
+#   g <- resubmit_expired(runtimes = b$est$runtimes, max_walltime_h = 6, submit = FALSE)
+#   report_groups(g); submit_groups(g)
+# loadRegistry sets the default registry, so todo()/resubmit_expired() find it
+# without a `reg =` argument. `version` overrides XPLAINFI_BENCH_VERSION to target
+# a specific registry (e.g. an ongoing pretest); NULL uses the lane's default.
+resume <- function(lane, version = NULL) {
+	if (!is.null(version)) {
+		old <- Sys.getenv("XPLAINFI_BENCH_VERSION", unset = NA_character_)
+		Sys.setenv(XPLAINFI_BENCH_VERSION = version)
+		on.exit(
+			if (is.na(old)) {
+				Sys.unsetenv("XPLAINFI_BENCH_VERSION")
+			} else {
+				Sys.setenv(XPLAINFI_BENCH_VERSION = old)
+			}
+		)
+	}
+	# Source the lane config into its own env so `conf` does not leak into globals.
+	e <- new.env()
+	sys.source(here::here(lane, "config.R"), envir = e)
+	conf <- e$conf
+	reg <- batchtools::loadRegistry(conf$reg_path, writeable = TRUE, work.dir = here::here())
+	est <- read_estimates(lane, reg_path = conf$reg_path)
+	print(batchtools::getStatus(reg = reg))
+	invisible(list(reg = reg, conf = conf, est = est, lane = lane))
+}
 
 # Jobs outstanding and not already in flight: not-done minus running/queued.
 # Re-runnable -- picks up failed/expired jobs without touching in-flight ones.
@@ -262,8 +297,13 @@ default_tiers <- list(
 # Build submission groups from a set of job ids.
 #
 # ids            data.table with a `job.id` column (e.g. findNotSubmitted())
-# python         job ids using a Python backend; defaults to findTagged("python"),
-#                which is always the right set in this benchmark
+# group_by       function(ids) -> character label per job. Jobs with different
+#                labels never share a chunk. This is the one benchmark-specific
+#                seam: the default `backend_split` keeps R (mlr3torch/libtorch) and
+#                Python (reticulate torch) jobs apart, since they collide in one R
+#                session. A project with no such constraint can pass
+#                `\(ids) rep("all", nrow(ids))` to disable partitioning, or any
+#                other partitioning rule. Everything else here is generic.
 # runtimes       optional data.table(job.id, runtime[seconds]) from eta.R. Drives
 #                both tiering and bin-packing. Jobs with no estimate go to the
 #                last (safest) tier and chunk alone.
@@ -271,20 +311,36 @@ default_tiers <- list(
 # tiers          see default_tiers
 # target_seconds bin-pack chunks up to this wall-clock (< the tier walltime, to
 #                leave headroom)
+# max_walltime_h deadline cap (hours). Requests no more than this walltime, packs
+#                chunks to fit under it, and EXCLUDES jobs whose own estimate
+#                already exceeds it (they cannot finish in the window). NULL = off.
+#                Use it when jobs must be done by a wall-clock time (e.g. before
+#                the cluster gets noisy at 07:00): pass the hours remaining.
 # mem_headroom   multiply the per-group max estimate by this
 # mem_default    requested memory (MB) when no estimate is available
 # chunk_size     jobs per chunk when no runtimes are given
 #
-# Returns a list of groups, each: list(backend, tier, resources, jobs), where
+# Returns a list of groups, each: list(group, tier, resources, jobs), where
 # `jobs` is data.table(job.id, chunk) ready for submitJobs(). Groups with no
 # jobs are omitted.
+#
+# The default partition for this benchmark: R vs Python backend. A chunk runs in
+# one R session, so mlr3torch's libtorch and reticulate's Python torch must never
+# share one. Passed to plan_submission() as `group_by` -- the only benchmark-
+# specific piece; swap it for any partitioning rule (or none) in another project.
+backend_split <- function(ids, reg = batchtools::getDefaultRegistry()) {
+	py <- data.table::as.data.table(batchtools::findTagged("python", reg = reg))$job.id
+	data.table::fifelse(data.table::as.data.table(ids)$job.id %in% py, "python", "r")
+}
+
 plan_submission <- function(
 	ids,
-	python = batchtools::findTagged("python"),
+	group_by = backend_split,
 	runtimes = NULL,
 	memory = NULL,
 	tiers = default_tiers,
 	target_seconds = 12 * 3600,
+	max_walltime_h = NULL,
 	mem_headroom = 1.3,
 	mem_default = 4 * 1024,
 	chunk_size = 20L,
@@ -308,14 +364,31 @@ plan_submission <- function(
 			"Pilot mode: {.val {chunk_size}} job{?s}/chunk, {round(tiers[[1]]$walltime / 3600)}h walltime, {mem_default}MB, estimates ignored."
 		)
 	}
+	# Deadline mode: a hard cap on requested walltime (e.g. the hours left before
+	# the cluster gets noisy at 07:00). Cap the pack target so a full chunk still
+	# fits under it; the walltime request and the too-long-job exclusion happen
+	# below once runtimes are known.
+	max_wt_s <- if (!is.null(max_walltime_h)) max_walltime_h * 3600 else Inf
+	if (is.finite(max_wt_s) && is.null(runtimes)) {
+		cli::cli_warn(c(
+			"{.arg max_walltime_h} caps the requested walltime but without {.arg runtimes} it cannot size chunks to fit or exclude too-long jobs.",
+			"i" = "Chunks may overrun the deadline. Run eta.R and pass its estimates first."
+		))
+	}
+	if (is.finite(max_wt_s)) {
+		# Pack to 80% of the cap but request the full cap, so a chunk has ~20% slack
+		# for optimistic estimates before it risks the deadline. A single job longer
+		# than the target still chunks alone and gets the full cap; only jobs longer
+		# than the cap itself are excluded (below). Set the cap below the true
+		# deadline as well for a hard cut-off.
+		target_seconds <- min(target_seconds, max_wt_s * 0.8)
+	}
+
 	ids <- data.table::as.data.table(ids)[, .(job.id)]
-	ids[,
-		backend := data.table::fifelse(
-			job.id %in% data.table::as.data.table(python)$job.id,
-			"python",
-			"r"
-		)
-	]
+	ids[, group := as.character(group_by(ids))]
+	if (anyNA(ids$group)) {
+		cli::cli_abort("{.arg group_by} returned NA for {sum(is.na(ids$group))} job{?s}.")
+	}
 	if (!is.null(runtimes)) {
 		ids <- merge(ids, runtimes[, .(job.id, runtime)], by = "job.id", all.x = TRUE)
 	} else {
@@ -341,11 +414,32 @@ plan_submission <- function(
 	}
 	ids[, tier_i := vapply(runtime, tier_of, integer(1))]
 
+	# Deadline exclusion: a job whose own estimate exceeds the cap cannot finish in
+	# the window, so drop it rather than request the cap and have Slurm kill it at
+	# the deadline. NA-estimate jobs are kept (they chunk alone) but flagged, since
+	# without an estimate we cannot promise they fit.
+	if (is.finite(max_wt_s)) {
+		over <- ids[!is.na(runtime) & runtime > max_wt_s]
+		if (nrow(over) > 0L) {
+			cli::cli_warn(c(
+				"{nrow(over)} job{?s} estimated over the {round(max_wt_s / 3600, 1)}h cap -- excluded (cannot finish by the deadline).",
+				"i" = "Submit the excluded jobs without {.arg max_walltime_h} once the deadline has passed."
+			))
+			ids <- ids[is.na(runtime) | runtime <= max_wt_s]
+		}
+		n_na <- sum(is.na(ids$runtime))
+		if (n_na > 0L) {
+			cli::cli_alert_warning(
+				"{n_na} job{?s} without a runtime estimate kept under the cap -- each chunks alone and requests the full cap, but could overrun it."
+			)
+		}
+	}
+
 	groups <- list()
 	offset <- 0L
-	for (be in c("r", "python")) {
+	for (gv in sort(unique(ids$group))) {
 		for (ti in seq_along(tiers)) {
-			grp <- ids[backend == be & tier_i == ti]
+			grp <- ids[group == gv & tier_i == ti]
 			if (nrow(grp) == 0L) {
 				next
 			}
@@ -383,19 +477,20 @@ plan_submission <- function(
 				mem_default
 			}
 
-			walltime <- tiers[[ti]]$walltime
+			# min() with Inf (no cap) leaves the tier walltime untouched.
+			walltime <- min(tiers[[ti]]$walltime, max_wt_s)
 			if (!is.null(runtimes)) {
 				worst <- grp[, sum(rt), by = chunk][["V1"]]
 				if (any(worst > walltime)) {
 					cli::cli_warn(c(
-						"Group {.val {be}}/{.val {tiers[[ti]]$name}} has a chunk est. at {round(max(worst) / 3600, 1)}h, over its {round(walltime / 3600, 1)}h walltime.",
+						"Group {.val {gv}}/{.val {tiers[[ti]]$name}} has a chunk est. at {round(max(worst) / 3600, 1)}h, over its {round(walltime / 3600, 1)}h walltime.",
 						i = "Lower {.arg target_seconds} or add a longer tier."
 					))
 				}
 			}
 
 			groups[[length(groups) + 1L]] <- list(
-				backend = be,
+				group = gv,
 				tier = tiers[[ti]]$name,
 				resources = list(walltime = walltime, memory = grp_mem),
 				jobs = grp[, .(job.id, chunk)]
@@ -420,13 +515,13 @@ report_groups <- function(groups) {
 	for (g in groups) {
 		n_chunks <- data.table::uniqueN(g$jobs$chunk)
 		cli::cli_alert_info(
-			"{g$backend}/{g$tier}: {nrow(g$jobs)} job{?s} in {n_chunks} chunk{?s}, walltime {round(g$resources$walltime / 3600)}h, mem {g$resources$memory}MB"
+			"{g$group}/{g$tier}: {nrow(g$jobs)} job{?s} in {n_chunks} chunk{?s}, walltime {round(g$resources$walltime / 3600)}h, mem {g$resources$memory}MB"
 		)
 	}
 	invisible(groups)
 }
 
-# Submit every group as its own call, so backend and resource tier never mix
+# Submit every group as its own call, so partition and resource tier never mix
 # within a session. Pass extra resources (e.g. ncpus) via `...`.
 submit_groups <- function(groups, ...) {
 	extra <- list(...)
