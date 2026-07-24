@@ -5,8 +5,11 @@
 # Memory is NOT modelled here. batchtools' own `mem.used` is a gc()-based R-heap
 # estimate and is often far off for these methods, so it is not used: on the BIPS
 # cluster memory comes from the external `slurm-memcheck` utility (parses sacct).
-# Materialise its output as mem-importance.rds to have plan_submission size memory
-# requests -- otherwise it uses a default.
+# Feed its TSV to write_memory_estimates() (R/estimate.R) to write
+# mem-importance.rds, which plan_submission uses to size memory requests:
+#   slurm-memcheck --since now-1day --tsv > mem.tsv
+#   write_memory_estimates("mem.tsv", "importance")   # after resume("importance")
+# Without it, plan_submission falls back to mem_default.
 library(batchtools)
 source(here::here("importance", "config.R"))
 source(here::here("setup-common.R")) # pkg check + all R/ helpers via source_r()
@@ -16,4 +19,3 @@ write_estimates(
 	prefix = "importance",
 	rf = list(num.trees = 1000, min.node.size = 10, mtry = 10, max.depth = 9)
 )
-

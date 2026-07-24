@@ -84,8 +84,11 @@ reference implementations, on two axes: **results** (correctness) and **runtime*
 - **QoS is not set** — the Slurm template derives it from `walltime`. Resources
   carry only `walltime` (per tier) + `memory`.
 - **Estimates** (`R/estimate.R`): `eta.R` runs `write_estimates()` → `eta-<lane>.rds`
-  (runtime only; batchtools memory estimation was dropped — memory comes from the
-  external `slurm-memcheck` utility, materialised as `mem-<lane>.rds` if used).
+  (runtime only; batchtools memory estimation was dropped). Memory comes from the
+  external `slurm-memcheck` utility: `write_memory_estimates(tsv, lane)` turns its
+  `--tsv` output into `mem-<lane>.rds` (maps `job_id`=`batch.id` → `job.id`, fanning
+  a chunk's peak RSS to its members; completed jobs use measured peak, OOM jobs use
+  the failed request × `oom_factor` since their peak is capped at what died).
   `run-experiment.R` reads both via `read_estimates()`. Both files are gitignored
   scratch. Missing runtime → chunk by job count; missing memory → `mem_default`.
 - **OOM recovery**: sourcing `run-experiment.R` resubmits *everything* outstanding

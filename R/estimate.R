@@ -3,10 +3,10 @@
 # No top-level side effects (definitions only), so it is safe to source anywhere.
 # Sourced by the eta.R lane scripts (to write) and run-experiment.R (to read).
 #
-# Only runtime is modelled here. Memory is not estimated from batchtools (that
+# Only runtime is MODELLED here. Memory is not estimated from batchtools (that
 # experiment didn't pan out); on the BIPS cluster memory comes from the external
-# `slurm-memcheck` utility. If you materialise its output as mem-<prefix>.rds,
-# read_estimates() picks it up to size memory requests -- see read_estimates().
+# `slurm-memcheck` utility. write_memory_estimates() (below) turns its TSV into
+# the mem-<prefix>.rds that read_estimates() picks up to size memory requests.
 
 # Fit a batchtools runtime model on the finished jobs in a registry and write it
 # to eta-<prefix>.rds at the project root.
@@ -55,6 +55,116 @@ write_estimates <- function(
 	saveRDS(est, out)
 	cli::cli_alert_success("Wrote {.file {out}}")
 	invisible(est)
+}
+
+# Materialise `slurm-memcheck --tsv` output into the mem-<prefix>.rds that
+# read_estimates() reads. This is the missing half of the memory story: eta.R
+# writes runtimes, this writes measured memory.
+#
+# slurm-memcheck emits one row per Slurm job, which is one batchtools CHUNK: its
+# `job_id` column is batchtools' `batch.id`, and `max_rss_mb` is the chunk's PEAK
+# RSS across the jobs that ran in it. That peak is fanned out to every job.id in
+# the chunk -- conservative for the light members, and exact once jobs run alone
+# (resubmit_expired chunks alone by default, so a second slurm-memcheck pass after
+# a clean run gives true per-job memory).
+#
+# Completed vs OOM rows are fundamentally different, and this is the one thing
+# measurement CANNOT settle for you:
+#   * COMPLETED -> max_rss is the true peak. No guessing; request it (+ the plan's
+#     mem_headroom as scheduling margin).
+#   * OUT_OF_MEMORY -> max_rss is pinned to the request it died under, so it is a
+#     LOWER bound, not the need. How much more it actually wants is unknowable from
+#     the log, so you must pick a multiplier. That is `oom_factor`, applied to the
+#     failed request. It is the only real knob here -- measurement removed the guess
+#     everywhere except the jobs that never got to finish.
+#
+# tsv        path to the TSV (or a data.frame of it). Columns required: job_id,
+#            state, req_mem_mb, max_rss_mb.
+# prefix     lane tag, matching read_estimates() / the eta files ("validation", ...).
+# oom_factor multiplier on the FAILED request for OOM rows (default 2). An OOM
+#            round is expensive (a whole resubmission wasted), over-provisioning is
+#            cheap, so this errs high -- lower it if RAM is tight and you can afford
+#            to climb over a few rounds. Does not touch completed jobs.
+# reg        the registry the Slurm jobs belong to; defaults to the loaded one, so
+#            after resume(lane) this just works.
+# out        output path; defaults to mem-<prefix>.rds at the project root.
+#
+# Stamps the registry like write_estimates(), so read_estimates(reg_path=) refuses
+# to apply it to a different registry (the estimates are keyed by job.id, which is
+# registry-local).
+write_memory_estimates <- function(
+	tsv,
+	prefix,
+	oom_factor = 2,
+	reg = batchtools::getDefaultRegistry(),
+	out = NULL
+) {
+	mc <- if (is.data.frame(tsv)) {
+		data.table::as.data.table(tsv)
+	} else {
+		data.table::fread(tsv)
+	}
+	need <- c("job_id", "state", "req_mem_mb", "max_rss_mb")
+	miss <- setdiff(need, names(mc))
+	if (length(miss) > 0) {
+		cli::cli_abort("slurm-memcheck TSV is missing column{?s} {.val {miss}}.")
+	}
+
+	# Completed jobs: the measured peak. OOM jobs: the failed request scaled by
+	# oom_factor, since the peak only tells us "at least this much, and it wasn't
+	# enough". oom_factor is the guess measurement can't make for you.
+	mc[,
+		base_mb := data.table::fifelse(
+			state == "OUT_OF_MEMORY",
+			as.numeric(req_mem_mb) * oom_factor,
+			as.numeric(max_rss_mb)
+		)
+	]
+
+	jt <- data.table::as.data.table(batchtools::getJobTable(reg = reg))[, .(job.id, batch.id)]
+	# batch.id is a list column -- one entry per (re)submission. The LAST is the run
+	# slurm-memcheck just measured.
+	jt[,
+		batch.id := vapply(
+			batch.id,
+			function(b) if (length(b) > 0) as.integer(b[[length(b)]]) else NA_integer_,
+			integer(1)
+		)
+	]
+	jt <- jt[!is.na(batch.id)]
+
+	m <- merge(
+		jt,
+		mc[, .(batch.id = as.integer(job_id), base_mb)],
+		by = "batch.id"
+	)
+	if (nrow(m) == 0L) {
+		cli::cli_abort(c(
+			"No slurm-memcheck rows matched this registry's Slurm job ids.",
+			"i" = "Widen {.code --since} to cover the runs, and check {.arg reg} is the right registry."
+		))
+	}
+
+	memory <- m[, .(memory = ceiling(max(base_mb))), by = job.id]
+	# Set the stamp last and save immediately -- data.table ops can drop attributes.
+	attr(memory, "reg_stamp") <- list(
+		reg_path = as.character(reg$file.dir),
+		n_jobs = nrow(jt)
+	)
+	out <- out %||% here::here(paste0("mem-", prefix, ".rds"))
+	saveRDS(memory, out)
+
+	n_oom <- sum(mc$state == "OUT_OF_MEMORY", na.rm = TRUE)
+	cli::cli_alert_success(
+		"Wrote {.file {out}}: memory for {nrow(memory)} job{?s} from {nrow(mc)} Slurm job{?s} ({n_oom} OOM, scaled x{oom_factor})."
+	)
+	unmatched <- nrow(jt) - data.table::uniqueN(m$job.id)
+	if (unmatched > 0) {
+		cli::cli_alert_info(
+			"{unmatched} registry job{?s} had no matching slurm-memcheck row (older than {.code --since}, or never run) -- {?it/they} fall{?s/} back to {.arg mem_default}."
+		)
+	}
+	invisible(memory)
 }
 
 # Read estimates for a lane. Returns list(runtimes, memory), each a
