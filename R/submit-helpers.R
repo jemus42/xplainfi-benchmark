@@ -21,12 +21,11 @@
 
 # Start-of-session helper for an ongoing benchmark lane. Sources the lane config
 # for its registry path, loads the registry WRITEABLE (so you can resubmit),
-# reads any runtime/memory estimates, prints status, and returns the pieces the
-# submission helpers want. One call replaces the source/loadRegistry/getStatus/
-# read_estimates boilerplate:
-#   b <- resume("validation")
-#   g <- resubmit_expired(runtimes = b$est$runtimes, max_walltime_h = 6, submit = FALSE)
-#   report_groups(g); submit_groups(g)
+# reads any runtime/memory estimates, prints status, then prints the runbook
+# (bench_help) so the next commands are in front of you. Replaces the
+# source/loadRegistry/getStatus/read_estimates boilerplate with one call, and
+# returns list(reg, conf, est, lane).
+#
 # loadRegistry sets the default registry, so todo()/resubmit_expired() find it
 # without a `reg =` argument. `version` overrides XPLAINFI_BENCH_VERSION to target
 # a specific registry (e.g. an ongoing pretest); NULL uses the lane's default.
@@ -49,7 +48,39 @@ resume <- function(lane, version = NULL) {
 	reg <- batchtools::loadRegistry(conf$reg_path, writeable = TRUE, work.dir = here::here())
 	est <- read_estimates(lane, reg_path = conf$reg_path)
 	print(batchtools::getStatus(reg = reg))
+	bench_help(lane)
 	invisible(list(reg = reg, conf = conf, est = est, lane = lane))
+}
+
+# The runbook, printed with the current signatures and the lane filled in. Called
+# by resume() at session start, and callable any time you forget the incantation.
+# It lives next to the functions on purpose: change a signature and you fix the
+# recipe in the same diff, so it can't drift the way a wiki (or your memory) does.
+bench_help <- function(lane = "<lane>") {
+	q <- function(x) sprintf('"%s"', x) # quoted lane, or the literal <lane> token
+	ql <- if (identical(lane, "<lane>")) lane else q(lane)
+	cli::cli_h2("Benchmark workflow {.emph ({lane})}")
+	cli::cli_text("Start / check status:")
+	cli::cli_code(sprintf("b <- resume(%s)", ql))
+	cli::cli_text(
+		"Resubmit expired, memory sized from measurement (no {.path mem.tsv} file needed --"
+	)
+	cli::cli_text("{.fn fread} runs slurm-memcheck and reads its output directly):")
+	cli::cli_code(c(
+		sprintf(
+			'mc  <- data.table::fread(cmd = "slurm-memcheck --since now-1day --tsv")'
+		),
+		sprintf("write_memory_estimates(mc, %s)", ql),
+		sprintf("est <- read_estimates(%s, reg_path = b$conf$reg_path)", ql),
+		"g   <- resubmit_expired(runtimes = est$runtimes, base = est$memory, submit = FALSE)",
+		"report_groups(g); submit_groups(g)"
+	))
+	cli::cli_text("Add a deadline (hours until it must be done):")
+	cli::cli_code(
+		"resubmit_expired(runtimes = est$runtimes, base = est$memory, max_walltime_h = 6)"
+	)
+	cli::cli_text("Reprint this: {.code bench_help()}")
+	invisible()
 }
 
 # Jobs outstanding and not already in flight: not-done minus running/queued.
