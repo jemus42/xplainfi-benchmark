@@ -76,3 +76,6 @@ scratch.R
 # Regenerable estimate snapshots written by eta.R (registries are scratch too)
 eta-*.rds
 mem-*.rds
+
+# Personal working notes
+TODO.md
