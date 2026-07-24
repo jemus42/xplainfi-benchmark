@@ -570,12 +570,21 @@ submit_groups <- function(groups, ...) {
 #   resubmit_expired(factor = 4)             # 4x instead
 #   resubmit_expired(submit = FALSE)         # build + print the plan, don't submit
 #   resubmit_expired(runtimes = est$runtimes, base = est$memory)  # use estimates too
+#   resubmit_expired(reason = "oom")         # skip log classification; force OOM
 # `...` is forwarded to plan_submission() (e.g. target_seconds, chunk_size).
+#
+# reason  force every expired job's cause instead of reading the Slurm log. Use it
+#         when you KNOW the cause -- e.g. slurm-memcheck reported OUT_OF_MEMORY but
+#         the log text carries no OOM marker (it usually doesn't; OOM lives in
+#         sacct, not the log), so classification returns "unknown" and escalates
+#         BOTH memory and walltime. "oom" escalates memory only; "timeout" walltime
+#         only. NULL classifies per job from the log.
 # Returns the plan invisibly.
 resubmit_expired <- function(
 	runtimes = NULL,
 	base = NULL,
 	factor = 2,
+	reason = NULL,
 	submit = TRUE,
 	...,
 	reg = batchtools::getDefaultRegistry(),
@@ -589,8 +598,17 @@ resubmit_expired <- function(
 	# OOM and walltime-kill need opposite fixes, and applying the wrong one loops:
 	# a timed-out job resubmitted with double memory and the same tier dies the
 	# same way. Classify from the Slurm log; "unknown" gets both, since
-	# over-provisioning is recoverable and an infinite resubmit loop is not.
-	reasons <- expired_reasons(reg = reg, expired = expired)
+	# over-provisioning is recoverable and an infinite resubmit loop is not. A
+	# `reason` override forces the cause when the log can't be trusted (see above).
+	reasons <- if (is.null(reason)) {
+		expired_reasons(reg = reg, expired = expired)
+	} else {
+		reason <- match.arg(reason, c("oom", "timeout", "unknown"))
+		cli::cli_alert_info(
+			"Forcing reason {.val {reason}} for all expired jobs (log classification skipped)."
+		)
+		data.table::data.table(job.id = expired$job.id, reason = reason)
+	}
 	tally <- reasons[, .N, by = reason][order(-N)]
 	cli::cli_alert_info(
 		"Resubmitting {nrow(expired)} expired job{?s} at {factor}x: {paste(tally$reason, tally$N, sep = '=', collapse = ', ')}"
