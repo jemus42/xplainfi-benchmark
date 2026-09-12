@@ -52,15 +52,16 @@ conf <- list(
 	min_permutations = 20,
 	sage_early_stopping = FALSE,
 	# Convergence threshold for early stopping, matched across all implementations
-	# (xplainfi se_threshold, sage/fippy thresh) so any ES comparison is fair. Set
-	# to sage's default; xplainfi and fippy otherwise default to a stricter 0.01,
-	# which needed ~6x more draws and looked like non-convergence. Not swept -- only
-	# its consistency matters. See sage_algo_design() in R/helpers.R.
+	# (xplainfi se_threshold, sage/fippy thresh) so any ES comparison is fair. This
+	# is now the shared default of both xplainfi and sage; fippy alone still
+	# defaults to a stricter 0.01, which needed ~6x more draws and looked like
+	# non-convergence. Not swept -- only its consistency matters. See
+	# sage_algo_design() in R/helpers.R.
 	se_threshold = 0.025,
-	# SAGE kernel-estimator budget (paired coalition draws). Independent of
-	# n_features, so evaluated-coalition cost differs across problems -- the
-	# analysis reports cost explicitly rather than matching it in the design.
-	n_coalitions = c(32, 128, 512),
+	# SAGE kernel-estimator budget, in variance blocks rather than raw coalition
+	# draws (see validation/config.R for the reasoning). setup-batchtools.R
+	# resolves these to per-problem draw counts and prunes the cross terms.
+	n_coalition_blocks = c(2, 6, 20),
 	# Design-matrix ("A matrix") variant: "original" samples it alongside the
 	# right-hand side (Covert & Lee Eq. 7), "unbiased" uses the exact closed form
 	# (Eq. 9) and is what the Python sage package implements.

@@ -91,6 +91,33 @@ prob_designs <- list(
 )
 
 # ============================================================================
+# Kernel coalition grid (per feature dimension)
+# ============================================================================
+
+# Block-relative coalition budgets, as in the validation lane: kernel_variant =
+# "original" has no standard errors below two blocks of max(16, 4 * n_features)
+# draws, and the job then errors in importance(ci_method = "montecarlo") rather
+# than reporting a wider interval. This lane has a single problem and sweeps
+# n_features on its design, so the grid keys on that column rather than on
+# `problem`.
+kernel_grid <- kernel_budget_grid(
+	data.table(n_features = as.integer(conf$n_features)),
+	blocks = conf$n_coalition_blocks,
+	by = "n_features"
+)
+
+conf$n_coalitions <- sort(unique(kernel_grid$n_coalitions))
+
+cli::cli_h2("Kernel Coalition Budgets")
+print(kernel_grid[,
+	.(
+		block = kernel_block_size(n_features[1L]),
+		budgets = paste(sort(n_coalitions), collapse = ", ")
+	),
+	by = n_features
+])
+
+# ============================================================================
 # Algorithm Designs
 # ============================================================================
 
@@ -200,6 +227,17 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 		"Removing {nrow(featureless_non_xplainfi_jobs)} job(s) for other methods with featureless learner"
 	)
 	removeExperiments(featureless_non_xplainfi_jobs)
+}
+
+# ============================================================================
+# Prune kernel budgets that do not belong to their feature dimension
+# ============================================================================
+
+n_pruned <- prune_kernel_budgets(reg, kernel_grid, by = "n_features")
+if (n_pruned > 0) {
+	cli::cli_alert_warning(
+		"Removed {n_pruned} kernel job(s) whose coalition budget belongs to another n_features grid"
+	)
 }
 
 # ============================================================================

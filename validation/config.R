@@ -35,7 +35,7 @@ conf <- list(
 	# Samples to generate
 	n_samples = 5000,
 	# Affects correlation task
-	correlation = c(0.2, 0.5, 0.9),
+	correlation = c(0.5, 0.9),
 	# Affects PFI and CFI
 	n_repeats = 100,
 	# SAGE permutation-estimator budget. Early stopping is off for this run so
@@ -50,15 +50,50 @@ conf <- list(
 	min_permutations = 20,
 	sage_early_stopping = FALSE,
 	# Convergence threshold for early stopping, matched across all implementations
-	# (xplainfi se_threshold, sage/fippy thresh) so any ES comparison is fair. Set
-	# to sage's default; xplainfi and fippy otherwise default to a stricter 0.01,
-	# which needed ~6x more draws and looked like non-convergence. Not swept -- only
-	# its consistency matters. See sage_algo_design() in R/helpers.R.
+	# (xplainfi se_threshold, sage/fippy thresh) so any ES comparison is fair. This
+	# is now the shared default of all three; fippy alone still defaults to a
+	# stricter 0.01, which needed ~6x more draws and looked like non-convergence.
+	# Not swept -- only its consistency matters. See sage_algo_design() in R/helpers.R.
 	se_threshold = 0.025,
-	# SAGE kernel-estimator budget (paired coalition draws). Independent of
-	# n_features, so evaluated-coalition cost differs across problems -- the
-	# analysis reports cost explicitly rather than matching it in the design.
-	n_coalitions = c(32, 128, 512),
+	# Thresholds for the early-stopped kernel rows only -- the one place this is
+	# swept instead of matched. At the shared 0.025, kernel-original stops at
+	# exactly two variance blocks every time (measured: linear and rf, marginal and
+	# conditional, 4 and 10 features), because two blocks is the first checkpoint
+	# at which its batch-means SEs exist. So a single threshold reports the SE
+	# floor, 2 * max(16, 4 * n_features), not where the estimator converges.
+	#
+	# The values must straddle the ratio the estimator ACTUALLY reaches at that
+	# floor, or the sweep is inert: the achieved ratio is ~0.001-0.0026, an order of
+	# magnitude inside the matched 0.025, so anything looser passes at the first
+	# checkpoint and reports the floor again. 0.01 measured identical to 0.025 on
+	# both problems tested and was dropped as dead weight. Measured curve on
+	# friedman1/ConditionalSAGE/linear (block 40), which is what these values are
+	# sized against -- draws, then reported max(se):
+	#
+	#   0.025  ->   80 (2 blocks)  0.0082     <- 1 df, unstable: 0.0082-0.0197
+	#   0.0025 ->  200 (5 blocks)  0.0177        across RNG streams at fixed budget
+	#   0.001  ->  720 (18)        0.0075     <- from ~5 blocks the SE tracks 1/sqrt(n)
+	#   0.0005 -> 1640 (41)        0.0037
+	#
+	# Note the non-monotonicity at the top: 2 blocks can report a SMALLER se than 5
+	# blocks, which is the 1-df variance estimate, not a real precision gain. Read
+	# the 0.025 row as the floor, not as a convergence point.
+	#
+	# Granularity is still one block, so the curve is coarse (40-draw steps at 10
+	# features). The tightest values may exhaust n_coalitions_ceiling at full cost
+	# -- 4098 evals, ~2.1x the largest fixed budget on bike_sharing -- which
+	# xplainfi warns about and `converged = FALSE` records. That is a result, not a
+	# failure: it says the tolerance is unreachable at a tolerable budget.
+	es_se_thresholds = c(0.025, 0.0025, 0.001, 0.0005),
+	# SAGE kernel-estimator budget, in variance blocks rather than raw coalition
+	# draws. kernel_variant = "original" estimates its SEs as batch means over
+	# blocks of max(16, 4 * n_features) draws, so fewer than two blocks yields no
+	# SEs at all and errors the job -- an absolute grid is below that floor on the
+	# wide problems (18 such errors in the 2026-09-11 pretest at 32 draws) and far
+	# above exact-enumeration cost on the narrow ones. setup-batchtools.R resolves
+	# these to per-problem draw counts via kernel_budgets() and prunes the cross
+	# terms. 2 is the floor, 20 is comfortably converged.
+	n_coalition_blocks = c(2, 6, 20),
 	# Design-matrix ("A matrix") variant: "original" samples it alongside the
 	# right-hand side (Covert & Lee Eq. 7), "unbiased" uses the exact closed form
 	# (Eq. 9) and is what the Python sage package implements.

@@ -130,6 +130,13 @@ cluster jobs against the same paths an agent sees. Two things follow.
   `XPLAINFI_BENCH_VERSION=agent-scratch Rscript importance/setup-batchtools.R`
   gives `registries/importance/xplainfi-agent-scratch/`, which cannot collide.
   Delete only that. Ask before touching anything else under `registries/`.
+  Off-cluster there is no Slurm template, so point batchtools at a local config
+  instead of editing the tracked one:
+  `R_BATCHTOOLS_SEARCH_PATH=$PWD/.scratch/bt-local` with a `batchtools.conf.R`
+  there setting `makeClusterFunctionsInteractive()`.
+  One writeable session per registry — two concurrent `submitJobs()` against the
+  same registry makes the second abort with "Registry has been altered since last
+  read", losing that run.
 
 - **`.venv` is shared but machine-specific.** The host and a yolobox resolve
   different interpreters, so each side's `uv sync` rebuilds `.venv` and breaks the
@@ -142,6 +149,18 @@ cluster jobs against the same paths an agent sees. Two things follow.
 
 - `docs/` is gitignored (pkgdown default) but `docs/overview.qmd` is tracked (moved
   there). New files under `docs/` are silently ignored — `git add -f` them.
+- **Kernel coalition budgets are per problem, in variance blocks.** Configs carry
+  `n_coalition_blocks` (not `n_coalitions`); `setup-batchtools.R` resolves it to
+  draws via `kernel_budgets()` and prunes the cross terms with
+  `prune_kernel_budgets()`. Reason: `kernel_variant = "original"` gets its SEs from
+  batch means over blocks of `max(16, 4 * n_features)` draws, so below **two**
+  blocks there are no SEs and `importance(ci_method = "montecarlo")` *aborts* —
+  the job errors rather than reporting a wider interval. An absolute grid is
+  therefore below the floor on wide problems and above exact-enumeration cost on
+  narrow ones. `kernel_block_size()` mirrors an xplainfi internal
+  (`check_interval`), bracketed from both sides by `tests/check-kernel-sage-api.R`.
+  In analyses `n_coalitions` is only comparable *within* a problem; across
+  problems use `n_evals` or the block count.
 - Kernel SAGE: xplainfi now ships its own `estimator = "kernel"`; the benchmark's
   `MarginalSAGE_sage` is the *external* `sage` package reference, not xplainfi's.
 - Estimate files (`eta-<lane>.rds`, `mem-<lane>.rds`) are keyed by `job.id`, which is

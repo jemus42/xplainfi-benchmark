@@ -5,6 +5,11 @@
 # registry-local. Instances are seed-synchronised across registries by the
 # batchtools problem seed, so the same (problem, parameters, repl) is the same
 # dataset regardless of which algorithms were present.
+#
+# n_coalitions is PER PROBLEM (a multiple of that problem's variance block, see
+# conf$n_coalition_blocks), so it is only meaningful within a problem: every
+# grouping below carries `problem` alongside it. Across problems the comparable
+# axis is n_evals, or the block count n_coalitions / kernel_block_size().
 suppressPackageStartupMessages({
 	library(data.table)
 	library(ggplot2)
@@ -177,11 +182,19 @@ if (nrow(paired) == 0) {
 # Only kernel_variant = "original" carries an early-stopped arm: it is the
 # shipped default and the estimator under test. "unbiased" exists here purely as
 # the fixed-budget numerical bridge to the Python sage package, and cannot meet
-# the default threshold at any tolerable budget in xplainfi's batch-averaged
-# regime (~8k draws measured), so early stopping there would only exhaust the
-# ceiling. See sage_algo_design() in R/helpers.R.
+# the default threshold at any tolerable budget in xplainfi's whole-test-set
+# regime, so early stopping there would only exhaust the ceiling. See
+# sage_algo_design() in R/helpers.R.
 #
-# Three things are asked of the stopped runs:
+# se_threshold is SWEPT on these rows and matched on every other row, so it is a
+# grouping key here and nowhere else. Pooling the thresholds would average
+# budgets from three different tolerances into one meaningless number. At the
+# matched 0.025 the arm stops at exactly two variance blocks -- the first
+# checkpoint where batch-means SEs exist at all -- so that row reports the SE
+# floor rather than a convergence point; the tighter thresholds are what make the
+# budget respond to anything.
+#
+# Three things are asked of the stopped runs, per threshold:
 #   converged      how often the criterion was met before the ceiling
 #   budget_used    what it cost, against the fixed-budget rows of the same variant
 #   err_at_stop    error vs the exact arm where it stopped, versus the error the
@@ -192,6 +205,10 @@ es <- if (nrow(paired) > 0 && "err" %in% names(paired)) {
 	data.table()
 }
 if (nrow(es) > 0) {
+	es_by <- intersect(
+		c("algorithm", "arm", "problem", "sage_n_samples", "se_threshold"),
+		names(es)
+	)
 	stopped <- es[,
 		.(
 			n = .N,
@@ -200,7 +217,7 @@ if (nrow(es) > 0) {
 			median_evals = median(n_evals),
 			rmse_at_stop = sqrt(mean(err^2))
 		),
-		by = .(algorithm, arm, problem, sage_n_samples)
+		by = es_by
 	]
 	setorder(stopped, algorithm, arm, problem, sage_n_samples)
 
@@ -211,6 +228,14 @@ if (nrow(es) > 0) {
 		 it stopped too early if the error is materially worse than a fixed budget
 		 of the same size."
 	)
+	if ("se_threshold" %in% es_by && uniqueN(es$se_threshold) > 1) {
+		cli::cli_alert_info(
+			"Read {.field median_used} down the {.field se_threshold} sweep: it is flat
+			 at 2 * the variance-block size if the criterion only ever fires at its
+			 first opportunity, and rises with tightening tolerance if the arm is
+			 measuring convergence rather than the SE floor."
+		)
+	}
 	print(stopped)
 
 	# The interpretive crux. The SAGE standard errors quantify coalition-sampling
@@ -220,9 +245,16 @@ if (nrow(es) > 0) {
 	# SE does not, then "converged" provably does not mean "accurate", and the
 	# residual is the marginalization floor rather than an under-spent budget.
 	if (uniqueN(es$sage_n_samples) > 1) {
+		# se_threshold stays a key here too: a tighter tolerance buys a larger budget,
+		# and pooling the thresholds would mix that into the sage_n_samples contrast
+		# this check is built on.
+		floor_by <- intersect(
+			c("algorithm", "arm", "se_threshold", "sage_n_samples"),
+			names(es)
+		)
 		floor_check <- es[,
 			.(n = .N, rmse_at_stop = sqrt(mean(err^2)), mean_se = mean(se)),
-			by = .(algorithm, arm, sage_n_samples)
+			by = floor_by
 		]
 		setorder(floor_check, algorithm, arm, sage_n_samples)
 		cli::cli_h2("Error at the stopping point vs the marginalization budget")

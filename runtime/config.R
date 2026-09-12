@@ -38,7 +38,12 @@ conf <- list(
 	# Matched convergence threshold (see importance/config.R). Inert in this lane
 	# while early stopping is off, but kept so every lane defines it in one place.
 	se_threshold = 0.025,
-	n_coalitions = c(32, 128, 512),
+	# SAGE kernel-estimator budget, in variance blocks rather than raw coalition
+	# draws (see validation/config.R for the reasoning). This lane sweeps
+	# n_features, so setup-batchtools.R resolves the grid per dimension and prunes
+	# the cross terms -- the cost curve is then read per dimension, where a block
+	# is a constant number of draws, not across them.
+	n_coalition_blocks = c(2, 6, 20),
 	kernel_variants = c("original", "unbiased"),
 	# No early-stopping arm in the runtime lane: a converging estimator has a
 	# variable, budget-dependent runtime that cannot be attributed to a fixed

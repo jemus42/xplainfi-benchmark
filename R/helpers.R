@@ -221,6 +221,124 @@ create_problem_instance <- function(
 	)
 }
 
+# Kernel SAGE variance blocks -----------------------------------------------
+
+# Draws per variance block of xplainfi's kernel_variant = "original".
+#
+# Its standard errors are batch means over consecutive blocks of draws (Covert &
+# Lee, Section 4.3), so they are NA until TWO blocks have completed -- and
+# $importance(ci_method = "montecarlo") aborts on all-NA SEs instead of
+# returning them. A coalition budget below 2 * this is therefore not "less
+# precise", it is an errored job.
+#
+# The block size is xplainfi-internal (`check_interval` in SAGE.R's
+# .compute_sage_scores_kernel), so it is mirrored here rather than read off the
+# object. tests/check-kernel-sage-api.R pins it against the installed package
+# from both sides, so upstream drift fails loudly instead of silently
+# mis-scaling this grid.
+kernel_block_size <- function(n_features) {
+	pmax(16L, 4L * as.integer(n_features))
+}
+
+# Kernel coalition budgets for one problem, in whole variance blocks.
+#
+# The grid is block-relative because the estimability floor is too: block size
+# grows with n_features, so a single absolute grid is either below the floor on
+# the wide problems or far above exact-enumeration cost on the narrow ones. In
+# blocks, "2" means the same thing everywhere -- the minimum at which SEs exist.
+kernel_budgets <- function(n_features, blocks) {
+	checkmate::assert_int(n_features, lower = 1L)
+	blocks <- as.integer(blocks)
+	if (any(blocks < 2L)) {
+		cli::cli_abort(c(
+			"{.arg blocks} {.val {blocks[blocks < 2L]}} below the two blocks the batch-means SEs need.",
+			i = "Such a row does not produce a wider interval, it aborts in {.code importance(ci_method = \"montecarlo\")}."
+		))
+	}
+	sort(unique(blocks * kernel_block_size(n_features)))
+}
+
+# Number of features each registered problem generates.
+#
+# Needed at setup time to scale the coalition grid per problem, and not
+# derivable from the design: it is a property of the DGP. Instantiating each
+# problem once is cheap (create_problem_instance() fits no learner) and beats a
+# hardcoded table, which a changed DGP would silently invalidate.
+#
+# Only for lanes whose problems have a FIXED width. The runtime lane sweeps
+# n_features on the problem design instead, and keys its grid on that column
+# directly -- see kernel_budget_grid(by =).
+problem_feature_counts <- function(prob_funs, prob_designs) {
+	missing <- setdiff(names(prob_designs), names(prob_funs))
+	if (length(missing) > 0) {
+		cli::cli_abort("No problem function for design{?s}: {.val {missing}}.")
+	}
+	data.table::rbindlist(lapply(names(prob_designs), function(nm) {
+		# First design row only: n_features is fixed per problem here, and the
+		# design axes (n_samples, correlation, learner_type) do not move it.
+		args <- as.list(prob_designs[[nm]][1L])
+		inst <- do.call(prob_funs[[nm]], c(list(data = NULL, job = NULL), args))
+		data.table::data.table(problem = nm, n_features = as.integer(inst$n_features))
+	}))
+}
+
+# Long table of the kernel coalition budgets each job group is allowed.
+#
+# `feature_counts` carries `by` plus n_features; `by` is whatever identifies the
+# feature count in the job table -- "problem" where each DGP has a fixed width,
+# "n_features" in the runtime lane, which sweeps it on the problem design.
+kernel_budget_grid <- function(feature_counts, blocks, by = "problem") {
+	feature_counts <- data.table::as.data.table(feature_counts)
+	checkmate::assert_names(names(feature_counts), must.include = c(by, "n_features"))
+
+	# unique(): in the runtime lane `by` IS "n_features", and grouping by a
+	# duplicated name yields an "n_features.1" column instead of one key. The
+	# c() wrapper is data.table's requirement for a computed `by`.
+	keys <- unique(c(by, "n_features"))
+	feature_counts[,
+		.(n_coalitions = kernel_budgets(n_features, blocks)),
+		by = c(keys)
+	]
+}
+
+# Drop kernel-SAGE jobs whose coalition budget does not belong to their group.
+#
+# batchtools crosses one algorithm design with every problem, so the design has
+# to carry the UNION of the per-group budgets and the cross terms are removed
+# here -- the same pattern as the infeasible-exact-arm removal. Early-stopped
+# rows are exempt: their n_coalitions is a ceiling rather than a spend, and is
+# deliberately one absolute value across groups.
+prune_kernel_budgets <- function(reg, grid, by = "problem") {
+	tab <- batchtools::unwrap(batchtools::getJobTable(reg = reg))
+	if (!"estimator" %in% names(tab)) {
+		return(0L)
+	}
+
+	keep <- unique(data.table::as.data.table(grid)[, c(by, "n_coalitions"), with = FALSE])
+	fixed <- tab[estimator == "kernel" & !early_stopping]
+	drop <- fixed[!keep, on = c(by, "n_coalitions")]
+	if (nrow(drop) > 0) {
+		batchtools::removeExperiments(drop, reg = reg)
+	}
+
+	# An over-eager prune would leave an empty or ragged grid, which reads as
+	# "budget swept" in every downstream summary. Check what survived instead.
+	left <- batchtools::unwrap(batchtools::getJobTable(reg = reg))[
+		estimator == "kernel" & !early_stopping
+	]
+	expected <- keep[, .(want = .N), by = c(by)]
+	got <- left[, .(got = data.table::uniqueN(n_coalitions)), by = c(by)]
+	ragged <- merge(expected, got, by = by, all = TRUE)[is.na(got) | got != want]
+	if (nrow(ragged) > 0) {
+		cli::cli_abort(c(
+			"Kernel budget grid is ragged after pruning for {.val {by}} {.val {ragged[[by]]}}.",
+			i = "Kept {.val {ragged$got}} of {.val {ragged$want}} budget{?s}; every group needs one row per entry of {.field n_coalition_blocks}."
+		))
+	}
+
+	nrow(drop)
+}
+
 # SAGE estimator axis -------------------------------------------------------
 
 # Build the algorithm design for a SAGE implementation.
@@ -251,9 +369,9 @@ create_problem_instance <- function(
 #               which computes exactly that estimator. Comparing the two packages
 #               requires a matched fixed budget on both sides, so an early-stopped
 #               row would defeat the purpose of the row. It also cannot converge at
-#               any tolerable budget in xplainfi's batch-averaged regime (~8k draws
-#               at the default threshold, measured), so early stopping there just
-#               burns the ceiling and warns.
+#               any tolerable budget in xplainfi's whole-test-set regime -- upstream
+#               measures >30x the model evaluations of `sage` -- so early stopping
+#               there just burns the ceiling and warns.
 #
 # Note the inverse failure mode of the missing-formals bug this guards against
 # (see tests/test-sage-algo-design.R): omitting "permutation" from `estimators`
@@ -328,13 +446,38 @@ sage_algo_design <- function(
 		# criterion was met before hitting it.
 		es_variants <- intersect(kernel_es_variants %||% character(), kernel_variants)
 		if (length(es_variants) > 0) {
+			# The ceiling is one absolute value while the fixed grid is now
+			# block-relative and resolved per problem, so their ordering is no longer
+			# obvious by inspection. A ceiling inside the fixed grid would make the ES
+			# arm indistinguishable from a fixed-budget row it is meant to be judged
+			# against, and a ceiling below it is simply a smaller budget mislabelled.
+			ceiling_draws <- as.integer(conf$n_coalitions_ceiling)
+			if (ceiling_draws <= max(n_coalitions)) {
+				cli::cli_abort(c(
+					"{.field n_coalitions_ceiling} {.val {ceiling_draws}} is not above the fixed kernel grid (max {.val {max(n_coalitions)}}).",
+					i = "The early-stopping arm's budget must be a ceiling it can stop below, not a point on the curve it is compared against."
+				))
+			}
+			# The ES rows are the ONLY place se_threshold is swept rather than matched,
+			# because they are the only rows that run convergence detection at all --
+			# and in this lane the only ES rows anywhere (sage/fippy get
+			# kernel_es_variants = character(), and sage_early_stopping = FALSE drops
+			# the permutation ES rows), so nothing cross-implementation is matched
+			# against them. Measured at the shared 0.025: kernel-original stops at
+			# exactly two variance blocks in every configuration tried, because that is
+			# the first checkpoint at which its batch-means SEs exist at all. One
+			# threshold therefore yields one constant, 2 * kernel_block_size(), and says
+			# nothing about where the estimator converges. Sweeping it turns the arm
+			# into a budget-vs-tolerance curve, which is the question it exists to
+			# answer. Defaults to the matched single value for lanes that do not opt in.
 			parts$kernel_es <- data.table::CJ(
 				estimator = "kernel",
 				n_permutations = NA_integer_,
 				n_coalitions = as.integer(conf$n_coalitions_ceiling),
 				kernel_variant = es_variants,
 				sage_n_samples = conf$sage_n_samples,
-				early_stopping = TRUE
+				early_stopping = TRUE,
+				se_threshold = as.numeric(conf$es_se_thresholds %||% conf$se_threshold)
 			)
 		}
 	}
@@ -354,11 +497,17 @@ sage_algo_design <- function(
 	# Convergence threshold for early stopping, matched across every implementation
 	# (xplainfi's `se_threshold`, sage's and fippy's `thresh`) so an ES comparison
 	# is fair -- all three use the same spread-relative max(se)/spread < threshold
-	# criterion. Constant, deliberately NOT swept: only its consistency matters, and
-	# sage's 0.025 default is the shared value (xplainfi and fippy default to a
-	# stricter 0.01, which needed ~6x more draws and read as "non-convergence").
-	# Inert on fixed-budget and exact rows, which never run convergence detection.
-	d[, se_threshold := as.numeric(conf$se_threshold)]
+	# criterion. 0.025 is now the default of both xplainfi and sage (fippy alone
+	# still defaults to a stricter 0.01, which needed ~6x more draws and read as
+	# "non-convergence"). Inert on fixed-budget and exact rows, which never run
+	# convergence detection.
+	#
+	# Fill only where the ES block above did not already set a swept value -- a
+	# blanket assignment would overwrite the sweep with the matched constant.
+	if (!("se_threshold" %in% names(d))) {
+		d[, se_threshold := NA_real_]
+	}
+	d[is.na(se_threshold), se_threshold := as.numeric(conf$se_threshold)]
 
 	if (!is.null(sampler)) {
 		# Cross join. data.table's merge has no by = NULL, base merge does.

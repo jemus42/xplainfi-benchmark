@@ -35,14 +35,22 @@ if (!fs::dir_exists(conf$reg_path)) {
 # Register Problems with batchtools
 # ============================================================================
 
-addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
-addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
-addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
-addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = conf$seed)
-addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
-addProblem(name = "independent", data = NULL, fun = prob_independent, seed = conf$seed)
-addProblem(name = "confounded", data = NULL, fun = prob_confounded, seed = conf$seed)
-addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed)
+# Named list rather than bare addProblem() calls so problem_feature_counts()
+# below can instantiate each one to size the kernel coalition grid.
+prob_funs <- list(
+	ewald = prob_ewald,
+	correlated = prob_correlated,
+	interactions = prob_interactions,
+	bike_sharing = prob_bike_sharing,
+	friedman1 = prob_friedman1,
+	independent = prob_independent,
+	confounded = prob_confounded,
+	mediated = prob_mediated
+)
+
+for (nm in names(prob_funs)) {
+	addProblem(name = nm, data = NULL, fun = prob_funs[[nm]], seed = conf$seed)
+}
 
 # ============================================================================
 # Register Algorithms with batchtools
@@ -140,6 +148,31 @@ prob_designs <- list(
 		learner_type = conf$learner_types
 	)
 )
+
+# ============================================================================
+# Kernel coalition grid (per problem)
+# ============================================================================
+
+# Block-relative coalition budgets, as in the validation lane: kernel_variant =
+# "original" has no standard errors below two blocks of max(16, 4 * n_features)
+# draws, and the job then errors in importance(ci_method = "montecarlo") rather
+# than reporting a wider interval. See conf$n_coalition_blocks.
+kernel_grid <- kernel_budget_grid(
+	problem_feature_counts(prob_funs, prob_designs),
+	blocks = conf$n_coalition_blocks
+)
+
+conf$n_coalitions <- sort(unique(kernel_grid$n_coalitions))
+
+cli::cli_h2("Kernel Coalition Budgets")
+print(kernel_grid[,
+	.(
+		block = kernel_block_size(n_features[1L]),
+		budgets = paste(sort(n_coalitions), collapse = ", "),
+		exact_evals = 2^n_features[1L]
+	),
+	by = .(problem, n_features)
+])
 
 # ============================================================================
 # Algorithm Designs
@@ -259,16 +292,28 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 }
 
 # ============================================================================
+# Prune kernel budgets that do not belong to their problem
+# ============================================================================
+
+n_pruned <- prune_kernel_budgets(reg, kernel_grid)
+if (n_pruned > 0) {
+	cli::cli_alert_warning(
+		"Removed {n_pruned} kernel job(s) whose coalition budget belongs to another problem's grid"
+	)
+}
+
+# ============================================================================
 # Remove infeasible exact-estimator jobs
 # ============================================================================
 
 # estimator = "exact" enumerates 2^n_features coalitions. bike_sharing has 12
 # features -- exactly at max_features (12L), so the exact arm is feasible here,
 # not infeasible. It is excluded on cost grounds instead: 2^12 = 4096 coalitions
-# is four times the largest kernel budget (2 + 2 * 512 = 1026), so this lane has
-# no ground-truth arm on bike_sharing. friedman1 (10 features, 1024 coalitions)
-# is kept: that is essentially the cost of the largest kernel budget, so it is
-# a fair ground truth rather than an outlier expense.
+# is more than twice the largest kernel budget there (20 blocks = 960 draws =
+# 1922 evals), so this lane has no ground-truth arm on bike_sharing. friedman1
+# (10 features, 1024 coalitions) is kept: that is below its own largest kernel
+# budget (800 draws = 1602 evals), so it is a fair ground truth rather than an
+# outlier expense.
 exact_infeasible <- unwrap(getJobTable())[
 	estimator == "exact" & problem == "bike_sharing",
 ]

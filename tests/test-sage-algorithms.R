@@ -17,12 +17,17 @@ source(here::here("setup-common.R"))
 inst <- prob_confounded(n_samples = 300, learner_type = "linear", hidden = TRUE)
 stopifnot(inst$n_features == 3L)
 
+# Two variance blocks: the smallest kernel budget that yields standard errors,
+# and therefore the smallest one that survives ci_method = "montecarlo". A raw
+# literal here errors instead of merely being imprecise.
+kernel_min <- 2L * kernel_block_size(inst$n_features)
+
 run <- function(...) algo_MarginalSAGE(instance = inst, sage_n_samples = 20, ...)
 
 cases <- list(
 	permutation = list(estimator = "permutation", n_permutations = 5L, early_stopping = FALSE),
-	kernel_orig = list(estimator = "kernel", n_coalitions = 16L, kernel_variant = "original"),
-	kernel_unb = list(estimator = "kernel", n_coalitions = 16L, kernel_variant = "unbiased"),
+	kernel_orig = list(estimator = "kernel", n_coalitions = kernel_min, kernel_variant = "original"),
+	kernel_unb = list(estimator = "kernel", n_coalitions = kernel_min, kernel_variant = "unbiased"),
 	# Early stopping now applies to the kernel estimator. The budget becomes a
 	# ceiling, so this must stop well short of it on a 3-feature task.
 	kernel_es = list(
@@ -80,7 +85,7 @@ stopifnot(nrow(res$importance[[1]]) == 3L)
 cres <- algo_ConditionalSAGE(
 	instance = inst,
 	estimator = "kernel",
-	n_coalitions = 16L,
+	n_coalitions = kernel_min,
 	kernel_variant = "original",
 	sage_n_samples = 20,
 	sampler = "gaussian"
@@ -93,7 +98,7 @@ for (est in c("kernel", "permutation")) {
 	sres <- algo_MarginalSAGE_sage(
 		instance = inst,
 		estimator = est,
-		n_coalitions = 16L,
+		n_coalitions = kernel_min,
 		n_permutations = 5L,
 		sage_n_samples = 20,
 		early_stopping = FALSE

@@ -7,6 +7,8 @@ source(here::here("R", "helpers.R"))
 
 conf <- list(
 	n_permutations = c(10, 50, 100),
+	# In production this is the union of the per-problem block grids, resolved by
+	# setup-batchtools.R; three literals here keep the shape assertions readable.
 	n_coalitions = c(32, 128, 512),
 	kernel_variants = c("original", "unbiased"),
 	sage_estimators = c("permutation", "kernel", "exact"),
@@ -49,6 +51,16 @@ stopifnot(d[kernel_variant == "original" & early_stopping, n_coalitions] == 2048
 stopifnot(all(
 	d[(early_stopping), n_coalitions] > max(d[estimator == "kernel" & !early_stopping, n_coalitions])
 ))
+# ...and that ordering is now enforced, not merely asserted here: the fixed grid
+# is block-relative and resolved per problem, so a ceiling that lands inside it
+# is no longer visible by inspecting the config.
+stopifnot(inherits(
+	try(sage_algo_design(modifyList(conf, list(n_coalitions_ceiling = 512))), silent = TRUE),
+	"try-error"
+))
+stopifnot(is.data.table(
+	sage_algo_design(modifyList(conf, list(n_coalitions_ceiling = 513)))
+))
 # Requesting no ES variants drops the rows entirely (the reference arms).
 stopifnot(nrow(sage_algo_design(conf, kernel_es_variants = character())) == 10L)
 
@@ -67,6 +79,27 @@ stopifnot(is.data.table(sage_algo_design(conf_es, estimators = c("kernel", "exac
 
 # sage_n_samples applies to every estimator.
 stopifnot(all(!is.na(d$sage_n_samples)))
+
+# se_threshold: matched everywhere EXCEPT the ES rows, which sweep it. Without a
+# sweep configured they fall back to the matched value, so lanes that do not opt
+# in are unaffected.
+stopifnot(all(d$se_threshold == conf$se_threshold))
+
+conf_sweep <- modifyList(conf, list(es_se_thresholds = c(0.025, 0.01, 0.0025)))
+dsw <- sage_algo_design(conf_sweep)
+# One ES row per threshold, and every non-ES row still on the matched value. A
+# blanket se_threshold assignment would silently flatten the sweep back to 0.025.
+stopifnot(identical(
+	sort(dsw[(early_stopping), se_threshold]),
+	sort(c(0.025, 0.01, 0.0025))
+))
+stopifnot(all(dsw[!early_stopping | is.na(early_stopping), se_threshold] == conf$se_threshold))
+# The sweep multiplies ES rows only; the fixed-budget and exact arms are untouched.
+stopifnot(nrow(dsw) == nrow(d) + 2L)
+stopifnot(identical(
+	dsw[estimator != "kernel" | !early_stopping, -"se_threshold"],
+	d[estimator != "kernel" | !early_stopping, -"se_threshold"]
+))
 
 # Column types must not depend on which estimators were requested. Before this
 # was pinned down, n_coalitions came out double when the kernel arm was present
@@ -105,6 +138,31 @@ stopifnot(is.integer(dfippy$n_permutations), is.integer(dfippy$n_coalitions))
 stopifnot(inherits(try(sage_algo_design(conf, estimators = "nope"), silent = TRUE), "try-error"))
 
 cat("OK: sage_algo_design\n")
+
+# ---------------------------------------------------------------------------
+# Kernel coalition grid: block sizes and per-problem budgets.
+# ---------------------------------------------------------------------------
+# The floor is 16 draws, above which it is 4 * n_features. These are the four
+# problems the validation lane registers.
+stopifnot(identical(kernel_block_size(c(4L, 5L, 10L, 12L)), c(16L, 20L, 40L, 48L)))
+stopifnot(identical(kernel_block_size(2L), 16L)) # floor, not 8
+
+stopifnot(identical(kernel_budgets(4L, c(2, 6, 20)), c(32L, 96L, 320L)))
+stopifnot(identical(kernel_budgets(12L, c(2, 6, 20)), c(96L, 288L, 960L)))
+
+# Fewer than two blocks has no standard errors, so the job aborts rather than
+# reporting a wider interval. Must fail here, where it costs nothing.
+stopifnot(inherits(try(kernel_budgets(10L, c(1, 6)), silent = TRUE), "try-error"))
+# Vector n_features would silently recycle into a wrong grid.
+stopifnot(inherits(try(kernel_budgets(c(4L, 10L), 2), silent = TRUE), "try-error"))
+
+# Every budget must clear its own problem's two-block floor -- the property the
+# whole block-relative grid exists to guarantee.
+for (m in c(4L, 5L, 10L, 12L)) {
+	stopifnot(all(kernel_budgets(m, c(2, 6, 20)) >= 2L * kernel_block_size(m)))
+}
+
+cat("OK: kernel_block_size / kernel_budgets\n")
 
 # ---------------------------------------------------------------------------
 # Guard: every design column must exist as a formal on the function that

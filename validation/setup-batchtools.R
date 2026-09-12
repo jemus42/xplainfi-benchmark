@@ -35,14 +35,22 @@ if (!fs::dir_exists(conf$reg_path)) {
 # Register Problems with batchtools
 # ============================================================================
 
-addProblem(name = "ewald", data = NULL, fun = prob_ewald, seed = conf$seed)
-addProblem(name = "correlated", data = NULL, fun = prob_correlated, seed = conf$seed)
-addProblem(name = "interactions", data = NULL, fun = prob_interactions, seed = conf$seed)
-addProblem(name = "bike_sharing", data = NULL, fun = prob_bike_sharing, seed = conf$seed)
-addProblem(name = "friedman1", data = NULL, fun = prob_friedman1, seed = conf$seed)
-addProblem(name = "independent", data = NULL, fun = prob_independent, seed = conf$seed)
-addProblem(name = "confounded", data = NULL, fun = prob_confounded, seed = conf$seed)
-addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed)
+# Named list rather than bare addProblem() calls so problem_feature_counts()
+# below can instantiate each one to size the kernel coalition grid.
+prob_funs <- list(
+	ewald = prob_ewald,
+	correlated = prob_correlated,
+	# interactions = prob_interactions,
+	bike_sharing = prob_bike_sharing,
+	friedman1 = prob_friedman1
+	# independent = prob_independent,
+	# confounded = prob_confounded,
+	# mediated = prob_mediated
+)
+
+for (nm in names(prob_funs)) {
+	addProblem(name = nm, data = NULL, fun = prob_funs[[nm]], seed = conf$seed)
+}
 
 # ============================================================================
 # Register Algorithms with batchtools
@@ -52,15 +60,15 @@ addProblem(name = "mediated", data = NULL, fun = prob_mediated, seed = conf$seed
 # name by convention (see R/provenance.R), so adding e.g. a kernel SAGE method is
 # a single entry here plus a matching algo_designs entry below.
 algo_funs <- list(
-	PFI = algo_PFI,
-	CFI = algo_CFI,
-	LOCO = algo_LOCO,
+	# PFI = algo_PFI,
+	# CFI = algo_CFI,
+	# LOCO = algo_LOCO,
 	MarginalSAGE = algo_MarginalSAGE,
 	ConditionalSAGE = algo_ConditionalSAGE,
-	PFI_iml = algo_PFI_iml,
-	PFI_vip = algo_PFI_vip,
-	PFI_fippy = algo_PFI_fippy,
-	CFI_fippy = algo_CFI_fippy,
+	# PFI_iml = algo_PFI_iml,
+	# PFI_vip = algo_PFI_vip,
+	# PFI_fippy = algo_PFI_fippy,
+	# CFI_fippy = algo_CFI_fippy,
 	MarginalSAGE_fippy = algo_MarginalSAGE_fippy,
 	ConditionalSAGE_fippy = algo_ConditionalSAGE_fippy,
 	MarginalSAGE_sage = algo_MarginalSAGE_sage
@@ -117,29 +125,36 @@ prob_designs <- list(
 	ewald = CJ(
 		n_samples = conf$n_samples,
 		learner_type = conf$learner_types
-	),
-
-	# Interactions DGP: fixed structure
-	interactions = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	independent = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	confounded = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
-	),
-
-	mediated = CJ(
-		n_samples = conf$n_samples,
-		learner_type = conf$learner_types
 	)
 )
+
+# ============================================================================
+# Kernel coalition grid (per problem)
+# ============================================================================
+
+# The coalition budget is block-relative (see conf$n_coalition_blocks), and the
+# block size depends on n_features, so the grid differs per problem. batchtools
+# has no per-problem algorithm design: the design carries the union and the
+# cross terms are pruned after addExperiments() below.
+kernel_grid <- kernel_budget_grid(
+	problem_feature_counts(prob_funs, prob_designs),
+	blocks = conf$n_coalition_blocks
+)
+
+conf$n_coalitions <- sort(unique(kernel_grid$n_coalitions))
+
+cli::cli_h2("Kernel Coalition Budgets")
+print(kernel_grid[,
+	.(
+		block = kernel_block_size(n_features[1L]),
+		budgets = paste(sort(n_coalitions), collapse = ", "),
+		# Kernel cost is 2 + 2 * draws; exact enumerates 2^n_features. Where the
+		# former exceeds the latter, xplainfi says so per run (see below).
+		max_evals = 2 + 2 * max(n_coalitions),
+		exact_evals = 2^n_features[1L]
+	),
+	by = .(problem, n_features)
+])
 
 # ============================================================================
 # Algorithm Designs
@@ -259,16 +274,34 @@ if (nrow(featureless_non_xplainfi_jobs) > 0) {
 }
 
 # ============================================================================
+# Prune kernel budgets that do not belong to their problem
+# ============================================================================
+
+n_pruned <- prune_kernel_budgets(reg, kernel_grid)
+if (n_pruned > 0) {
+	cli::cli_alert_warning(
+		"Removed {n_pruned} kernel job(s) whose coalition budget belongs to another problem's grid"
+	)
+}
+
+# ============================================================================
 # Remove infeasible exact-estimator jobs
 # ============================================================================
 
 # estimator = "exact" enumerates 2^n_features coalitions. bike_sharing has 12
 # features -- exactly at max_features (12L), so the exact arm is feasible here,
 # not infeasible. It is excluded on cost grounds instead: 2^12 = 4096 coalitions
-# is four times the largest kernel budget (2 + 2 * 512 = 1026), so this lane has
-# no ground-truth arm on bike_sharing. friedman1 (10 features, 1024 coalitions)
-# is kept: that is essentially the cost of the largest kernel budget, so it is
-# a fair ground truth rather than an outlier expense.
+# is more than twice the largest kernel budget there (20 blocks = 960 draws =
+# 1922 evals), so this lane has no ground-truth arm on bike_sharing. friedman1
+# (10 features, 1024 coalitions) is kept: that is below its own largest kernel
+# budget (800 draws = 1602 evals), so it is a fair ground truth rather than an
+# outlier expense.
+#
+# On the narrow problems the kernel arm is necessarily more expensive than the
+# ground truth it is validated against -- correlated (4 features) enumerates in
+# 16 evals while two variance blocks already cost 32 draws = 66 evals. That is
+# inherent to wanting standard errors at all on a small feature set, not a
+# mis-sized grid, and xplainfi says so in a message per run.
 exact_infeasible <- unwrap(getJobTable())[
 	estimator == "exact" & problem == "bike_sharing",
 ]
@@ -333,10 +366,11 @@ print(job_dist)
 cli::cli_h2("Parameter Coverage")
 cli::cli_ul(c(
 	"Sample sizes: {paste(conf$n_samples, collapse = ', ')}",
-	"Feature dimensions (peak task): {paste(conf$n_features, collapse = ', ')}",
 	"Learner types: {paste(conf$learner_types, collapse = ', ')}",
 	"n_repeats: {paste(conf$n_repeats, collapse = ', ')}",
 	"n_permutations (SAGE): {paste(conf$n_permutations, collapse = ', ')}",
+	"Kernel variance blocks: {paste(conf$n_coalition_blocks, collapse = ', ')}",
+	"Kernel budgets (union over problems): {paste(conf$n_coalitions, collapse = ', ')}",
 	"Samplers (CFI/ConditionalSAGE): {length(conf$samplers)}"
 ))
 
